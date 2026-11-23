@@ -12,6 +12,35 @@
 
 The name draws inspiration from Jonathan Edwards's *Resolutions* (1722). The tagline references **2 Corinthians 10:5**: taking every thought captive to obey Christ. Resolve is a practical aid to accountability, **not** a substitute for spiritual formation, the work of the Holy Spirit, or trusted relationships.
 
+## About Resolve
+
+Resolve is being designed for believers who desire to take their thoughts captive and walk in greater faithfulness to Christ, especially in the digital spaces where temptation can be private, persistent, and difficult to resist. Its central purpose is **mutual accountability among fellow brethren**: to make it easier for trusted brothers and sisters in Christ to encourage, exhort, pray for, and support one another.
+
+God has given the church and the fellowship of believers as means of encouragement and care (Hebrews 3:12–13; Galatians 6:1–2; James 5:16). Resolve aims to serve those relationships, **not replace them**. Its optional accountability groups, consent-based notifications, and browser safeguards are intended to make honest conversations and intentional habits easier. Accountability should be voluntary, gracious, respectful, and never used to shame or control someone.
+
+### A tool, not the mortifier of sin
+
+**Resolve is not the ultimate mortifier of sin.** No browser extension, blocked website, or automated notification can put sin to death on a person's behalf. Mortification is the believer's responsibility **by the Spirit and through God's grace** (Romans 8:13). Resolve is only a practical aid: it can help remove opportunities for temptation, encourage vigilance, and invite the support of fellow believers. It must never become a substitute for repentance, prayer, Scripture, personal responsibility, pastoral care, or dependence on Christ.
+
+### Free, no ads, and privacy-conscious
+
+Resolve is **intended to be free to use and free of advertising**. The goal is to make protection and accountability accessible without monetizing attention or browsing habits. The project is independently maintained, and the creator intends to sustain it as resources allow; continued availability and all future features cannot be guaranteed.
+
+Authentication is **planned** through Amazon Cognito, with AWS-managed security controls, encrypted transport (HTTPS/TLS), encryption at rest for applicable backend data, and appropriate access controls. Passwords should be handled by the identity provider rather than stored in the application's own database. These are **design commitments**, not claims that an unlaunched system has already been audited or is invulnerable. Browser media classification is designed to happen on-device, and accountability emails must not contain visited URLs, page titles, screenshots, or browsing history.
+
+### Supporting Resolve
+
+A **voluntary donation option is planned**, potentially using a GCash payment link or QR code belonging to the project creator. The exact payment method and link will be added only after verification. Donations will be optional, will not unlock exclusive protection or accountability features, and will not be required to create an account or use Resolve. Any donation flow should clearly identify the recipient and disclose the relevant payment provider's privacy practices. No payment information should be collected by Resolve unnecessarily.
+
+### Our commitments
+
+- **Grace before shame:** Encourage restoration, honesty, and compassionate accountability rather than public embarrassment.
+- **Consent before disclosure:** Users choose their sharing policy, and recipients must agree to receive notifications.
+- **Privacy by design:** Minimize collected information; do not sell browsing data or upload webpage media for AI classification.
+- **Accessible by intention:** No advertising and no paid feature tiers are planned.
+- **Honest limitations:** Protection can be bypassed and AI can make mistakes; the tool is support, not a guarantee of holiness or safety.
+- **Faithful stewardship:** Maintain security, transparency, and reliability as resources allow.
+
 ## Product overview
 
 | Component | Planned technology | Responsibility |
@@ -156,18 +185,7 @@ resolve/
 
 ## Implementation roadmap
 
-| Phase | Target | Definition of done |
-|---|---|---|
-| 1. Foundation | Week 1 | Monorepo, extension shell, dashboard, CI, IaC skeleton |
-| 2. Local AI | Weeks 2–3 | Image blur and limited video proof of concept, no media uploads |
-| 3. Auth & groups | Weeks 4–5 | Cognito, group lifecycle, roles, invitations |
-| 4. Domain engine | Weeks 6–7 | Essential exemptions, confidential blocklist, admin/member write rules, browser enforcement |
-| 5. Accountability | Week 8 | Three sharing modes, consent, selected/mutual relationships |
-| 6. Notifications | Weeks 9–10 | Both triggers, outbox, SQS/SES, dedupe and rate limiting |
-| 7. QA/security | Weeks 11–12 | Cross-browser tests, policy bypass checks, privacy audit |
-| 8. Beta | Weeks 13–14 | Production infrastructure, store packaging, monitored limited release |
-
-**Timeline is an estimate**, not a commitment; browser compatibility, video inference, store review, and rule-event reliability are major uncertainties.
+Development is organized into **ten milestone-based phases with no fixed weeks or deadlines**. See [DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md) for detailed tasks, deliverables, and completion criteria, beginning with branding and ending with production launch.
 
 ## MVP acceptance checklist
 
@@ -198,6 +216,12 @@ resolve/
 
 [**MASTER_PLAN.md**](docs/MASTER_PLAN.md) is the authoritative planning artifact. It contains functional requirements, API contracts, schema design, trust boundaries, detailed workflows, edge cases, acceptance tests, decisions, open questions, and phased delivery tasks. Update it when scope or architectural decisions change; keep this README as the approachable repository entry point.
 
-## License and contribution status
+## Copyright and source code permissions
 
-License, public contribution policy, support contacts, production URLs, and extension store listings are **TBD**. No license or deployment is implied by this planning document.
+**Copyright © 2026 Jervil Angelo De Leon. All rights reserved.**
+
+Resolve is **proprietary, source-available only at the copyright owner's discretion, and not open source**. No permission is granted to copy, redistribute, modify, sublicense, sell, or reuse its source code without prior written authorization from the copyright owner. See [LICENSE](LICENSE) and [COPYRIGHT_NOTICE.md](docs/COPYRIGHT_NOTICE.md).
+
+Public access to a GitHub repository does **not** mean the code is licensed for reuse. However, if the repository is public, people may still **view** its contents and GitHub may provide platform features such as forking subject to GitHub's terms. For genuinely confidential source code, use a **private repository**; copyright notices alone do not prevent access or copying.
+
+Future source files should carry the copyright header described in [COPYRIGHT_NOTICE.md](docs/COPYRIGHT_NOTICE.md). No blanket permission for outside contributions is granted.
