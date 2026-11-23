@@ -5,7 +5,9 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
+export * from './api';
 export * from './domain';
 export * from './env';
 export * from './errors';
 export * from './health';
+export * from './outbox';

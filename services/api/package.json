@@ -6,12 +6,14 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "esbuild src/handlers/*.ts --bundle --platform=node --target=node22 --format=esm --sourcemap --outdir=dist --out-extension:.js=.mjs",
+    "build": "node ../../scripts/build-lambda.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1175.0",
+    "@aws-sdk/lib-dynamodb": "^3.1175.0",
     "@resolve/contracts": "workspace:*",
     "zod": "catalog:"
   },
@@ -19,7 +21,6 @@
     "@resolve/config": "workspace:*",
     "@types/aws-lambda": "^8.10.164",
     "@types/node": "catalog:",
-    "esbuild": "^0.28.2",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

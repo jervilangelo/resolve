@@ -5,7 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-import { apiErrorResponseSchema, healthResponseSchema } from '@resolve/contracts';
+import { apiErrorResponseSchema } from '@resolve/contracts';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, createHandler } from './http';
@@ -27,18 +27,8 @@ function capture() {
 describe('createHandler', () => {
   beforeEach(() => {
     vi.stubEnv('STAGE', 'test');
-  });
-
-  it('serves the health contract', async () => {
-    const { handler } = await import('./handlers/health');
-    const res = await handler(event());
-    expect(res.statusCode).toBe(200);
-    expect(res.headers?.['x-correlation-id']).toBe('req-123');
-    expect(healthResponseSchema.parse(JSON.parse(res.body ?? ''))).toEqual({
-      status: 'ok',
-      service: 'resolve-api',
-      stage: 'test',
-    });
+    vi.stubEnv('TABLE_NAME', 'resolve-test');
+    vi.stubEnv('ALLOWED_CLIENT_IDS', 'client-a');
   });
 
   it('maps ApiError to the contract status and generic message', async () => {

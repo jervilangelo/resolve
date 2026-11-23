@@ -20,9 +20,11 @@
     "format:check": "prettier --check .",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "integration": "pnpm --filter @resolve/integration integration"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "prettier": "catalog:"
   }
 }

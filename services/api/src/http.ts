@@ -81,7 +81,7 @@ export function createHandler(name: string, route: Route, logger?: Logger) {
       if (code === 'INTERNAL') {
         log.log('error', 'Unhandled error', {
           correlationId,
-          route: name,
+          route: event.routeKey || name,
           errorName: errorName(error),
         });
       }
@@ -90,7 +90,7 @@ export function createHandler(name: string, route: Route, logger?: Logger) {
     }
     log.log('info', 'Request completed', {
       correlationId,
-      route: name,
+      route: event.routeKey || name,
       status: response.statusCode,
       durationMs: Date.now() - started,
     });

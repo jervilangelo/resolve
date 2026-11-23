@@ -15,6 +15,17 @@ import { z } from 'zod';
 export const apiEnvSchema = z.object({
   STAGE: stageSchema,
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  TABLE_NAME: z.string().min(1),
+  /** Cognito app clients whose access tokens this API accepts (comma-separated). */
+  ALLOWED_CLIENT_IDS: z
+    .string()
+    .min(1)
+    .transform((value) =>
+      value
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
 });
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
 

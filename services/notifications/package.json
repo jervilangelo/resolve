@@ -1,0 +1,27 @@
+{
+  "name": "@resolve/notifications",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Resolve notification pipeline Lambdas (outbox relay; delivery worker arrives with roadmap phase 8).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/build-lambda.mjs",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1175.0",
+    "@resolve/contracts": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@resolve/config": "workspace:*",
+    "@types/aws-lambda": "^8.10.164",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
