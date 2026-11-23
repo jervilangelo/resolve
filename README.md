@@ -1,5 +1,10 @@
 # Resolve
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/branding/logo/horizontal-dark.svg">
+  <img src="assets/branding/logo/horizontal-light.svg" alt="Resolve logo" width="420">
+</picture>
+
 > **Take every thought captive.**
 
 **Resolve** is a planned privacy-first, Christian-inspired browser protection and voluntary accountability platform. It combines **on-device AI media blurring**, **group-based website restrictions**, and **consent-based accountability notifications** to support intentional digital habits.
@@ -7,6 +12,16 @@
 **Repository:** https://github.com/jervilangelo/resolve  
 **Status:** Product and technical planning; features below are **planned**, not claims of an existing implementation.  
 **Master specification:** [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md) — authoritative functional, security, API, data, and delivery blueprint.
+
+## Branding
+
+<img src="assets/branding/icon/app-icon.svg" alt="Resolve app icon" width="96" height="96">
+
+The logo and icon assets are available in [assets/branding](assets/branding):
+
+- [Logos](assets/branding/logo): horizontal, compact, stacked, tagline, and symbol variants, with [PNG exports](assets/branding/logo/png).
+- [App icons](assets/branding/icon), [browser extension icons](assets/branding/extension), and [web favicons](assets/branding/web).
+- [UI icons](assets/branding/ui/icons), [social images](assets/branding/social), [store artwork](assets/branding/store), and [email headers](assets/branding/email).
 
 ## Why Resolve?
 
