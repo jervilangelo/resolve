@@ -1,0 +1,4 @@
+{
+  "extends": "@resolve/config/tsconfig/node.json",
+  "include": ["src", "eslint.config.mjs", "vitest.config.ts"]
+}

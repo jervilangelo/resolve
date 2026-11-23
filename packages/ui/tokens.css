@@ -1,0 +1,167 @@
+/**
+ * Resolve — Take every thought captive.
+ * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
+ * See LICENSE for terms and applicable exceptions.
+ */
+
+/*
+ * Resolve design tokens (docs/BRAND_GUIDELINES.md) mapped onto shadcn/ui semantic variables.
+ *
+ * Theme selection: an explicit `data-theme="light|dark"` attribute on <html> always wins;
+ * without one, the system preference applies.
+ *
+ * `danger` is a functional token that the brand palette does not define; it is used only for
+ * destructive actions and errors (contrast verified against the surfaces below).
+ */
+
+:root {
+  --rs-bg: #f6f2e8;
+  --rs-surface: #ffffff;
+  --rs-border: #e9e2d2;
+  --rs-text: #1e2321;
+  --rs-text-muted: #4a524d;
+  --rs-primary: #1f4a36;
+  --rs-primary-pressed: #163627;
+  --rs-on-primary: #f6f2e8;
+  --rs-accent: #7e6339;
+  --rs-focus: #1f4a36;
+  --rs-danger: #9b2c2c;
+  --rs-on-danger: #f6f2e8;
+  --rs-subtle: #e9e2d2;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --rs-bg: #121614;
+    --rs-surface: #1a201d;
+    --rs-border: #2a322e;
+    --rs-text: #f6f2e8;
+    --rs-text-muted: #b5cbb9;
+    --rs-primary: #b5cbb9;
+    --rs-primary-pressed: #8fa894;
+    --rs-on-primary: #121614;
+    --rs-accent: #c9ae80;
+    --rs-focus: #c9ae80;
+    --rs-danger: #e8a09a;
+    --rs-on-danger: #121614;
+    --rs-subtle: #2a322e;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --rs-bg: #121614;
+  --rs-surface: #1a201d;
+  --rs-border: #2a322e;
+  --rs-text: #f6f2e8;
+  --rs-text-muted: #b5cbb9;
+  --rs-primary: #b5cbb9;
+  --rs-primary-pressed: #8fa894;
+  --rs-on-primary: #121614;
+  --rs-accent: #c9ae80;
+  --rs-focus: #c9ae80;
+  --rs-danger: #e8a09a;
+  --rs-on-danger: #121614;
+  --rs-subtle: #2a322e;
+  color-scheme: dark;
+}
+
+/* shadcn/ui semantic variables */
+:root {
+  --background: var(--rs-bg);
+  --foreground: var(--rs-text);
+  --card: var(--rs-surface);
+  --card-foreground: var(--rs-text);
+  --popover: var(--rs-surface);
+  --popover-foreground: var(--rs-text);
+  --primary: var(--rs-primary);
+  --primary-foreground: var(--rs-on-primary);
+  --secondary: var(--rs-subtle);
+  --secondary-foreground: var(--rs-text);
+  --muted: var(--rs-subtle);
+  --muted-foreground: var(--rs-text-muted);
+  --accent: var(--rs-subtle);
+  --accent-foreground: var(--rs-text);
+  --destructive: var(--rs-danger);
+  --destructive-foreground: var(--rs-on-danger);
+  --border: var(--rs-border);
+  --input: var(--rs-border);
+  --ring: var(--rs-focus);
+  --radius: 0.5rem;
+}
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-pressed: var(--rs-primary-pressed);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-brass: var(--rs-accent);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Libre Baskerville', Baskerville, Georgia, serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Show the matching light/dark asset (e.g. logo lockups) under the same theme rules as above. */
+.rs-only-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .rs-only-light {
+    display: none;
+  }
+
+  :root:not([data-theme='light']) .rs-only-dark {
+    display: revert;
+  }
+}
+
+:root[data-theme='dark'] .rs-only-light {
+  display: none;
+}
+
+:root[data-theme='dark'] .rs-only-dark {
+  display: revert;
+}

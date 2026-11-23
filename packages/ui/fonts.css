@@ -1,0 +1,12 @@
+/**
+ * Resolve — Take every thought captive.
+ * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
+ * See LICENSE for terms and applicable exceptions.
+ */
+
+/* Self-hosted per docs/BRAND_GUIDELINES.md: never load these from a runtime CDN. */
+@import '@fontsource/libre-baskerville/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';

@@ -1,0 +1,54 @@
+node_modules/
+.pnpm-store/
+
+# Build output
+.next/
+.output/
+.wxt/
+dist/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Brand assets copied from assets/branding by scripts/sync-brand-assets.mjs
+apps/web/public/brand/
+apps/web/public/favicon.ico
+apps/web/public/favicon.svg
+apps/web/public/apple-touch-icon.png
+apps/web/public/icon-192.png
+apps/web/public/icon-512.png
+apps/web/public/icon-maskable-512.png
+apps/web/public/og-image.png
+apps/web/public/site.webmanifest
+apps/extension/public/icon/
+apps/extension/public/brand/
+
+# Tests
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+crash.log
+*.tfplan
+backend.hcl
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

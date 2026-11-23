@@ -1,0 +1,32 @@
+# Resolve — Take every thought captive.
+# Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+# Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
+# See LICENSE for terms and applicable exceptions.
+
+packages:
+  - apps/*
+  - services/*
+  - packages/*
+  - tests/*
+
+# Single place to pin versions shared by several workspace packages.
+catalog:
+  '@eslint/js': ^9.39.4
+  '@types/node': ^24.10.0
+  '@vitest/coverage-v8': ^5.1.1
+  eslint: ^9.39.5
+  globals: ^17.0.0
+  prettier: ^3.10.1
+  typescript: ~6.0.3
+  typescript-eslint: ^8.73.0
+  vitest: ^5.1.1
+  zod: ^4.6.7
+
+# Supply-chain hardening: dependency lifecycle scripts only run when listed here.
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - unrs-resolver
+  - '@tailwindcss/oxide'
+  - '@swc/core'
+  - spawn-sync
