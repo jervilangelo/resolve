@@ -7,7 +7,7 @@
 
 > **Take every thought captive.**
 
-**Resolve** is a planned privacy-first, Christian-inspired browser protection and voluntary accountability platform. It combines **on-device AI media blurring**, **group-based website restrictions**, and **consent-based accountability notifications** to support intentional digital habits.
+**Resolve** is a privacy-focused browser protection and accountability platform that empowers believers to establish healthier digital boundaries. It integrates **locally processed AI content detection**, **customizable website blocking**, and **consent-based group accountability**, all while keeping personal browsing activity private.
 
 **Repository:** https://github.com/jervilangelo/resolve  
 **Status:** Product and technical planning; features below are **planned**, not claims of an existing implementation.  
