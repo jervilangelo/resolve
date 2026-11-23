@@ -74,6 +74,11 @@ data "aws_iam_policy_document" "stack_iam" {
     actions   = ["iam:GetRole", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:GetRolePolicy", "iam:GetOpenIDConnectProvider"]
     resources = [aws_iam_role.deploy.arn, data.aws_iam_openid_connect_provider.github.arn]
   }
+  statement {
+    sid       = "LookUpOidcProvider"
+    actions   = ["iam:ListOpenIDConnectProviders"]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "stack_iam" {

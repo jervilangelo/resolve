@@ -5,7 +5,7 @@
 
 # Durable outbox pipeline (docs/MASTER_PLAN.md section 7.3):
 # DynamoDB stream -> outbox relay Lambda -> SQS delivery queue (+ DLQ) -> delivery worker.
-# The delivery worker and SES are added with roadmap phase 8.
+# The delivery worker is added with roadmap phase 8.
 
 resource "aws_sqs_queue" "delivery_dlq" {
   name                      = "${var.name_prefix}-notification-delivery-dlq"
@@ -79,4 +79,11 @@ resource "aws_lambda_event_source_mapping" "relay" {
       destination_arn = aws_sqs_queue.relay_failures.arn
     }
   }
+}
+
+# Sender identity for notification emails. A single verified address keeps SES in sandbox mode
+# (it can only send to verified recipients) until production access and a domain are approved.
+resource "aws_sesv2_email_identity" "sender" {
+  count          = var.sender_email == null ? 0 : 1
+  email_identity = var.sender_email
 }

@@ -46,6 +46,7 @@ module "notifications" {
   table_stream_arn   = module.data.table_stream_arn
   relay_source_dir   = "${local.repo_root}/services/notifications/dist/outbox-relay"
   log_retention_days = var.log_retention_days
+  sender_email       = var.ses_sender_email
 }
 
 module "observability" {

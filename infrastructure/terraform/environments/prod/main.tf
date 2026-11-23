@@ -22,5 +22,7 @@ module "resolve" {
   web_origins        = var.web_origins
   log_retention_days = 90
   monthly_budget_usd = var.monthly_budget_usd
-  alert_email        = var.alert_email
+  # CI passes unset secrets as empty strings; treat them as "not configured".
+  alert_email      = var.alert_email == "" ? null : var.alert_email
+  ses_sender_email = var.ses_sender_email == "" ? null : var.ses_sender_email
 }

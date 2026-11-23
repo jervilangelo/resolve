@@ -18,3 +18,7 @@ output "relay_failures_queue_name" {
 output "relay_function_name" {
   value = module.relay.function_name
 }
+
+output "sender_identity_arn" {
+  value = one(aws_sesv2_email_identity.sender[*].arn)
+}

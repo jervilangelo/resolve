@@ -30,3 +30,9 @@ variable "alert_email" {
   type        = string
   default     = null
 }
+
+variable "ses_sender_email" {
+  description = "Optional SES sender address (requires verification)."
+  type        = string
+  default     = null
+}

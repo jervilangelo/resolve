@@ -28,3 +28,8 @@ variable "alert_email" {
   type    = string
   default = null
 }
+
+variable "ses_sender_email" {
+  type    = string
+  default = null
+}

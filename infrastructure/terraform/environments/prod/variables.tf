@@ -35,3 +35,9 @@ variable "web_origins" {
   description = "Production dashboard origins."
   type        = list(string)
 }
+
+variable "ses_sender_email" {
+  description = "Optional SES sender address (requires verification)."
+  type        = string
+  default     = null
+}

@@ -4,7 +4,8 @@
 # See LICENSE for terms and applicable exceptions.
 
 # Deploys the dev stack after CI passes on main, then runs integration tests against it.
-# Requires repository variables AWS_DEPLOY_ROLE_ARN, AWS_ACCOUNT_ID and TF_STATE_BUCKET.
+# Requires repository variables AWS_DEPLOY_ROLE_ARN, AWS_ACCOUNT_ID and TF_STATE_BUCKET, and the
+# dev environment secrets ALERT_EMAIL and SES_SENDER_EMAIL (optional).
 
 name: Deploy dev
 
@@ -69,5 +70,9 @@ jobs:
             -backend-config="region=${AWS_REGION}"
       - name: Terraform apply
         working-directory: ${{ env.TF_DIR }}
+        env:
+          # Environment secrets, so the addresses are masked in public logs.
+          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+          TF_VAR_ses_sender_email: ${{ secrets.SES_SENDER_EMAIL }}
         run: terraform apply -auto-approve -input=false -var='allowed_account_ids=["${{ vars.AWS_ACCOUNT_ID }}"]'
       - run: pnpm integration

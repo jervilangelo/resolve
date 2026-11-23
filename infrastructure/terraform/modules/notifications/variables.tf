@@ -18,3 +18,9 @@ variable "relay_source_dir" {
 variable "log_retention_days" {
   type = number
 }
+
+variable "sender_email" {
+  description = "Optional SES sender address; AWS emails it a verification link."
+  type        = string
+  default     = null
+}

@@ -22,3 +22,7 @@ output "integration_test_client_id" {
 output "table_name" {
   value = module.resolve.table_name
 }
+
+output "github_deploy_role_arn" {
+  value = module.github_deploy.role_arn
+}
