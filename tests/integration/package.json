@@ -1,0 +1,26 @@
+{
+  "name": "@resolve/integration",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Integration tests against a deployed Resolve environment (creates and deletes temporary Cognito users).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "integration": "node ../../scripts/load-stack-env.mjs dev vitest run",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.1175.0",
+    "@aws-sdk/client-dynamodb": "^3.1175.0",
+    "@resolve/config": "workspace:*",
+    "@resolve/contracts": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  }
+}

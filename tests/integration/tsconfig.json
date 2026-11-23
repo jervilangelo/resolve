@@ -1,0 +1,5 @@
+{
+  "extends": "@resolve/config/tsconfig/node.json",
+  "include": ["**/*.ts", "eslint.config.mjs"],
+  "exclude": ["node_modules"]
+}

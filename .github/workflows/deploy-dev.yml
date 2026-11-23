@@ -1,0 +1,73 @@
+# Resolve — Take every thought captive.
+# Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+# Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
+# See LICENSE for terms and applicable exceptions.
+
+# Deploys the dev stack after CI passes on main, then runs integration tests against it.
+# Requires repository variables AWS_DEPLOY_ROLE_ARN, AWS_ACCOUNT_ID and TF_STATE_BUCKET.
+
+name: Deploy dev
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Skipped until the deploy role exists and its ARN is set as a repository variable.
+    # Only trusted code: pushes to main of this repository, never pull-request CI runs (forks
+    # can name a branch main), and manual runs only from main.
+    if: >-
+      vars.AWS_DEPLOY_ROLE_ARN != '' && (
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+        (github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.event == 'push' &&
+         github.event.workflow_run.head_branch == 'main' &&
+         github.event.workflow_run.head_repository.full_name == github.repository)
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    env:
+      AWS_REGION: ap-southeast-1
+      TF_DIR: infrastructure/terraform/environments/dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @resolve/api --filter @resolve/notifications build
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=resolve/dev/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}"
+      - name: Terraform apply
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform apply -auto-approve -input=false -var='allowed_account_ids=["${{ vars.AWS_ACCOUNT_ID }}"]'
+      - run: pnpm integration
