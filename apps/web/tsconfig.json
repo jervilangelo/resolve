@@ -1,0 +1,12 @@
+{
+  "extends": "@resolve/config/tsconfig/react.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "allowJs": false,
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": { "@/*": ["./*"] }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.mjs", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next"]
+}
