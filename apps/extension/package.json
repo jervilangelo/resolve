@@ -1,0 +1,36 @@
+{
+  "name": "@resolve/extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Resolve browser extension (WXT, Manifest V3) for Chrome, Brave, Edge and Firefox.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../scripts/sync-brand-assets.mjs extension && wxt",
+    "dev:firefox": "node ../../scripts/sync-brand-assets.mjs extension && wxt -b firefox",
+    "build": "node ../../scripts/sync-brand-assets.mjs extension && wxt build && wxt build -b firefox",
+    "zip": "node ../../scripts/sync-brand-assets.mjs extension && wxt zip && wxt zip -b firefox",
+    "postinstall": "wxt prepare",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@resolve/ui": "workspace:*",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@resolve/config": "workspace:*",
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@wxt-dev/module-react": "^1.2.2",
+    "eslint": "catalog:",
+    "tailwindcss": "^4.3.5",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wxt": "^0.21.5"
+  }
+}

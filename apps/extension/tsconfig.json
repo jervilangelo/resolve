@@ -1,0 +1,8 @@
+{
+  "extends": ["./.wxt/tsconfig.json", "@resolve/config/tsconfig/react.json"],
+  "compilerOptions": {
+    "types": []
+  },
+  "include": [".wxt/wxt.d.ts", "**/*.ts", "**/*.tsx", "**/*.mjs"],
+  "exclude": ["node_modules", ".output", ".wxt/types"]
+}
