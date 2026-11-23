@@ -15,7 +15,7 @@ A serpent drawn as an **S** (for sin) is run through by a horizontal blade. Its 
 - **Genesis 3:15 and Colossians 2:15:** the serpent's power is broken in Christ.
 - **Romans 8:13:** "by the Spirit … put to death the deeds of the body." The blade recalls the sword of the Spirit (Ephesians 6:17). The putting to death is God's work. Resolve is only a tool that supports that vigilance.
 - The upright serpent and the horizontal blade form a cross implicitly. No cross is drawn.
-- Wordmark: tracked Baskerville capitals. Baskerville is a typeface from Jonathan Edwards' own century.
+- Wordmark: tracked Baskerville capitals. Baskerville is a typeface from Jonathan Edwards' own century. The **S** is custom: a drooping head terminal, a tapering tail, and a clean cut through the spine on the blade's axis. Do not replace it with the stock S.
 
 | Cut | File | Use |
 |---|---|---|
