@@ -16,7 +16,7 @@ The name draws inspiration from Jonathan Edwards's *Resolutions* (1722). The tag
 
 Resolve is being designed for believers who desire to take their thoughts captive and walk in greater faithfulness to Christ, especially in the digital spaces where temptation can be private, persistent, and difficult to resist. Its central purpose is **mutual accountability among fellow brethren**: to make it easier for trusted brothers and sisters in Christ to encourage, exhort, pray for, and support one another.
 
-God has given the church and the fellowship of believers as means of encouragement and care (Hebrews 3:12–13; Galatians 6:1–2; James 5:16). Resolve aims to serve those relationships, **not replace them**. Its optional accountability groups, consent-based notifications, and browser safeguards are intended to make honest conversations and intentional habits easier. Accountability should be voluntary, gracious, respectful, and never used to shame or control someone.
+God has given the local church and the fellowship of believers as means of encouragement and care (Hebrews 3:12–13; Galatians 6:1–2; James 5:16). **We encourage every believer to join, participate faithfully in, and be accountable within a sound local church**, where pastors, elders, and fellow members can know and care for them personally. **Resolve is only a supporting tool, never a replacement for membership, discipleship, pastoral oversight, fellowship, or accountability in the local church.** Its optional accountability groups, consent-based notifications, and browser safeguards are intended to make honest conversations and intentional habits easier. Accountability should be voluntary, gracious, respectful, and never used to shame or control someone.
 
 ### A tool, not the mortifier of sin
 
@@ -26,7 +26,16 @@ God has given the church and the fellowship of believers as means of encourageme
 
 Resolve is **intended to be free to use and free of advertising**. The goal is to make protection and accountability accessible without monetizing attention or browsing habits. The project is independently maintained, and the creator intends to sustain it as resources allow; continued availability and all future features cannot be guaranteed.
 
-Authentication is **planned** through Amazon Cognito, with AWS-managed security controls, encrypted transport (HTTPS/TLS), encryption at rest for applicable backend data, and appropriate access controls. Passwords should be handled by the identity provider rather than stored in the application's own database. These are **design commitments**, not claims that an unlaunched system has already been audited or is invulnerable. Browser media classification is designed to happen on-device, and accountability emails must not contain visited URLs, page titles, screenshots, or browsing history.
+Authentication is **planned** through Amazon Cognito, with AWS-managed security controls, encrypted transport (HTTPS/TLS), encryption at rest for applicable backend data, and appropriate access controls. Passwords should be handled by the identity provider rather than stored in the application's own database. These are **design commitments**, not claims that an unlaunched system has already been audited or is invulnerable. **No screenshots, screen recordings, camera recordings, or files from your local machine are sent to other group members or included in notifications.** Resolve does not plan to capture or share your desktop screen or record your activity. Its planned AI blur detection uses **on-device image classification**: a model packaged with the extension examines supported images (and feasible video frames) inside your browser, produces a local classification score, and blurs content when a configured threshold is met. The images and frames are **not uploaded to AWS or sent to fellow group members for classification**. The classification is intended to run without a remote AI inference service, reducing exposure of sensitive media. This is a design goal that must be verified through network tests before release; local processing does not eliminate all security risks, and classification can be inaccurate. Accountability emails must not contain visited URLs, page titles, screenshots, or browsing history.
+
+### When accountability notifications are sent
+
+Resolve plans **only two notification triggers**:
+
+1. **Attempted access to an admin-banned website:** When a user intentionally attempts a qualifying top-level navigation to a website on their group's **admin non-negotiable blocklist**, the extension blocks the visit and may send a **generic accountability email** to recipients who have consented under that user's sharing settings. This is **not** triggered by AI blur detections, ordinary browsing, background page requests, or websites on the additional member-submitted blocklist. A browser-reported attempt is not absolute proof of user intent.
+2. **Leaving or being removed from a group:** An eligible generic group-departure notification may be sent according to the member's sharing settings and recipient consent immediately before departure.
+
+**No screenshots, recordings, visited website names, full URLs, or browsing histories are shared in these notifications.** The email indicates only the applicable event category, subject to the user's privacy preferences. Private mode sends no accountability notifications.
 
 ### Supporting Resolve
 
@@ -34,9 +43,8 @@ A **voluntary donation option is planned**, potentially using a GCash payment li
 
 ### Our commitments
 
-- **Grace before shame:** Encourage restoration, honesty, and compassionate accountability rather than public embarrassment.
 - **Consent before disclosure:** Users choose their sharing policy, and recipients must agree to receive notifications.
-- **Privacy by design:** Minimize collected information; do not sell browsing data or upload webpage media for AI classification.
+- **Privacy by design:** Do not capture or share local screenshots or recordings; minimize event data, do not sell browsing data, and do not upload webpage media for AI classification.
 - **Accessible by intention:** No advertising and no paid feature tiers are planned.
 - **Honest limitations:** Protection can be bypassed and AI can make mistakes; the tool is support, not a guarantee of holiness or safety.
 - **Faithful stewardship:** Maintain security, transparency, and reliability as resources allow.
