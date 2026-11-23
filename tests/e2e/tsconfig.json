@@ -1,0 +1,8 @@
+{
+  "extends": "@resolve/config/tsconfig/node.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["**/*.ts", "eslint.config.mjs"],
+  "exclude": ["node_modules", "playwright-report", "test-results"]
+}
