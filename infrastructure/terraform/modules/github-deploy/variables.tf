@@ -7,7 +7,11 @@ variable "stage" {
   type = string
 }
 
-variable "github_repository" {
-  description = "owner/name of the repository allowed to deploy."
+variable "github_subject_prefix" {
+  description = <<-EOT
+    OIDC subject prefix of the repository allowed to deploy. This repository uses GitHub immutable
+    subjects (owner@id/repo@id), which survive renames; see
+    GET /repos/{owner}/{repo}/actions/oidc/customization/sub.
+  EOT
   type        = string
 }

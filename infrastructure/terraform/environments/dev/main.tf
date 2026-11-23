@@ -28,7 +28,7 @@ module "resolve" {
 }
 
 module "github_deploy" {
-  source            = "../../modules/github-deploy"
-  stage             = "dev"
-  github_repository = "jervilangelo/resolve"
+  source                = "../../modules/github-deploy"
+  stage                 = "dev"
+  github_subject_prefix = "repo:jervilangelo@324701164/resolve@1468318662"
 }
