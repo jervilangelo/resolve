@@ -1,0 +1,93 @@
+# Resolve — Take every thought captive.
+# Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+# Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
+# See LICENSE for terms and applicable exceptions.
+
+resource "aws_cognito_user_pool" "this" {
+  name                = "${var.name_prefix}-users"
+  user_pool_tier      = "ESSENTIALS"
+  deletion_protection = var.deletion_protection ? "ACTIVE" : "INACTIVE"
+
+  username_attributes      = ["email"]
+  auto_verified_attributes = ["email"]
+
+  username_configuration {
+    case_sensitive = false
+  }
+
+  password_policy {
+    minimum_length                   = 12
+    require_lowercase                = true
+    require_uppercase                = true
+    require_numbers                  = true
+    require_symbols                  = false
+    temporary_password_validity_days = 3
+  }
+
+  mfa_configuration = "OPTIONAL"
+  software_token_mfa_configuration {
+    enabled = true
+  }
+
+  account_recovery_setting {
+    recovery_mechanism {
+      name     = "verified_email"
+      priority = 1
+    }
+  }
+
+  # The Cognito default sender is limited to low daily volumes; switch to SES once a verified
+  # sending domain exists.
+  email_configuration {
+    email_sending_account = "COGNITO_DEFAULT"
+  }
+
+  admin_create_user_config {
+    allow_admin_create_user_only = false
+  }
+}
+
+# Public client for the Next.js dashboard: authorization code + PKCE, no client secret.
+resource "aws_cognito_user_pool_client" "web" {
+  name         = "${var.name_prefix}-web"
+  user_pool_id = aws_cognito_user_pool.this.id
+
+  generate_secret                      = false
+  explicit_auth_flows                  = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  supported_identity_providers         = ["COGNITO"]
+  callback_urls                        = var.web_callback_urls
+  logout_urls                          = var.web_logout_urls
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+  access_token_validity         = 60
+  id_token_validity             = 60
+  refresh_token_validity        = 30
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "days"
+  }
+}
+
+# Server-side client for automated integration tests only (never enabled in prod).
+resource "aws_cognito_user_pool_client" "integration_test" {
+  count        = var.enable_integration_test_client ? 1 : 0
+  name         = "${var.name_prefix}-integration-test"
+  user_pool_id = aws_cognito_user_pool.this.id
+
+  generate_secret               = false
+  explicit_auth_flows           = ["ALLOW_ADMIN_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+  prevent_user_existence_errors = "ENABLED"
+  access_token_validity         = 15
+  id_token_validity             = 15
+  refresh_token_validity        = 1
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "days"
+  }
+}

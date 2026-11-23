@@ -18,3 +18,15 @@ variable "allowed_account_ids" {
     error_message = "Provide at least one 12-digit AWS account ID."
   }
 }
+
+variable "monthly_budget_usd" {
+  description = "Monthly cost budget for resources tagged Project=resolve."
+  type        = number
+  default     = 10
+}
+
+variable "alert_email" {
+  description = "Optional address for alarm and budget notifications (requires confirmation)."
+  type        = string
+  default     = null
+}

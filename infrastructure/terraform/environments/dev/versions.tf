@@ -11,6 +11,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.73"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.8"
+    }
   }
 
   # Partial configuration: supply bucket/key/region with `terraform init -backend-config=backend.hcl`

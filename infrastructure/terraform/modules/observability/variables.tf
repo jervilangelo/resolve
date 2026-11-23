@@ -1,0 +1,31 @@
+# Resolve — Take every thought captive.
+# Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+# Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
+# See LICENSE for terms and applicable exceptions.
+
+variable "name_prefix" {
+  type = string
+}
+
+variable "api_id" {
+  type = string
+}
+
+variable "lambda_function_names" {
+  type = list(string)
+}
+
+variable "alarm_queue_names" {
+  description = "Queues that should always be empty (dead-letter and failure queues)."
+  type        = list(string)
+}
+
+variable "monthly_budget_usd" {
+  type = number
+}
+
+variable "alert_email" {
+  description = "Optional address subscribed to alerts; AWS sends a confirmation email."
+  type        = string
+  default     = null
+}

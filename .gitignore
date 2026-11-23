@@ -31,6 +31,7 @@ blob-report/
 
 # Terraform
 .terraform/
+.build/
 *.tfstate
 *.tfstate.*
 *.tfvars
