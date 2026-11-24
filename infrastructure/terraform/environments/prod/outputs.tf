@@ -22,3 +22,7 @@ output "integration_test_client_id" {
 output "table_name" {
   value = module.resolve.table_name
 }
+
+output "hosted_domain" {
+  value = module.resolve.hosted_domain
+}

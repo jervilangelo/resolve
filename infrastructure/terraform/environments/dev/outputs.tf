@@ -26,3 +26,7 @@ output "table_name" {
 output "github_deploy_role_arn" {
   value = module.github_deploy.role_arn
 }
+
+output "hosted_domain" {
+  value = module.resolve.hosted_domain
+}

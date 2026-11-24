@@ -91,3 +91,46 @@ resource "aws_cognito_user_pool_client" "integration_test" {
     refresh_token = "days"
   }
 }
+
+# Cognito managed login (hosted sign-up, sign-in, recovery and MFA pages) on a Cognito domain.
+# The prefix is globally unique, hence the random suffix.
+resource "random_id" "domain" {
+  byte_length = 3
+}
+
+resource "aws_cognito_user_pool_domain" "this" {
+  domain                = "${var.name_prefix}-${random_id.domain.hex}"
+  user_pool_id          = aws_cognito_user_pool.this.id
+  managed_login_version = 2
+}
+
+# Cognito's asset sanitizer rejects SVG accessibility metadata (role, <title>); upload a copy
+# without it. The artwork itself is unchanged.
+locals {
+  logo_light = replace(replace(file(var.logo_light_svg), "/ role=\"[^\"]*\"/", ""), "/<title>[^<]*</title>/", "")
+  logo_dark  = replace(replace(file(var.logo_dark_svg), "/ role=\"[^\"]*\"/", ""), "/<title>[^<]*</title>/", "")
+}
+
+resource "aws_cognito_managed_login_branding" "web" {
+  user_pool_id = aws_cognito_user_pool.this.id
+  client_id    = aws_cognito_user_pool_client.web.id
+  # Resolve palette (docs/BRAND_GUIDELINES.md) applied to the full Cognito style schema; follows
+  # the visitor's light/dark preference.
+  settings = file("${path.module}/managed-login-settings.json")
+
+  asset {
+    category   = "FORM_LOGO"
+    color_mode = "LIGHT"
+    extension  = "SVG"
+    bytes      = base64encode(local.logo_light)
+  }
+
+  asset {
+    category   = "FORM_LOGO"
+    color_mode = "DARK"
+    extension  = "SVG"
+    bytes      = base64encode(local.logo_dark)
+  }
+
+  depends_on = [aws_cognito_user_pool_domain.this]
+}

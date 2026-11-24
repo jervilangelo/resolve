@@ -30,3 +30,7 @@ output "avatars_bucket" {
 output "alerts_topic_arn" {
   value = module.observability.alerts_topic_arn
 }
+
+output "hosted_domain" {
+  value = module.identity.hosted_domain
+}

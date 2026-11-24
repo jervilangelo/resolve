@@ -18,6 +18,8 @@ module "identity" {
   web_callback_urls              = [for origin in var.web_origins : "${origin}/auth/callback"]
   web_logout_urls                = var.web_origins
   enable_integration_test_client = !local.is_prod
+  logo_light_svg                 = "${local.repo_root}/assets/branding/logo/stacked-light.svg"
+  logo_dark_svg                  = "${local.repo_root}/assets/branding/logo/stacked-dark.svg"
 }
 
 module "data" {

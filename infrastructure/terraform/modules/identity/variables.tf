@@ -23,3 +23,13 @@ variable "enable_integration_test_client" {
   type    = bool
   default = false
 }
+
+variable "logo_light_svg" {
+  description = "Logo shown on managed login pages in light mode."
+  type        = string
+}
+
+variable "logo_dark_svg" {
+  description = "Logo shown on managed login pages in dark mode."
+  type        = string
+}
