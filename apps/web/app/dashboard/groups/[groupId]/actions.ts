@@ -10,7 +10,10 @@
 import {
   createdInvitationSchema,
   groupIdSchema,
+  groupRoleSchema,
+  groupSummarySchema,
   invitationIdSchema,
+  updateGroupRequestSchema,
   userIdSchema,
 } from '@resolve/contracts';
 import { revalidatePath } from 'next/cache';
@@ -21,6 +24,7 @@ import { serverEnv } from '@/lib/server-env';
 
 export interface ActionState {
   error?: string;
+  saved?: boolean;
   link?: string;
   expiresAt?: string;
 }
@@ -104,5 +108,62 @@ export async function leaveGroup(groupId: string): Promise<ActionState> {
     return { error: GENERIC_ERROR };
   }
   revalidatePath('/dashboard/groups');
+  redirect('/dashboard/groups');
+}
+
+export async function renameGroup(
+  groupId: string,
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const id = parseId(groupIdSchema, groupId);
+  if (!id || !(formData instanceof FormData)) return INVALID;
+  const input = updateGroupRequestSchema.safeParse({ name: formData.get('name') });
+  if (!input.success) return { error: 'Enter a group name of 1–60 characters without < or >.' };
+  try {
+    await api(`/v1/groups/${id}`, groupSummarySchema, { method: 'PATCH', body: input.data });
+  } catch (error) {
+    unstable_rethrow(error);
+    return { error: GENERIC_ERROR };
+  }
+  revalidatePath('/dashboard/groups', 'layout');
+  return { saved: true };
+}
+
+export async function setMemberRole(
+  groupId: string,
+  userId: string,
+  role: string,
+): Promise<ActionState> {
+  const id = parseId(groupIdSchema, groupId);
+  const user = parseId(userIdSchema, userId);
+  const parsedRole = groupRoleSchema.safeParse(role);
+  if (!id || !user || !parsedRole.success) return INVALID;
+  try {
+    await api(`/v1/groups/${id}/members/${user}`, empty, {
+      method: 'PATCH',
+      body: { role: parsedRole.data },
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiRequestError && error.code === 'CONFLICT') {
+      return { error: 'A group must keep at least one admin.' };
+    }
+    return { error: GENERIC_ERROR };
+  }
+  revalidatePath(`/dashboard/groups/${id}`);
+  return {};
+}
+
+export async function dissolveGroup(groupId: string): Promise<ActionState> {
+  const id = parseId(groupIdSchema, groupId);
+  if (!id) return INVALID;
+  try {
+    await api(`/v1/groups/${id}`, empty, { method: 'DELETE' });
+  } catch (error) {
+    unstable_rethrow(error);
+    return { error: GENERIC_ERROR };
+  }
+  revalidatePath('/dashboard/groups', 'layout');
   redirect('/dashboard/groups');
 }

@@ -80,14 +80,19 @@ export interface Store {
 
   /** Strongly consistent; includes each member's display name. */
   listMembers(groupId: string, limit: number, cursor?: string): Promise<Page<StoredMember>>;
-  createInvitation(input: CreateInvitationInput): Promise<void>;
+  /** Fails with not_allowed unless the creator is an admin of a live group when it commits. */
+  createInvitation(input: CreateInvitationInput): Promise<'created' | 'not_allowed'>;
   listInvitations(groupId: string, now: string): Promise<StoredInvitation[]>;
   /** Looks up a usable (unexpired, not used up) invitation by token hash. */
   findInvitation(
     tokenHash: string,
     now: string,
   ): Promise<(StoredInvitation & { groupName: string }) | null>;
-  revokeInvitation(groupId: string, invitationId: string): Promise<boolean>;
+  revokeInvitation(
+    groupId: string,
+    invitationId: string,
+    actorId: string,
+  ): Promise<'revoked' | 'not_found' | 'not_allowed'>;
   /** Atomically adds the member, counts the use and enforces expiry, use and group limits. */
   acceptInvitation(
     tokenHash: string,
@@ -100,6 +105,24 @@ export interface Store {
    * member. The last admin can never be removed or leave.
    */
   removeMember(groupId: string, userId: string, actorId: string): Promise<RemoveResult>;
+
+  /** Renames a group; `actorId` must be an admin when the write commits. */
+  renameGroup(groupId: string, name: string, actorId: string): Promise<'renamed' | 'not_allowed'>;
+  /**
+   * Promotes a member to admin or demotes an admin to member (including oneself). The group must
+   * always keep at least one admin.
+   */
+  changeRole(
+    groupId: string,
+    userId: string,
+    role: GroupRole,
+    actorId: string,
+  ): Promise<'changed' | 'unchanged' | 'not_member' | 'last_admin' | 'not_allowed' | 'conflict'>;
+  /**
+   * Deletes the group: the META item first (atomically with an admin check), so the group is gone
+   * for everyone at once, then every remaining item in its partition and its invitation tokens.
+   */
+  dissolveGroup(groupId: string, actorId: string): Promise<'dissolved' | 'not_allowed'>;
 }
 
 export class InvalidCursorError extends Error {

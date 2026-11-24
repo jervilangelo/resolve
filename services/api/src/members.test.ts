@@ -273,3 +273,117 @@ describe('leaving and removal', () => {
     expect((await t.accept((await t.invite(groupId)).token, BOB)).status).toBe(201);
   });
 });
+
+describe('ownership and group settings', () => {
+  const role = (
+    t: ReturnType<typeof setup>,
+    groupId: string,
+    user: string,
+    actor: string,
+    to: string,
+  ) =>
+    t.call(
+      'PATCH /v1/groups/{groupId}/members/{userId}',
+      actor,
+      { groupId, userId: user },
+      { role: to },
+    );
+
+  it('transfers ownership: promote a member, then the original admin can leave', async () => {
+    const t = setup();
+    const groupId = await t.createGroup();
+    await t.accept((await t.invite(groupId)).token, BOB);
+    expect((await role(t, groupId, BOB, ALICE, 'ADMIN')).status).toBe(204);
+    expect((await t.call('POST /v1/groups/{groupId}/leave', ALICE, { groupId })).status).toBe(204);
+    const list = memberListSchema.parse((await t.members(groupId, BOB)).body);
+    expect(list.items.map((m) => [m.userId, m.role])).toEqual([[BOB, 'ADMIN']]);
+  });
+
+  it('keeps at least one admin and lets admins step down only when another remains', async () => {
+    const t = setup();
+    const groupId = await t.createGroup();
+    await t.accept((await t.invite(groupId)).token, BOB);
+    expect((await role(t, groupId, ALICE, ALICE, 'MEMBER')).status).toBe(409);
+    await role(t, groupId, BOB, ALICE, 'ADMIN');
+    expect((await role(t, groupId, ALICE, ALICE, 'MEMBER')).status).toBe(204);
+    expect((await role(t, groupId, BOB, BOB, 'MEMBER')).status).toBe(409);
+  });
+
+  it('only admins change roles; members cannot promote themselves', async () => {
+    const t = setup();
+    const groupId = await t.createGroup();
+    await t.accept((await t.invite(groupId)).token, BOB);
+    expect((await role(t, groupId, BOB, BOB, 'ADMIN')).status).toBe(403);
+    expect((await role(t, groupId, ALICE, BOB, 'MEMBER')).status).toBe(403);
+    expect((await role(t, groupId, CAROL, ALICE, 'ADMIN')).status).toBe(404);
+    expect((await role(t, groupId, BOB, ALICE, 'OWNER')).status).toBe(422);
+  });
+
+  it('renames a group for every member', async () => {
+    const t = setup();
+    const groupId = await t.createGroup();
+    await t.accept((await t.invite(groupId)).token, BOB);
+    const renamed = await t.call(
+      'PATCH /v1/groups/{groupId}',
+      ALICE,
+      { groupId },
+      { name: 'Renamed' },
+    );
+    expect(groupSummarySchema.parse(renamed.body).name).toBe('Renamed');
+    const bobList = await t.call('GET /v1/groups', BOB);
+    expect(JSON.stringify(bobList.body)).toContain('Renamed');
+    expect(
+      (await t.call('PATCH /v1/groups/{groupId}', BOB, { groupId }, { name: 'Mine' })).status,
+    ).toBe(403);
+    expect(
+      (await t.call('PATCH /v1/groups/{groupId}', ALICE, { groupId }, { name: '' })).status,
+    ).toBe(422);
+  });
+
+  it('dissolves a group for everyone; members cannot', async () => {
+    const t = setup();
+    const groupId = await t.createGroup();
+    const { token } = await t.invite(groupId, 3);
+    await t.accept(token, BOB);
+    expect((await t.call('DELETE /v1/groups/{groupId}', BOB, { groupId })).status).toBe(403);
+    expect((await t.call('DELETE /v1/groups/{groupId}', ALICE, { groupId })).status).toBe(204);
+    expect((await t.call('GET /v1/groups/{groupId}', ALICE, { groupId })).status).toBe(404);
+    expect((await t.members(groupId, BOB)).status).toBe(404);
+    expect((await t.accept(token, CAROL)).status).toBe(404);
+    expect(JSON.stringify((await t.call('GET /v1/groups', BOB)).body)).not.toContain(groupId);
+  });
+});
+
+describe('review regressions', () => {
+  it('never lets anyone promote themselves, even a just-demoted admin', async () => {
+    const t = setup();
+    const groupId = await t.createGroup();
+    await t.accept((await t.invite(groupId)).token, BOB);
+    expect(await t.store.changeRole(groupId, BOB, 'ADMIN', BOB)).toBe('not_allowed');
+    await t.store.changeRole(groupId, BOB, 'ADMIN', ALICE);
+    await t.store.changeRole(groupId, ALICE, 'MEMBER', BOB);
+    expect(await t.store.changeRole(groupId, ALICE, 'ADMIN', ALICE)).toBe('not_allowed');
+  });
+
+  it('answers a replayed create for a since-dissolved group with 404', async () => {
+    const t = setup();
+    const headers = { 'idempotency-key': 'replay-key-000000000001' };
+    const first = await t.store.createGroup({
+      groupId: 'grp_aaaaaaaaaaaaaaaaaaaaaaaaaa',
+      name: 'Replay',
+      ownerId: ALICE,
+      createdAt: '2026-11-24T00:00:00.000Z',
+      idempotencyKey: headers['idempotency-key'],
+    });
+    await t.store.dissolveGroup(first.groupId, ALICE);
+    const replay = await t.store.createGroup({
+      groupId: 'grp_bbbbbbbbbbbbbbbbbbbbbbbbbb',
+      name: 'Replay',
+      ownerId: ALICE,
+      createdAt: '2026-11-24T00:00:00.000Z',
+      idempotencyKey: headers['idempotency-key'],
+    });
+    expect(replay).toEqual({ groupId: first.groupId, created: false });
+    expect(await t.store.getGroup(first.groupId)).toBeNull();
+  });
+});

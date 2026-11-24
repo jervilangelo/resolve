@@ -24,6 +24,8 @@ import {
   type invitationListSchema,
   invitationTokenRequestSchema,
   pageQuerySchema,
+  updateGroupRequestSchema,
+  updateMemberRoleRequestSchema,
   updateProfileRequestSchema,
   userIdSchema,
 } from '@resolve/contracts';
@@ -79,13 +81,22 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
   const identity = (event: APIGatewayProxyEventV2) =>
     requireIdentity(event, env.ALLOWED_CLIENT_IDS);
 
+  /** Membership in a live group, or null (dissolved groups may leave inert rows behind). */
+  async function liveMembership(groupId: string, userId: string) {
+    const [membership, group] = await Promise.all([
+      store.getMembership(groupId, userId),
+      store.getGroup(groupId),
+    ]);
+    return membership && group ? { membership, group } : null;
+  }
+
   /** The caller's membership; non-members get the same 404 as missing groups. */
   async function requireMember(event: APIGatewayProxyEventV2) {
     const { userId } = identity(event);
     const groupId = pathGroupId(event);
-    const membership = await store.getMembership(groupId, userId);
-    if (!membership) throw new ApiError('NOT_FOUND');
-    return { groupId, userId, membership };
+    const live = await liveMembership(groupId, userId);
+    if (!live) throw new ApiError('NOT_FOUND');
+    return { groupId, userId, ...live };
   }
 
   /** Members already know the group exists, so a missing admin role is 403. */
@@ -129,9 +140,13 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
         createdAt: now().toISOString(),
         idempotencyKey,
       });
-      const membership = await store.getMembership(groupId, userId);
-      if (!membership) throw new Error('Membership missing after group creation');
-      return { status: created ? 201 : 200, body: summary(membership) };
+      // A replayed request whose group was since dissolved (or left) no longer has a group.
+      const live = await liveMembership(groupId, userId);
+      if (!live) throw new ApiError('NOT_FOUND');
+      return {
+        status: created ? 201 : 200,
+        body: summary({ ...live.membership, groupName: live.group.name }),
+      };
     },
 
     'GET /v1/groups': async (event) => {
@@ -168,8 +183,9 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
       const query = parseOrReject(pageQuerySchema, event.queryStringParameters ?? {});
       try {
         const page = await store.listMembers(groupId, query.limit, query.cursor);
-        // Re-check after the read: a caller removed mid-request must not see the result.
-        if (!(await store.getMembership(groupId, userId))) throw new ApiError('NOT_FOUND');
+        // Re-check after the read: a caller removed (or a group dissolved) mid-request must not
+        // see the result.
+        if (!(await liveMembership(groupId, userId))) throw new ApiError('NOT_FOUND');
         const body: MemberList = page;
         return { status: 200, body };
       } catch (error) {
@@ -192,11 +208,12 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
         maxUses: input.maxUses,
         uses: 0,
       };
-      await store.createInvitation({
+      const created = await store.createInvitation({
         ...invitation,
         tokenHash: hashToken(token),
         createdBy: userId,
       });
+      if (created !== 'created') throw new ApiError('FORBIDDEN');
       const body: CreatedInvitation = {
         invitationId: invitation.invitationId,
         token,
@@ -207,8 +224,10 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
     },
 
     'GET /v1/groups/{groupId}/invitations': async (event) => {
-      const { groupId } = await requireAdmin(event);
+      const { groupId, userId } = await requireAdmin(event);
       const items = await store.listInvitations(groupId, now().toISOString());
+      const still = await liveMembership(groupId, userId);
+      if (still?.membership.role !== 'ADMIN') throw new ApiError('NOT_FOUND');
       const body: z.infer<typeof invitationListSchema> = {
         items: items.map(({ invitationId, createdAt, expiresAt, maxUses, uses }) => ({
           invitationId,
@@ -223,11 +242,12 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
     },
 
     'DELETE /v1/groups/{groupId}/invitations/{invitationId}': async (event) => {
-      const { groupId } = await requireAdmin(event);
+      const { groupId, userId } = await requireAdmin(event);
       const id = invitationIdSchema.safeParse(event.pathParameters?.invitationId);
-      if (!id.success || !(await store.revokeInvitation(groupId, id.data))) {
-        throw new ApiError('NOT_FOUND');
-      }
+      if (!id.success) throw new ApiError('NOT_FOUND');
+      const result = await store.revokeInvitation(groupId, id.data, userId);
+      if (result === 'not_found') throw new ApiError('NOT_FOUND');
+      if (result === 'not_allowed') throw new ApiError('FORBIDDEN');
       return { status: 204, body: undefined };
     },
 
@@ -262,17 +282,54 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
         };
         return { status: 201, body };
       }
-      const membership = await store.getMembership(result.groupId, userId);
-      if (!membership) throw new ApiError('NOT_FOUND');
-      return { status: 200, body: summary(membership) };
+      const live = await liveMembership(result.groupId, userId);
+      if (!live) throw new ApiError('NOT_FOUND');
+      return { status: 200, body: summary({ ...live.membership, groupName: live.group.name }) };
     },
 
     'POST /v1/groups/{groupId}/leave': async (event) => {
       const { groupId, userId } = await requireMember(event);
       const result = await store.removeMember(groupId, userId, userId);
-      // The last admin must transfer ownership or dissolve the group first (§3).
+      // The last admin must first make another member an admin, or dissolve the group (§3).
       if (result === 'last_admin') throw new ApiError('CONFLICT');
       if (result === 'not_member') throw new ApiError('NOT_FOUND');
+      return { status: 204, body: undefined };
+    },
+
+    'PATCH /v1/groups/{groupId}': async (event) => {
+      const { groupId, userId, group } = await requireAdmin(event);
+      const input = parseBody(event, updateGroupRequestSchema);
+      if ((await store.renameGroup(groupId, input.name, userId)) !== 'renamed') {
+        throw new ApiError('FORBIDDEN');
+      }
+      // Built from the committed name rather than a read that could predate the write.
+      const body: GroupSummary = {
+        groupId,
+        name: input.name,
+        role: 'ADMIN',
+        createdAt: group.createdAt,
+      };
+      return { status: 200, body };
+    },
+
+    'DELETE /v1/groups/{groupId}': async (event) => {
+      const { groupId, userId } = await requireAdmin(event);
+      if ((await store.dissolveGroup(groupId, userId)) !== 'dissolved') {
+        throw new ApiError('FORBIDDEN');
+      }
+      return { status: 204, body: undefined };
+    },
+
+    'PATCH /v1/groups/{groupId}/members/{userId}': async (event) => {
+      // Only admins change roles; an admin may also step down if another admin remains.
+      const { groupId, userId } = await requireAdmin(event);
+      const target = userIdSchema.safeParse(event.pathParameters?.userId);
+      if (!target.success) throw new ApiError('NOT_FOUND');
+      const { role } = parseBody(event, updateMemberRoleRequestSchema);
+      const result = await store.changeRole(groupId, target.data, role, userId);
+      if (result === 'not_member') throw new ApiError('NOT_FOUND');
+      if (result === 'last_admin' || result === 'conflict') throw new ApiError('CONFLICT');
+      if (result === 'not_allowed') throw new ApiError('FORBIDDEN');
       return { status: 204, body: undefined };
     },
 

@@ -11,16 +11,20 @@ import {
   groupSummarySchema,
   invitationListSchema,
   memberListSchema,
+  profileSchema,
 } from '@resolve/contracts';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ApiRequestError, api } from '@/lib/api';
 import {
+  DissolveGroupPanel,
   InvitePanel,
   LeaveGroupButton,
   RemoveMemberButton,
+  RenameGroupForm,
   RevokeInvitationButton,
+  RoleButton,
 } from './controls';
 
 export const metadata: Metadata = { title: 'Group' };
@@ -39,7 +43,8 @@ export default async function GroupPage({ params }: { params: Promise<{ groupId:
     throw error;
   }
   const isAdmin = group.role === 'ADMIN';
-  const [members, invitations] = await Promise.all([
+  const [me, members, invitations] = await Promise.all([
+    api('/v1/me', profileSchema),
     api(`/v1/groups/${groupId}/members?limit=100`, memberListSchema),
     isAdmin ? api(`/v1/groups/${groupId}/invitations`, invitationListSchema) : null,
   ]);
@@ -76,8 +81,31 @@ export default async function GroupPage({ params }: { params: Promise<{ groupId:
                     {new Date(member.joinedAt).toLocaleDateString('en', dateFormat)}
                   </p>
                 </div>
-                {isAdmin && member.role === 'MEMBER' && (
-                  <RemoveMemberButton groupId={groupId} userId={member.userId} name={name} />
+                {isAdmin && (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {member.role === 'MEMBER' ? (
+                      <>
+                        <RoleButton
+                          groupId={groupId}
+                          userId={member.userId}
+                          name={name}
+                          to="ADMIN"
+                          self={false}
+                        />
+                        <RemoveMemberButton groupId={groupId} userId={member.userId} name={name} />
+                      </>
+                    ) : (
+                      adminCount > 1 && (
+                        <RoleButton
+                          groupId={groupId}
+                          userId={member.userId}
+                          name={name}
+                          to="MEMBER"
+                          self={member.userId === me.userId}
+                        />
+                      )
+                    )}
+                  </div>
                 )}
               </li>
             );
@@ -113,18 +141,36 @@ export default async function GroupPage({ params }: { params: Promise<{ groupId:
         </section>
       )}
 
+      {isAdmin && (
+        <section aria-labelledby="settings" className="space-y-4">
+          <h2 id="settings" className="font-semibold">
+            Group settings
+          </h2>
+          <RenameGroupForm groupId={groupId} name={group.name} />
+        </section>
+      )}
+
       <section aria-labelledby="leave" className="space-y-3 border-t pt-8">
         <h2 id="leave" className="font-semibold">
           Leave this group
         </h2>
         {isAdmin && adminCount <= 1 ? (
           <p className="text-muted-foreground text-sm">
-            You are the only admin, so you cannot leave yet. Transferring ownership is coming soon.
+            You are the only admin. Make another member an admin first, or dissolve the group.
           </p>
         ) : (
           <LeaveGroupButton groupId={groupId} />
         )}
       </section>
+
+      {isAdmin && (
+        <section aria-labelledby="dissolve" className="space-y-3 border-t pt-8">
+          <h2 id="dissolve" className="text-destructive font-semibold">
+            Dissolve group
+          </h2>
+          <DissolveGroupPanel groupId={groupId} name={group.name} />
+        </section>
+      )}
     </div>
   );
 }

@@ -28,6 +28,8 @@ export function createMemoryStore(): Store {
   const redemptions = new Set<string>();
 
   const memberKey = (groupId: string, userId: string) => `${groupId}#${userId}`;
+  const isAdmin = (groupId: string, userId: string) =>
+    memberships.get(memberKey(groupId, userId))?.role === 'ADMIN';
 
   function page<T>(all: T[], owner: string, limit: number, cursor?: string) {
     let start = 0;
@@ -100,9 +102,12 @@ export function createMemoryStore(): Store {
     listMemberships: (userId, limit, cursor) => {
       try {
         const all = [...memberships.values()]
-          .filter((m) => m.userId === userId)
+          .filter((m) => m.userId === userId && groups.has(m.groupId))
           .sort((a, b) => a.groupId.localeCompare(b.groupId))
-          .map(({ joinedAt: _joinedAt, ...rest }) => rest);
+          .map(({ joinedAt: _joinedAt, ...rest }) => ({
+            ...rest,
+            groupName: groups.get(rest.groupId)?.name ?? rest.groupName,
+          }));
         return Promise.resolve(page(all, userId, limit, cursor));
       } catch (error) {
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));
@@ -125,8 +130,11 @@ export function createMemoryStore(): Store {
       }
     },
     createInvitation: (input) => {
+      if (!groups.has(input.groupId) || !isAdmin(input.groupId, input.createdBy)) {
+        return Promise.resolve('not_allowed' as const);
+      }
       invitations.set(input.invitationId, { ...input, uses: 0 });
-      return Promise.resolve();
+      return Promise.resolve('created' as const);
     },
     listInvitations: (groupId, now) =>
       Promise.resolve(
@@ -141,11 +149,14 @@ export function createMemoryStore(): Store {
       const { tokenHash: _t, createdBy: _c, ...rest } = inv;
       return Promise.resolve({ ...rest, groupName: group.name });
     },
-    revokeInvitation: (groupId, invitationId) => {
+    revokeInvitation: (groupId, invitationId, actorId) => {
       const inv = invitations.get(invitationId);
-      if (inv?.groupId !== groupId) return Promise.resolve(false);
+      if (inv?.groupId !== groupId) return Promise.resolve('not_found' as const);
+      if (!groups.has(groupId) || !isAdmin(groupId, actorId)) {
+        return Promise.resolve('not_allowed' as const);
+      }
       invitations.delete(invitationId);
-      return Promise.resolve(true);
+      return Promise.resolve('revoked' as const);
     },
     acceptInvitation: (tokenHash, userId, now, maxMembers) => {
       const inv = usable(tokenHash, now);
@@ -193,6 +204,39 @@ export function createMemoryStore(): Store {
       group.memberCount -= 1;
       memberships.delete(memberKey(groupId, userId));
       return Promise.resolve('removed' as const);
+    },
+    renameGroup: (groupId, name, actorId) => {
+      const group = groups.get(groupId);
+      if (!group || !isAdmin(groupId, actorId)) return Promise.resolve('not_allowed' as const);
+      group.name = name;
+      return Promise.resolve('renamed' as const);
+    },
+    changeRole: (groupId, userId, role, actorId) => {
+      if (userId === actorId && role === 'ADMIN') return Promise.resolve('not_allowed' as const);
+      const target = memberships.get(memberKey(groupId, userId));
+      const group = groups.get(groupId);
+      if (!target || !group) return Promise.resolve('not_member' as const);
+      if (target.role === role) return Promise.resolve('unchanged' as const);
+      if (userId !== actorId && !isAdmin(groupId, actorId)) {
+        return Promise.resolve('not_allowed' as const);
+      }
+      if (role === 'MEMBER') {
+        if (group.adminCount <= 1) return Promise.resolve('last_admin' as const);
+        group.adminCount -= 1;
+      } else {
+        group.adminCount += 1;
+      }
+      target.role = role;
+      return Promise.resolve('changed' as const);
+    },
+    dissolveGroup: (groupId, actorId) => {
+      if (!groups.has(groupId) || !isAdmin(groupId, actorId)) {
+        return Promise.resolve('not_allowed' as const);
+      }
+      groups.delete(groupId);
+      for (const [key, m] of memberships) if (m.groupId === groupId) memberships.delete(key);
+      for (const [id, inv] of invitations) if (inv.groupId === groupId) invitations.delete(id);
+      return Promise.resolve('dissolved' as const);
     },
   };
   return store;

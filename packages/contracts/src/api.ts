@@ -31,6 +31,14 @@ export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>;
 export const createGroupRequestSchema = z.strictObject({ name: displayNameSchema });
 export type CreateGroupRequest = z.infer<typeof createGroupRequestSchema>;
 
+/** Admin-only group settings. */
+export const updateGroupRequestSchema = z.strictObject({ name: displayNameSchema });
+export type UpdateGroupRequest = z.infer<typeof updateGroupRequestSchema>;
+
+/** Promote a member to admin or demote an admin; a group always keeps at least one admin. */
+export const updateMemberRoleRequestSchema = z.strictObject({ role: groupRoleSchema });
+export type UpdateMemberRoleRequest = z.infer<typeof updateMemberRoleRequestSchema>;
+
 /** A group as seen by one of its members. Never includes domains (§4.3). */
 export const groupSummarySchema = z.strictObject({
   groupId: groupIdSchema,

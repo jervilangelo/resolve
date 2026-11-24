@@ -14,9 +14,12 @@ import { Label } from '@/components/ui/label';
 import {
   type ActionState,
   createInvitation,
+  dissolveGroup,
   leaveGroup,
   removeMember,
+  renameGroup,
   revokeInvitation,
+  setMemberRole,
 } from './actions';
 
 function ErrorText({ message }: { message?: string }) {
@@ -164,5 +167,96 @@ export function LeaveGroupButton({ groupId }: { groupId: string }) {
       confirmText="Leave this group? You will need a new invitation to rejoin."
       run={() => leaveGroup(groupId)}
     />
+  );
+}
+
+export function RenameGroupForm({ groupId, name }: { groupId: string; name: string }) {
+  const [state, action, pending] = useActionState(renameGroup.bind(null, groupId), {});
+  return (
+    <form action={action} className="flex max-w-lg flex-col gap-3 sm:flex-row sm:items-end">
+      <div className="flex-1 space-y-2">
+        <Label htmlFor="group-name">Group name</Label>
+        <Input id="group-name" name="name" defaultValue={name} maxLength={60} required />
+      </div>
+      <Button type="submit" variant="outline" disabled={pending}>
+        {pending ? 'Saving…' : 'Rename'}
+      </Button>
+      <div className="sm:basis-full">
+        <ErrorText message={state.error} />
+        {state.saved && (
+          <p role="status" className="text-primary text-sm">
+            Saved.
+          </p>
+        )}
+      </div>
+    </form>
+  );
+}
+
+export function RoleButton({
+  groupId,
+  userId,
+  name,
+  to,
+  self,
+}: {
+  groupId: string;
+  userId: string;
+  name: string;
+  to: 'ADMIN' | 'MEMBER';
+  self: boolean;
+}) {
+  const label = to === 'ADMIN' ? 'Make admin' : self ? 'Step down' : 'Make member';
+  const confirmText =
+    to === 'ADMIN'
+      ? `Make ${name} an admin? Admins can invite and remove members, change roles and dissolve the group.`
+      : self
+        ? 'Step down to member? You will lose admin rights in this group.'
+        : `Change ${name} to a regular member?`;
+  return (
+    <ConfirmButton
+      label={label}
+      confirmText={confirmText}
+      run={() => setMemberRole(groupId, userId, to)}
+    />
+  );
+}
+
+export function DissolveGroupPanel({ groupId, name }: { groupId: string; name: string }) {
+  const [typed, setTyped] = useState('');
+  const [error, setError] = useState<string>();
+  const [pending, start] = useTransition();
+  return (
+    <div className="space-y-3">
+      <p className="text-muted-foreground text-sm">
+        Dissolving removes the group, its members and its invite links for everyone. This cannot be
+        undone.
+      </p>
+      <div className="max-w-sm space-y-2">
+        <Label htmlFor="confirm-dissolve">Type the group name to confirm</Label>
+        <Input
+          id="confirm-dissolve"
+          value={typed}
+          autoComplete="off"
+          onChange={(e) => {
+            setTyped(e.target.value);
+          }}
+        />
+      </div>
+      <Button
+        type="button"
+        variant="destructive"
+        disabled={pending || typed !== name}
+        onClick={() => {
+          start(async () => {
+            const result = await dissolveGroup(groupId);
+            setError(result.error);
+          });
+        }}
+      >
+        {pending ? 'Dissolving…' : 'Dissolve group'}
+      </Button>
+      <ErrorText message={error} />
+    </div>
   );
 }

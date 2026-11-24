@@ -8,7 +8,7 @@
 import { DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import {
   BatchGetCommand,
-  DeleteCommand,
+  BatchWriteCommand,
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
@@ -52,6 +52,18 @@ export const keys = {
 
 /** Invitation items outlive their expiry briefly so revocation and late clicks behave. */
 const INVITE_TTL_GRACE_SECONDS = 24 * 60 * 60;
+/** A dissolved group's META marker expires on its own if the cleanup sweep cannot finish. */
+const DISSOLVED_MARKER_TTL_SECONDS = 30 * 24 * 60 * 60;
+/** Condition fragment: the group exists and has not been dissolved. */
+const LIVE_GROUP = 'attribute_exists(PK) AND attribute_not_exists(dissolvedAt)';
+
+const liveMetaSchema = z.object({
+  PK: z.string(),
+  name: z.string(),
+  createdAt: z.string(),
+  // Must be absent (z.undefined() would require the key to be present).
+  dissolvedAt: z.never().optional(),
+});
 
 const invitationItemSchema = z.object({
   invitationId: z.string(),
@@ -176,32 +188,87 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
       getItem(keys.group(groupId), 'META'),
     ]);
     const inv = invitationItemSchema.safeParse(invite);
-    const meta = z.object({ name: z.string(), createdAt: z.string() }).safeParse(group);
+    const meta = liveMetaSchema.safeParse(group);
     if (!inv.success || !meta.success) return null;
     if (inv.data.expiresAt <= now || inv.data.uses >= inv.data.maxUses) return null;
     return { ...inv.data, groupId, groupName: meta.data.name, groupCreatedAt: meta.data.createdAt };
   }
 
   /** Display names for up to 100 users (BatchGetItem limit), retrying unprocessed keys. */
-  async function displayNames(userIds: string[]): Promise<Map<string, string>> {
-    const names = new Map<string, string>();
-    if (userIds.length === 0) return names;
-    let keysLeft: Record<string, unknown>[] = userIds.map((id) => ({
-      PK: keys.user(id),
-      SK: 'PROFILE',
-    }));
+  /** Transaction item asserting `actorId` is an admin of the group when the write commits. */
+  function adminCheck(groupId: string, actorId: string): TransactItems[number] {
+    return {
+      ConditionCheck: {
+        TableName: tableName,
+        Key: { PK: keys.group(groupId), SK: keys.member(actorId) },
+        ConditionExpression: '#role = :admin',
+        ExpressionAttributeNames: { '#role': 'role' },
+        ExpressionAttributeValues: { ':admin': 'ADMIN' },
+      },
+    };
+  }
+
+  /** BatchGetItem for up to 100 keys, retrying unprocessed keys. */
+  async function batchGet(itemKeys: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+    const found: Record<string, unknown>[] = [];
+    let keysLeft = itemKeys;
     for (let attempt = 0; keysLeft.length > 0 && attempt < 5; attempt++) {
       const result = await db.send(
-        new BatchGetCommand({ RequestItems: { [tableName]: { Keys: keysLeft } } }),
+        new BatchGetCommand({
+          RequestItems: { [tableName]: { Keys: keysLeft, ConsistentRead: true } },
+        }),
       );
-      for (const item of result.Responses?.[tableName] ?? []) {
-        const parsed = z.object({ PK: z.string(), displayName: z.string() }).safeParse(item);
-        if (parsed.success)
-          names.set(parsed.data.PK.slice('USER#'.length), parsed.data.displayName);
-      }
+      found.push(...(result.Responses?.[tableName] ?? []));
       keysLeft = result.UnprocessedKeys?.[tableName]?.Keys ?? [];
     }
+    if (keysLeft.length > 0) throw new Error('BatchGetItem left keys unprocessed');
+    return found;
+  }
+
+  /** Display names for up to 100 users. */
+  async function displayNames(userIds: string[]): Promise<Map<string, string>> {
+    const names = new Map<string, string>();
+    const items = await batchGet(userIds.map((id) => ({ PK: keys.user(id), SK: 'PROFILE' })));
+    for (const item of items) {
+      const parsed = z.object({ PK: z.string(), displayName: z.string() }).safeParse(item);
+      if (parsed.success) names.set(parsed.data.PK.slice('USER#'.length), parsed.data.displayName);
+    }
     return names;
+  }
+
+  /** Every item in a group's partition, for dissolution. */
+  async function groupPartition(groupId: string): Promise<Record<string, unknown>[]> {
+    const items: Record<string, unknown>[] = [];
+    let start: Record<string, unknown> | undefined;
+    do {
+      const page = await db.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: 'PK = :pk',
+          ExpressionAttributeValues: { ':pk': keys.group(groupId) },
+          ConsistentRead: true,
+          ExclusiveStartKey: start,
+        }),
+      );
+      items.push(...(page.Items ?? []));
+      start = page.LastEvaluatedKey;
+    } while (start);
+    return items;
+  }
+
+  /** BatchWriteItem deletes in chunks of 25, retrying unprocessed requests. */
+  async function batchDelete(itemKeys: Record<string, unknown>[]): Promise<void> {
+    for (let i = 0; i < itemKeys.length; i += 25) {
+      let requests = itemKeys.slice(i, i + 25).map((Key) => ({ DeleteRequest: { Key } }));
+      for (let attempt = 0; requests.length > 0; attempt++) {
+        if (attempt >= 5) throw new Error('BatchWriteItem left deletes unprocessed');
+        const result = await db.send(
+          new BatchWriteCommand({ RequestItems: { [tableName]: requests } }),
+        );
+        requests = (result.UnprocessedItems?.[tableName] ?? []) as typeof requests;
+        if (requests.length > 0) await new Promise((r) => setTimeout(r, 50 * 2 ** attempt));
+      }
+    }
   }
 
   return {
@@ -308,12 +375,13 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
     },
 
     async getGroup(groupId) {
-      const { Item } = await db.send(
-        new GetCommand({ TableName: tableName, Key: { PK: keys.group(groupId), SK: 'META' } }),
-      );
-      if (!Item) return null;
-      const item = z.object({ name: z.string(), createdAt: z.string() }).parse(Item);
-      return { groupId, name: item.name, createdAt: item.createdAt } satisfies StoredGroup;
+      const meta = liveMetaSchema.safeParse(await getItem(keys.group(groupId), 'META'));
+      if (!meta.success) return null;
+      return {
+        groupId,
+        name: meta.data.name,
+        createdAt: meta.data.createdAt,
+      } satisfies StoredGroup;
     },
 
     getMembership,
@@ -329,15 +397,27 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
           ExclusiveStartKey: cursor ? decodeCursor(cursor, userId) : undefined,
         }),
       );
-      const items = Items.map((raw) => {
-        const item = membershipItemSchema.parse(raw);
-        return {
-          groupId: item.PK.slice('GROUP#'.length),
-          userId,
-          role: item.role,
-          groupName: item.groupName,
-          groupCreatedAt: item.groupCreatedAt,
-        };
+      const memberships = Items.map((raw) => membershipItemSchema.parse(raw));
+      // Names come from each group's META (renames need no fan-out); groups whose META is gone
+      // (dissolved, cleanup pending) are skipped.
+      const metas = await batchGet(memberships.map((m) => ({ PK: m.PK, SK: 'META' })));
+      const names = new Map<string, string>();
+      for (const meta of metas) {
+        const parsed = liveMetaSchema.safeParse(meta);
+        if (parsed.success) names.set(parsed.data.PK, parsed.data.name);
+      }
+      const items = memberships.flatMap((item) => {
+        const name = names.get(item.PK);
+        if (name === undefined) return [];
+        return [
+          {
+            groupId: item.PK.slice('GROUP#'.length),
+            userId,
+            role: item.role,
+            groupName: name,
+            groupCreatedAt: item.groupCreatedAt,
+          },
+        ];
       });
       return { items, nextCursor: encodeCursor(LastEvaluatedKey) };
     },
@@ -384,45 +464,58 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
 
     async createInvitation(input) {
       const ttl = ttlFor(input.expiresAt);
-      await db.send(
-        new TransactWriteCommand({
-          TransactItems: [
-            {
-              Put: {
-                TableName: tableName,
-                Item: {
-                  PK: keys.group(input.groupId),
-                  SK: keys.invite(input.invitationId),
-                  type: 'Invitation',
-                  invitationId: input.invitationId,
-                  tokenHash: input.tokenHash,
-                  createdBy: input.createdBy,
-                  createdAt: input.createdAt,
-                  expiresAt: input.expiresAt,
-                  maxUses: input.maxUses,
-                  uses: 0,
-                  ttl,
-                },
-                ConditionExpression: 'attribute_not_exists(PK)',
-              },
+      try {
+        await transact([
+          adminCheck(input.groupId, input.createdBy),
+          {
+            ConditionCheck: {
+              TableName: tableName,
+              Key: { PK: keys.group(input.groupId), SK: 'META' },
+              ConditionExpression: LIVE_GROUP,
             },
-            {
-              Put: {
-                TableName: tableName,
-                Item: {
-                  PK: keys.token(input.tokenHash),
-                  SK: 'INVITE',
-                  type: 'InvitationToken',
-                  groupId: input.groupId,
-                  invitationId: input.invitationId,
-                  ttl,
-                },
-                ConditionExpression: 'attribute_not_exists(PK)',
+          },
+          {
+            Put: {
+              TableName: tableName,
+              Item: {
+                PK: keys.group(input.groupId),
+                SK: keys.invite(input.invitationId),
+                type: 'Invitation',
+                invitationId: input.invitationId,
+                tokenHash: input.tokenHash,
+                createdBy: input.createdBy,
+                createdAt: input.createdAt,
+                expiresAt: input.expiresAt,
+                maxUses: input.maxUses,
+                uses: 0,
+                ttl,
               },
+              ConditionExpression: 'attribute_not_exists(PK)',
             },
-          ],
-        }),
-      );
+          },
+          {
+            Put: {
+              TableName: tableName,
+              Item: {
+                PK: keys.token(input.tokenHash),
+                SK: 'INVITE',
+                type: 'InvitationToken',
+                groupId: input.groupId,
+                invitationId: input.invitationId,
+                ttl,
+              },
+              ConditionExpression: 'attribute_not_exists(PK)',
+            },
+          },
+        ]);
+        return 'created';
+      } catch (error) {
+        // The creator lost admin rights, or the group was dissolved, while the request ran.
+        if (cancellationCodes(error)?.slice(0, 2).includes('ConditionalCheckFailed')) {
+          return 'not_allowed';
+        }
+        throw error;
+      }
     },
 
     async listInvitations(groupId, now): Promise<StoredInvitation[]> {
@@ -450,23 +543,44 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
 
     findInvitation,
 
-    async revokeInvitation(groupId, invitationId) {
-      const { Attributes } = await db.send(
-        new DeleteCommand({
-          TableName: tableName,
-          Key: { PK: keys.group(groupId), SK: keys.invite(invitationId) },
-          ReturnValues: 'ALL_OLD',
-        }),
-      );
-      const old = z.object({ tokenHash: z.string() }).safeParse(Attributes);
-      if (!old.success) return false;
-      await db.send(
-        new DeleteCommand({
-          TableName: tableName,
-          Key: { PK: keys.token(old.data.tokenHash), SK: 'INVITE' },
-        }),
-      );
-      return true;
+    async revokeInvitation(groupId, invitationId, actorId) {
+      const invite = z
+        .object({ tokenHash: z.string() })
+        .safeParse(await getItem(keys.group(groupId), keys.invite(invitationId)));
+      if (!invite.success) return 'not_found';
+      try {
+        // The actor must still be an admin of a live group when the revocation commits.
+        await transact([
+          adminCheck(groupId, actorId),
+          {
+            ConditionCheck: {
+              TableName: tableName,
+              Key: { PK: keys.group(groupId), SK: 'META' },
+              ConditionExpression: LIVE_GROUP,
+            },
+          },
+          {
+            Delete: {
+              TableName: tableName,
+              Key: { PK: keys.group(groupId), SK: keys.invite(invitationId) },
+              ConditionExpression: 'attribute_exists(PK)',
+            },
+          },
+          {
+            Delete: {
+              TableName: tableName,
+              Key: { PK: keys.token(invite.data.tokenHash), SK: 'INVITE' },
+            },
+          },
+        ]);
+        return 'revoked';
+      } catch (error) {
+        const codes = cancellationCodes(error);
+        if (!codes) throw error;
+        if (codes[2] === 'ConditionalCheckFailed') return 'not_found';
+        if (codes.includes('ConditionalCheckFailed')) return 'not_allowed';
+        throw error;
+      }
     },
 
     async acceptInvitation(tokenHash, userId, now, maxMembers): Promise<AcceptResult> {
@@ -522,8 +636,7 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
               Key: { PK: keys.group(groupId), SK: 'META' },
               // Groups created before the counter existed have exactly their creator.
               UpdateExpression: 'SET memberCount = if_not_exists(memberCount, :one) + :one',
-              ConditionExpression:
-                'attribute_exists(PK) AND (attribute_not_exists(memberCount) OR memberCount < :max)',
+              ConditionExpression: `${LIVE_GROUP} AND (attribute_not_exists(memberCount) OR memberCount < :max)`,
               ExpressionAttributeValues: { ':one': 1, ':max': maxMembers },
             },
           },
@@ -538,7 +651,10 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         // from a link that no longer works.
         if (failed(0)) return { status: 'already_member', groupId };
         if (failed(1) || failed(2)) return { status: 'invalid' };
-        if (failed(3)) return { status: 'full' };
+        if (failed(3)) {
+          const live = liveMetaSchema.safeParse(await getItem(keys.group(groupId), 'META'));
+          return live.success ? { status: 'full' } : { status: 'invalid' };
+        }
         throw error;
       }
     },
@@ -567,7 +683,7 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
             UpdateExpression: isAdmin
               ? 'SET memberCount = if_not_exists(memberCount, :one) - :one, adminCount = adminCount - :one'
               : 'SET memberCount = if_not_exists(memberCount, :one) - :one',
-            ConditionExpression: isAdmin ? 'adminCount > :one' : 'attribute_exists(PK)',
+            ConditionExpression: isAdmin ? `${LIVE_GROUP} AND adminCount > :one` : LIVE_GROUP,
             ExpressionAttributeValues: { ':one': 1 },
           },
         },
@@ -595,6 +711,133 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         if (codes[2] === 'ConditionalCheckFailed') return 'not_allowed';
         throw error;
       }
+    },
+
+    async renameGroup(groupId, name, actorId) {
+      try {
+        await transact([
+          adminCheck(groupId, actorId),
+          {
+            Update: {
+              TableName: tableName,
+              Key: { PK: keys.group(groupId), SK: 'META' },
+              UpdateExpression: 'SET #name = :name',
+              ConditionExpression: LIVE_GROUP,
+              ExpressionAttributeNames: { '#name': 'name' },
+              ExpressionAttributeValues: { ':name': name },
+            },
+          },
+        ]);
+        return 'renamed';
+      } catch (error) {
+        if (cancellationCodes(error)?.includes('ConditionalCheckFailed')) return 'not_allowed';
+        throw error;
+      }
+    },
+
+    async changeRole(groupId, userId, role, actorId) {
+      const self = userId === actorId;
+      // Self-targeted writes may only step down: a just-demoted admin must not re-promote.
+      if (self && role === 'ADMIN') return 'not_allowed';
+      const target = await getMembership(groupId, userId);
+      if (!target) return 'not_member';
+      if (target.role === role) return 'unchanged';
+      const promote = role === 'ADMIN';
+      const items: TransactItems = [
+        {
+          Update: {
+            TableName: tableName,
+            Key: { PK: keys.group(groupId), SK: keys.member(userId) },
+            UpdateExpression: 'SET #role = :to',
+            ConditionExpression: '#role = :from',
+            ExpressionAttributeNames: { '#role': 'role' },
+            ExpressionAttributeValues: { ':to': role, ':from': target.role },
+          },
+        },
+        {
+          Update: {
+            TableName: tableName,
+            Key: { PK: keys.group(groupId), SK: 'META' },
+            // A missing adminCount (groups created before the counters) means one admin.
+            UpdateExpression: promote
+              ? 'SET adminCount = if_not_exists(adminCount, :one) + :one'
+              : 'SET adminCount = adminCount - :one',
+            ConditionExpression: promote ? LIVE_GROUP : `${LIVE_GROUP} AND adminCount > :one`,
+            ExpressionAttributeValues: { ':one': 1 },
+          },
+        },
+      ];
+      // A self-demotion is its own authorization: the target condition requires the ADMIN role.
+      if (!self) items.push(adminCheck(groupId, actorId));
+      try {
+        await transact(items);
+        return 'changed';
+      } catch (error) {
+        const codes = cancellationCodes(error);
+        if (!codes) throw error;
+        const failed = (i: number) => codes[i] === 'ConditionalCheckFailed';
+        if (failed(2)) return 'not_allowed';
+        if (failed(0)) {
+          // Deleted meanwhile, its role changed concurrently, or the group was dissolved.
+          const live = liveMetaSchema.safeParse(await getItem(keys.group(groupId), 'META'));
+          if (!live.success) return 'not_member';
+          return (await getMembership(groupId, userId)) ? 'conflict' : 'not_member';
+        }
+        if (failed(1)) {
+          const live = liveMetaSchema.safeParse(await getItem(keys.group(groupId), 'META'));
+          if (!live.success) return 'not_member';
+          return promote ? 'conflict' : 'last_admin';
+        }
+        throw error;
+      }
+    },
+
+    async dissolveGroup(groupId, actorId) {
+      const now = Math.floor(Date.now() / 1000);
+      try {
+        await transact([
+          adminCheck(groupId, actorId),
+          {
+            Update: {
+              TableName: tableName,
+              Key: { PK: keys.group(groupId), SK: 'META' },
+              UpdateExpression: 'SET dissolvedAt = :now, #ttl = :ttl',
+              ConditionExpression: LIVE_GROUP,
+              ExpressionAttributeNames: { '#ttl': 'ttl' },
+              ExpressionAttributeValues: {
+                ':now': new Date(now * 1000).toISOString(),
+                ':ttl': now + DISSOLVED_MARKER_TTL_SECONDS,
+              },
+            },
+          },
+        ]);
+      } catch (error) {
+        if (cancellationCodes(error)?.includes('ConditionalCheckFailed')) return 'not_allowed';
+        throw error;
+      }
+      // The group is gone for everyone from here on: every read and write requires a live META.
+      // Remove what remains; anything a failed sweep leaves behind is inert, and the marker
+      // itself expires via TTL.
+      try {
+        const items = await groupPartition(groupId);
+        const pointers = items.flatMap((item) => {
+          const hash = z.object({ tokenHash: z.string() }).safeParse(item);
+          return hash.success ? [{ PK: keys.token(hash.data.tokenHash), SK: 'INVITE' }] : [];
+        });
+        await batchDelete(pointers);
+        const rest = items.filter((item) => item.SK !== 'META');
+        await batchDelete(rest.map((item) => ({ PK: item.PK, SK: item.SK })));
+        await batchDelete([{ PK: keys.group(groupId), SK: 'META' }]);
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            message: 'Dissolve cleanup incomplete',
+            errorName: error instanceof Error ? error.name : 'UnknownError',
+          }),
+        );
+      }
+      return 'dissolved';
     },
   };
 }

@@ -12,6 +12,9 @@ locals {
     "POST /v1/groups"                                        = true
     "GET /v1/groups"                                         = true
     "GET /v1/groups/{groupId}"                               = true
+    "PATCH /v1/groups/{groupId}"                             = true
+    "DELETE /v1/groups/{groupId}"                            = true
+    "PATCH /v1/groups/{groupId}/members/{userId}"            = true
     "GET /v1/groups/{groupId}/members"                       = true
     "DELETE /v1/groups/{groupId}/members/{userId}"           = true
     "POST /v1/groups/{groupId}/leave"                        = true
@@ -37,13 +40,13 @@ data "aws_iam_policy_document" "table_access" {
     }
   }
   statement {
-    sid       = "BatchGetProfiles"
+    sid       = "BatchGetProfilesAndGroups"
     actions   = ["dynamodb:BatchGetItem"]
     resources = [var.table_arn]
     condition {
       test     = "ForAllValues:StringLike"
       variable = "dynamodb:LeadingKeys"
-      values   = ["USER#*"]
+      values   = ["USER#*", "GROUP#*"]
     }
   }
   statement {
@@ -69,6 +72,16 @@ data "aws_iam_policy_document" "table_access" {
       test     = "ForAllValues:StringLike"
       variable = "dynamodb:LeadingKeys"
       values   = ["USER#*", "GROUP#*", "INVITE#*"]
+    }
+  }
+  statement {
+    sid       = "DissolveGroupItems"
+    actions   = ["dynamodb:BatchWriteItem"]
+    resources = [var.table_arn]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["GROUP#*", "INVITE#*"]
     }
   }
   statement {

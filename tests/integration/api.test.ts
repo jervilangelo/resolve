@@ -17,6 +17,7 @@ import {
   BatchWriteItemCommand,
   type BatchWriteItemCommandOutput,
   DynamoDBClient,
+  QueryCommand,
   type WriteRequest,
 } from '@aws-sdk/client-dynamodb';
 import {
@@ -267,5 +268,46 @@ describe(`deployed membership lifecycle (${env.RESOLVE_STAGE})`, () => {
       (await api('GET', `/v1/groups/${groupId}/members`, alice)).body,
     );
     expect(remaining.items.map((m) => m.userId)).toEqual([subjectOf(alice)]);
+  });
+});
+
+describe(`deployed ownership and dissolution (${env.RESOLVE_STAGE})`, () => {
+  it('promotes, renames, transfers ownership and dissolves without leftovers', async () => {
+    const created = groupSummarySchema.parse(
+      (await api('POST', '/v1/groups', alice, { name: 'Ownership flow' })).body,
+    );
+    const groupId = created.groupId;
+    trackGroup(groupId, alice, bob);
+    const inv = createdInvitationSchema.parse(
+      (await api('POST', `/v1/groups/${groupId}/invitations`, alice, { maxUses: 2 })).body,
+    );
+    trackInvitation(groupId, inv.invitationId, inv.token);
+    await api('POST', '/v1/invitations/accept', bob, { token: inv.token });
+
+    const bobId = subjectOf(bob);
+    expect(
+      (await api('PATCH', `/v1/groups/${groupId}/members/${bobId}`, alice, { role: 'ADMIN' }))
+        .status,
+    ).toBe(204);
+    const renamed = await api('PATCH', `/v1/groups/${groupId}`, bob, { name: 'Renamed group' });
+    expect(groupSummarySchema.parse(renamed.body).name).toBe('Renamed group');
+    expect((await api('POST', `/v1/groups/${groupId}/leave`, alice)).status).toBe(204);
+    expect((await api('POST', `/v1/groups/${groupId}/leave`, bob)).status).toBe(409);
+
+    expect((await api('DELETE', `/v1/groups/${groupId}`, bob)).status).toBe(204);
+    expect((await api('GET', `/v1/groups/${groupId}`, bob)).status).toBe(404);
+    expect((await api('POST', '/v1/invitations/preview', carol, { token: inv.token })).status).toBe(
+      404,
+    );
+
+    const left = await dynamo.send(
+      new QueryCommand({
+        TableName: env.RESOLVE_TABLE_NAME,
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': { S: `GROUP#${groupId}` } },
+        ConsistentRead: true,
+      }),
+    );
+    expect(left.Count).toBe(0);
   });
 });
