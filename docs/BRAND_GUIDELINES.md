@@ -40,25 +40,25 @@ A serpent drawn as an **S** (for sin) is run through by a horizontal blade. Its 
 
 Measured contrast (WCAG): charcoal/ivory 14.3 · forest/ivory 9.0 · brass-deep/ivory 5.0 · ivory/night 16.3 · sage-light/night 10.6 · brass-light/night 8.6 · ivory/forest 9.0 · brass-light/forest 4.7 · sage/ivory **2.3** (never use for text).
 
-### Interface palette (monochrome)
+### Interface palette (slate)
 
-By owner decision (2026-11-24), the dashboard, extension and sign-in pages use a **black-and-white
-interface** with neutral greys. The brand colours above remain in the logo artwork, app icons,
-favicons and store/social images. Red is used only for errors and destructive actions. Source of
-truth: `packages/ui/tokens.css`.
+By owner decision (2026-11-24), the dashboard, extension and sign-in pages use a restrained
+**slate** interface: navy-charcoal text and buttons on soft cool-grey surfaces. The brand colours
+above remain in the logo artwork, app icons, favicons and store/social images. Red is used only for
+errors and destructive actions. Source of truth: `packages/ui/tokens.css`.
 
 ```css
 :root {
-  --rs-bg: #FFFFFF; --rs-surface: #FFFFFF; --rs-border: #E5E5E5; --rs-subtle: #F4F4F4;
-  --rs-text: #0A0A0A; --rs-text-muted: #525252;
-  --rs-primary: #0A0A0A; --rs-primary-pressed: #262626; --rs-on-primary: #FAFAFA;
-  --rs-accent: #404040; --rs-focus: #0A0A0A; --rs-danger: #B91C1C;
+  --rs-bg: #F8FAFC; --rs-surface: #FFFFFF; --rs-border: #E2E8F0; --rs-subtle: #F1F5F9;
+  --rs-text: #0F172A; --rs-text-muted: #475569;
+  --rs-primary: #0F172A; --rs-primary-pressed: #1E293B; --rs-on-primary: #F8FAFC;
+  --rs-accent: #334155; --rs-focus: #0F172A; --rs-danger: #B91C1C;
 }
 [data-theme="dark"] {
-  --rs-bg: #0A0A0A; --rs-surface: #141414; --rs-border: #262626; --rs-subtle: #1F1F1F;
-  --rs-text: #FAFAFA; --rs-text-muted: #A3A3A3;
-  --rs-primary: #FAFAFA; --rs-primary-pressed: #D4D4D4; --rs-on-primary: #0A0A0A;
-  --rs-accent: #D4D4D4; --rs-focus: #FAFAFA; --rs-danger: #F87171;
+  --rs-bg: #020617; --rs-surface: #0F172A; --rs-border: #1E293B; --rs-subtle: #1E293B;
+  --rs-text: #F1F5F9; --rs-text-muted: #94A3B8;
+  --rs-primary: #F1F5F9; --rs-primary-pressed: #CBD5E1; --rs-on-primary: #0F172A;
+  --rs-accent: #CBD5E1; --rs-focus: #CBD5E1; --rs-danger: #F87171;
 }
 ```
 

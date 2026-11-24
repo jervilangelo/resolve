@@ -7,7 +7,8 @@
 
 /*
  * Resolve design tokens (docs/BRAND_GUIDELINES.md) mapped onto shadcn/ui semantic variables.
- * The interface is monochrome (black and white with neutral greys), by owner decision 2026-11-24.
+ * The interface uses a restrained slate palette (navy-charcoal and cool greys), by owner decision
+ * 2026-11-24.
  *
  * Theme selection: an explicit `data-theme="light|dark"` attribute on <html> always wins;
  * without one, the system preference applies.
@@ -17,55 +18,55 @@
  */
 
 :root {
-  --rs-bg: #ffffff;
+  --rs-bg: #f8fafc;
   --rs-surface: #ffffff;
-  --rs-border: #e5e5e5;
-  --rs-text: #0a0a0a;
-  --rs-text-muted: #525252;
-  --rs-primary: #0a0a0a;
-  --rs-primary-pressed: #262626;
-  --rs-on-primary: #fafafa;
-  --rs-accent: #404040;
-  --rs-focus: #0a0a0a;
+  --rs-border: #e2e8f0;
+  --rs-text: #0f172a;
+  --rs-text-muted: #475569;
+  --rs-primary: #0f172a;
+  --rs-primary-pressed: #1e293b;
+  --rs-on-primary: #f8fafc;
+  --rs-accent: #334155;
+  --rs-focus: #0f172a;
   --rs-danger: #b91c1c;
-  --rs-on-danger: #fafafa;
-  --rs-subtle: #f4f4f4;
+  --rs-on-danger: #f8fafc;
+  --rs-subtle: #f1f5f9;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --rs-bg: #0a0a0a;
-    --rs-surface: #141414;
-    --rs-border: #262626;
-    --rs-text: #fafafa;
-    --rs-text-muted: #a3a3a3;
-    --rs-primary: #fafafa;
-    --rs-primary-pressed: #d4d4d4;
-    --rs-on-primary: #0a0a0a;
-    --rs-accent: #d4d4d4;
-    --rs-focus: #fafafa;
+    --rs-bg: #020617;
+    --rs-surface: #0f172a;
+    --rs-border: #1e293b;
+    --rs-text: #f1f5f9;
+    --rs-text-muted: #94a3b8;
+    --rs-primary: #f1f5f9;
+    --rs-primary-pressed: #cbd5e1;
+    --rs-on-primary: #0f172a;
+    --rs-accent: #cbd5e1;
+    --rs-focus: #cbd5e1;
     --rs-danger: #f87171;
-    --rs-on-danger: #0a0a0a;
-    --rs-subtle: #1f1f1f;
+    --rs-on-danger: #0f172a;
+    --rs-subtle: #1e293b;
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
-  --rs-bg: #0a0a0a;
-  --rs-surface: #141414;
-  --rs-border: #262626;
-  --rs-text: #fafafa;
-  --rs-text-muted: #a3a3a3;
-  --rs-primary: #fafafa;
-  --rs-primary-pressed: #d4d4d4;
-  --rs-on-primary: #0a0a0a;
-  --rs-accent: #d4d4d4;
-  --rs-focus: #fafafa;
+  --rs-bg: #020617;
+  --rs-surface: #0f172a;
+  --rs-border: #1e293b;
+  --rs-text: #f1f5f9;
+  --rs-text-muted: #94a3b8;
+  --rs-primary: #f1f5f9;
+  --rs-primary-pressed: #cbd5e1;
+  --rs-on-primary: #0f172a;
+  --rs-accent: #cbd5e1;
+  --rs-focus: #cbd5e1;
   --rs-danger: #f87171;
-  --rs-on-danger: #0a0a0a;
-  --rs-subtle: #1f1f1f;
+  --rs-on-danger: #0f172a;
+  --rs-subtle: #1e293b;
   color-scheme: dark;
 }
 
