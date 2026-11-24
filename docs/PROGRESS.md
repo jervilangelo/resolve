@@ -9,8 +9,8 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-24 · **Current:** Phase 8 complete; Phase 9 (QA, security, privacy and
-cross-browser validation) next
+**Last updated:** 2026-11-24 · **Current:** Phase 9 complete except two checks that need an AWS
+session; Phase 10 (beta and release) next
 
 ## Phase status
 
@@ -24,8 +24,9 @@ cross-browser validation) next
 | 6 — On-device AI media protection     | Done        | NSFWJS on-device blur (Chromium); FN rate to be measured on an owner dataset |
 | 7 — Voluntary accountability          | Done        | Sharing modes, recipient consent, server-side resolver; dashboard UI         |
 | 8 — Two notification triggers         | Done        | Blocked-visit + departure alerts: outbox → SQS → worker → SES, consent-checked |
-| **9 — QA, security, privacy**         | **Next**    | Cross-browser validation, security/privacy review                            |
-| 10–11                                 | Not started | Beta, Focus Mode                                                             |
+| 9 — QA, security, privacy             | Done        | Reports in docs/qa; 2 live checks pending an AWS session (see Next steps)    |
+| **10 — Beta and release**             | **Next**    | SES production, prod stack, privacy pages, store packaging                   |
+| 11                                    | Not started | Focus Mode                                                                   |
 
 ## What exists and works (verified)
 
@@ -105,6 +106,16 @@ cross-browser validation) next
   unit tests (API 72, worker 11, extension 44), live integration (11) and a real-Chromium run
   (blocked visit → exactly one email to the consenting recipient; repeat within cooldown: none).
   SES is in sandbox: real emails reach only verified addresses until production access.
+- **QA, security and privacy (Phase 9):** docs/qa/ holds the test report (requirement-by-
+  requirement evidence), threat model, data inventory and retention review, runbooks, backlog and
+  release checklist. CI now also runs `pnpm audit` (fails on high/critical) and a Checkov IaC
+  scan (accepted exceptions with reasons in `infrastructure/terraform/.checkov.yaml`); WCAG 2.1
+  A/AA axe tests cover public pages and extension pages; a log-privacy test proves no domain, URL,
+  name or token reaches logs. The extension suite passes in Chromium, Edge 158 and Brave 1.100
+  (`RESOLVE_E2E_BROWSER=msedge|brave`). Two adversarial Claude reviews found no critical/high
+  issues; 15 medium/low findings were fixed, notably stricter Trigger A qualification (no alerts
+  for page-initiated redirects, pop-ups, restored/discarded tabs or reloads) and no retroactive or
+  duplicate emails.
 - **Whole-system review (2026-11-24, Claude reviewers per area):** no critical or high findings.
   Fixed: media re-reads no longer hit the HTTP disk cache, fetch/classify timeouts and a streamed
   size cap, late video verdicts can't unblur a new source, fair video sampling, rules removed at
@@ -116,20 +127,21 @@ cross-browser validation) next
 
 ## Next steps
 
-1. Phase 9 — QA, security, privacy and cross-browser validation (roadmap): permission and data
-   audits, Brave/Edge runs, accessibility, load and failure drills, privacy policy.
-2. SES production access + a verified sender domain (SPF/DKIM/DMARC) before real users; until then
-   alert emails reach only verified addresses. Bounce/complaint handling to follow with it.
-3. Extension popup: show the current sharing mode and warn when alerts are off while sharing.
-4. Owner: measure the media filter's false-negative rate on a private labelled dataset
-   (`node apps/extension/scripts/evaluate-model.ts <dir>`) and record it in AI_FILTER_EVALUATION.md.
-5. Review leftovers (low): dissolve janitor, leave/remove race answering 404 instead of 409,
-   `returnTo` after an API 401, server-side dates in UTC, Cognito `error` on the callback.
-6. Carry-overs: per-user group quota, dashboard revoked-token handling, idempotency request
-   fingerprint, group picture upload, branded block page, Firefox adapters (enforcement, media
-   filter, alerts, sign-in), media filter memory profiling and open shadow DOM.
+1. Needs `aws login` first: run the signed-in dashboard accessibility audit and re-run the Trigger A
+   real-browser flow against the stricter rules (scripts in the session scratchpad; see
+   docs/qa/TEST_REPORT.md "Open items"), then record the results in TEST_REPORT.md.
+2. Phase 10 — beta and release (roadmap): "Before beta" items in docs/qa/BACKLOG.md (SES production
+   access and domain, production stack with a deploy-role boundary, privacy/terms pages,
+   self-service deletion, manual Chrome check), then docs/qa/RELEASE_CHECKLIST.md.
+3. Owner: media filter false-negative measurement on a private labelled dataset.
+4. Remaining gaps and polish: docs/qa/BACKLOG.md.
 
 ## Decisions log
+
+- 2026-11-24: Trigger A favours missing an alert over a false one: no report for navigations a
+  page starts within 5 s of loading, pop-ups, restored/discarded tabs or block-page reloads, and
+  none in the 20 s after browser start. Names may not contain links, web or email addresses.
+  Accepted IaC scan exceptions are documented and revisited before production.
 
 - 2026-11-24: Alerts: blocked-visit reporting uses `webNavigation` as an optional permission
   (Chrome words it "read your browsing history"), requested only on opt-in. Departure emails use
