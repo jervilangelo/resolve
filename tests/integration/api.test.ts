@@ -5,7 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
   AdminCreateUserCommand,
   AdminDeleteUserCommand,
@@ -21,9 +21,11 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import {
   apiErrorResponseSchema,
+  createdInvitationSchema,
   groupListSchema,
   groupSummarySchema,
   healthResponseSchema,
+  memberListSchema,
   profileSchema,
 } from '@resolve/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -117,10 +119,18 @@ async function api(method: string, path: string, token?: string, body?: unknown)
 
 let alice = '';
 let bob = '';
+let carol = '';
 
 beforeAll(async () => {
-  [alice, bob] = await Promise.all([createUser(), createUser()]);
+  [alice, bob, carol] = await Promise.all([createUser(), createUser(), createUser()]);
 }, 60_000);
+
+/** Tracks both invitation items (group-scoped record and hashed-token pointer) for cleanup. */
+function trackInvitation(groupId: string, invitationId: string, token: string) {
+  const hash = createHash('sha256').update(token).digest('hex');
+  fixtures.push({ PK: `GROUP#${groupId}`, SK: `INVITE#${invitationId}` });
+  fixtures.push({ PK: `INVITE#${hash}`, SK: 'INVITE' });
+}
 
 afterAll(async () => {
   try {
@@ -199,5 +209,63 @@ describe(`deployed API (${env.RESOLVE_STAGE})`, () => {
     const res = await api('POST', '/v1/groups', alice, { name: '', extra: true });
     expect(res.status).toBe(422);
     expect(apiErrorResponseSchema.parse(res.body).error.code).toBe('VALIDATION_FAILED');
+  });
+});
+
+describe(`deployed membership lifecycle (${env.RESOLVE_STAGE})`, () => {
+  it('invites, joins, lists, removes and leaves with role checks', async () => {
+    const created = groupSummarySchema.parse(
+      (await api('POST', '/v1/groups', alice, { name: 'Membership flow' })).body,
+    );
+    const groupId = created.groupId;
+    trackGroup(groupId, alice, bob, carol);
+
+    const invite = async () => {
+      const res = await api('POST', `/v1/groups/${groupId}/invitations`, alice, {});
+      expect(res.status).toBe(201);
+      const inv = createdInvitationSchema.parse(res.body);
+      trackInvitation(groupId, inv.invitationId, inv.token);
+      return inv;
+    };
+
+    const first = await invite();
+    expect((await api('POST', '/v1/invitations/preview', bob, { token: first.token })).status).toBe(
+      200,
+    );
+    expect((await api('POST', '/v1/invitations/accept', bob, { token: first.token })).status).toBe(
+      201,
+    );
+    // Single use, and members cannot manage the group.
+    expect(
+      (await api('POST', '/v1/invitations/accept', carol, { token: first.token })).status,
+    ).toBe(404);
+    expect((await api('POST', `/v1/groups/${groupId}/invitations`, bob, {})).status).toBe(403);
+
+    const second = await invite();
+    expect(
+      (await api('POST', '/v1/invitations/accept', carol, { token: second.token })).status,
+    ).toBe(201);
+
+    const list = memberListSchema.parse(
+      (await api('GET', `/v1/groups/${groupId}/members`, bob)).body,
+    );
+    expect(list.items.map((m) => m.role).sort()).toEqual(['ADMIN', 'MEMBER', 'MEMBER']);
+
+    const carolId = subjectOf(carol);
+    expect(
+      (await api('DELETE', `/v1/groups/${groupId}/members/${subjectOf(alice)}`, bob)).status,
+    ).toBe(403);
+    expect((await api('DELETE', `/v1/groups/${groupId}/members/${carolId}`, alice)).status).toBe(
+      204,
+    );
+    expect((await api('GET', `/v1/groups/${groupId}/members`, carol)).status).toBe(404);
+
+    expect((await api('POST', `/v1/groups/${groupId}/leave`, bob)).status).toBe(204);
+    expect((await api('POST', `/v1/groups/${groupId}/leave`, alice)).status).toBe(409);
+
+    const remaining = memberListSchema.parse(
+      (await api('GET', `/v1/groups/${groupId}/members`, alice)).body,
+    );
+    expect(remaining.items.map((m) => m.userId)).toEqual([subjectOf(alice)]);
   });
 });

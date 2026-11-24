@@ -6,37 +6,80 @@
 locals {
   # Must match the route keys in services/api/src/routes.ts.
   routes = {
-    "GET /v1/health"           = false
-    "GET /v1/me"               = true
-    "PATCH /v1/me"             = true
-    "POST /v1/groups"          = true
-    "GET /v1/groups"           = true
-    "GET /v1/groups/{groupId}" = true
+    "GET /v1/health"                                         = false
+    "GET /v1/me"                                             = true
+    "PATCH /v1/me"                                           = true
+    "POST /v1/groups"                                        = true
+    "GET /v1/groups"                                         = true
+    "GET /v1/groups/{groupId}"                               = true
+    "GET /v1/groups/{groupId}/members"                       = true
+    "DELETE /v1/groups/{groupId}/members/{userId}"           = true
+    "POST /v1/groups/{groupId}/leave"                        = true
+    "POST /v1/groups/{groupId}/invitations"                  = true
+    "GET /v1/groups/{groupId}/invitations"                   = true
+    "DELETE /v1/groups/{groupId}/invitations/{invitationId}" = true
+    "POST /v1/invitations/preview"                           = true
+    "POST /v1/invitations/accept"                            = true
   }
 }
 
-# Only what the current routes use; widen together with new routes. Writes are limited to user
-# and group partitions, so the API cannot touch outbox items directly.
+# Only what the current routes use, scoped by partition-key prefix; widen together with new routes.
+# The API cannot touch outbox items directly.
 data "aws_iam_policy_document" "table_access" {
   statement {
-    sid       = "ReadTable"
+    sid       = "GetUserGroupAndInvitationItems"
     actions   = ["dynamodb:GetItem"]
-    resources = [var.table_arn]
-  }
-  statement {
-    sid       = "WriteUserAndGroupItems"
-    actions   = ["dynamodb:PutItem"]
     resources = [var.table_arn]
     condition {
       test     = "ForAllValues:StringLike"
       variable = "dynamodb:LeadingKeys"
-      values   = ["USER#*", "GROUP#*"]
+      values   = ["USER#*", "GROUP#*", "INVITE#*"]
+    }
+  }
+  statement {
+    sid       = "BatchGetProfiles"
+    actions   = ["dynamodb:BatchGetItem"]
+    resources = [var.table_arn]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["USER#*"]
+    }
+  }
+  statement {
+    sid       = "QueryGroupPartitions"
+    actions   = ["dynamodb:Query"]
+    resources = [var.table_arn]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["GROUP#*"]
     }
   }
   statement {
     sid       = "QueryMembershipIndex"
     actions   = ["dynamodb:Query"]
     resources = ["${var.table_arn}/index/GSI1"]
+  }
+  statement {
+    sid       = "PutUserGroupAndInvitationItems"
+    actions   = ["dynamodb:PutItem"]
+    resources = [var.table_arn]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["USER#*", "GROUP#*", "INVITE#*"]
+    }
+  }
+  statement {
+    sid       = "ChangeGroupAndInvitationItems"
+    actions   = ["dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:ConditionCheckItem"]
+    resources = [var.table_arn]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["GROUP#*", "INVITE#*"]
+    }
   }
 }
 

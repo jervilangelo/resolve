@@ -16,7 +16,10 @@ const REFRESH_MARGIN_SECONDS = 120;
 /** Sends GET navigations to sign-in; optionally drops the session first. */
 function toLogin(request: NextRequest, clear: boolean) {
   const { secure, names } = authConfig();
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
+  // /invite keeps its token in the URL fragment, which a redirect would lose; the page starts
+  // sign-in itself after stashing the token.
+  const selfHandled = request.nextUrl.pathname === '/invite';
+  if (selfHandled || (request.method !== 'GET' && request.method !== 'HEAD')) {
     // Server-action POSTs continue to the action, which redirects to sign-in itself (a 307 here
     // would replay the POST against the GET-only login route). When the session is dropped, the
     // action must not see the old cookies either.
@@ -62,4 +65,4 @@ export async function proxy(request: NextRequest) {
   }
 }
 
-export const config = { matcher: ['/dashboard/:path*'] };
+export const config = { matcher: ['/dashboard/:path*', '/invite'] };

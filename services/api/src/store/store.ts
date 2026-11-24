@@ -33,6 +33,35 @@ export interface CreateGroupInput {
   idempotencyKey?: string;
 }
 
+export interface StoredMember {
+  userId: string;
+  displayName: string | null;
+  role: GroupRole;
+  joinedAt: string;
+}
+
+export interface StoredInvitation {
+  invitationId: string;
+  groupId: string;
+  createdAt: string;
+  expiresAt: string;
+  maxUses: number;
+  uses: number;
+}
+
+export interface CreateInvitationInput extends StoredInvitation {
+  tokenHash: string;
+  createdBy: string;
+}
+
+export type AcceptResult =
+  | { status: 'joined'; groupId: string; groupName: string; groupCreatedAt: string }
+  | { status: 'already_member'; groupId: string }
+  | { status: 'invalid' }
+  | { status: 'full' };
+
+export type RemoveResult = 'removed' | 'not_member' | 'last_admin' | 'not_allowed';
+
 export interface Page<T> {
   items: T[];
   nextCursor: string | null;
@@ -48,6 +77,29 @@ export interface Store {
   getMembership(groupId: string, userId: string): Promise<StoredMembership | null>;
   /** Throws InvalidCursorError for cursors that are malformed or belong to another user. */
   listMemberships(userId: string, limit: number, cursor?: string): Promise<Page<StoredMembership>>;
+
+  /** Strongly consistent; includes each member's display name. */
+  listMembers(groupId: string, limit: number, cursor?: string): Promise<Page<StoredMember>>;
+  createInvitation(input: CreateInvitationInput): Promise<void>;
+  listInvitations(groupId: string, now: string): Promise<StoredInvitation[]>;
+  /** Looks up a usable (unexpired, not used up) invitation by token hash. */
+  findInvitation(
+    tokenHash: string,
+    now: string,
+  ): Promise<(StoredInvitation & { groupName: string }) | null>;
+  revokeInvitation(groupId: string, invitationId: string): Promise<boolean>;
+  /** Atomically adds the member, counts the use and enforces expiry, use and group limits. */
+  acceptInvitation(
+    tokenHash: string,
+    userId: string,
+    now: string,
+    maxMembers: number,
+  ): Promise<AcceptResult>;
+  /**
+   * Removes a membership. `self` = leaving; otherwise `actorId` must be an admin and the target a
+   * member. The last admin can never be removed or leave.
+   */
+  removeMember(groupId: string, userId: string, actorId: string): Promise<RemoveResult>;
 }
 
 export class InvalidCursorError extends Error {
