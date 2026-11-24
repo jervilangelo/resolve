@@ -81,6 +81,21 @@ export async function readSession(store: CookieReader) {
   return session.sid === refresh.sid ? { session, refresh } : null;
 }
 
+/**
+ * Whether the visitor is signed in, for public chrome such as the site header. Without a session
+ * cookie it never touches server configuration, and any failure counts as signed out, so public
+ * pages render even where authentication is not configured.
+ */
+export async function isSignedIn(): Promise<boolean> {
+  const jar = await cookies();
+  if (!['rs_session', '__Host-rs_session'].some((name) => jar.has(name))) return false;
+  try {
+    return (await getSession()) !== null;
+  } catch {
+    return false;
+  }
+}
+
 /** The current session for server components and actions (refreshed by proxy.ts). */
 export async function getSession(): Promise<Session | null> {
   return (await readSession(await cookies()))?.session ?? null;

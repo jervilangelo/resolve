@@ -8,10 +8,10 @@
 import Link from 'next/link';
 import { HeaderAction } from '@/components/header-action';
 import { Logo } from '@/components/logo';
-import { getSession } from '@/lib/auth';
+import { isSignedIn } from '@/lib/auth';
 
 export async function SiteHeader() {
-  const signedIn = (await getSession()) !== null;
+  const signedIn = await isSignedIn();
   return (
     <header className="border-b">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
