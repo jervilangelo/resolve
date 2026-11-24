@@ -250,6 +250,18 @@ export function createAuth(config: ExtensionConfig, platform: AuthPlatform) {
         .applied;
     },
 
+    /** Clears the active group only if this sign-in still has exactly `groupId` selected. */
+    async clearActiveGroupIf(sid: string, groupId: string): Promise<boolean> {
+      let cleared = false;
+      await store.update(SESSION_KEY, (raw) => {
+        const current = parseSession(raw);
+        if (current?.sid !== sid || current.activeGroupId !== groupId) return raw;
+        cleared = true;
+        return { ...current, activeGroupId: null };
+      });
+      return cleared;
+    },
+
     async revocationPending(): Promise<boolean> {
       return unexpired(await store.get(PENDING_REVOCATIONS_KEY)).length > 0;
     },

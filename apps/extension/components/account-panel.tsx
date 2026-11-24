@@ -14,6 +14,50 @@ const buttonClass =
 const secondaryClass =
   'w-full rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-60 hover:bg-muted';
 
+function ago(timestamp: number): string {
+  const minutes = Math.max(0, Math.round((Date.now() - timestamp) / 60_000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${String(minutes)} min ago`;
+  return `${String(Math.round(minutes / 60))} h ago`;
+}
+
+function ProtectionLine({
+  protection,
+  onRetry,
+  busy,
+}: {
+  protection: AccountState extends infer S
+    ? S extends { state: 'signedIn'; protection: infer P }
+      ? P
+      : never
+    : never;
+  onRetry: () => void;
+  busy: boolean;
+}) {
+  if (protection.state === 'off') return null;
+  if (protection.state === 'starting') {
+    return <p className="text-muted-foreground text-xs">Domain protection: turning on…</p>;
+  }
+  if (protection.state === 'error') {
+    return (
+      <div role="alert" className="text-destructive space-y-1 text-xs">
+        <p>Domain protection could not be turned on. Websites are not being blocked.</p>
+        <button type="button" className="underline" disabled={busy} onClick={onRetry}>
+          Try again
+        </button>
+      </div>
+    );
+  }
+  const when = protection.syncedAt ? ` · rules updated ${ago(protection.syncedAt)}` : '';
+  return protection.state === 'stale' ? (
+    <p role="status" className="text-destructive text-xs">
+      Domain protection: on, but rules could not be updated recently{when}. Check your connection.
+    </p>
+  ) : (
+    <p className="text-muted-foreground text-xs">Domain protection: on{when}</p>
+  );
+}
+
 /** Account and active-group controls; all state comes from the background worker. */
 export function AccountPanel() {
   const [account, setAccount] = useState<AccountState | null>(null);
@@ -115,6 +159,13 @@ export function AccountPanel() {
             This browser follows one group&apos;s protection settings at a time.
           </p>
         </div>
+      )}
+      {account.activeGroupId && (
+        <ProtectionLine
+          protection={account.protection}
+          busy={busy}
+          onRetry={() => void run(() => send({ type: 'protection/retry' }))}
+        />
       )}
       {error}
       <div className="flex gap-2">

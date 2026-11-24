@@ -18,6 +18,7 @@ export const requestSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('account/get') }),
   z.strictObject({ type: z.literal('account/signIn') }),
   z.strictObject({ type: z.literal('account/signOut') }),
+  z.strictObject({ type: z.literal('protection/retry') }),
   z.strictObject({ type: z.literal('group/setActive'), groupId: groupIdSchema.nullable() }),
 ]);
 export type Request = z.infer<typeof requestSchema>;
@@ -51,6 +52,11 @@ export const accountStateSchema = z.discriminatedUnion('state', [
     groupsLoaded: z.boolean(),
     /** The one group this installation protects for (MVP: one per installation). */
     activeGroupId: groupIdSchema.nullable(),
+    /** Domain protection for the active group: off, on, or on with stale rules. */
+    protection: z.strictObject({
+      state: z.enum(['off', 'starting', 'on', 'stale', 'error']),
+      syncedAt: z.number().nullable(),
+    }),
     dashboardUrl: z.url(),
     error: z.string().optional(),
   }),
@@ -62,6 +68,7 @@ export interface ResponseMap {
   'account/get': AccountState;
   'account/signIn': AccountState;
   'account/signOut': AccountState;
+  'protection/retry': AccountState;
   'group/setActive': AccountState;
 }
 
@@ -70,6 +77,7 @@ export const responseSchemas = {
   'account/get': accountStateSchema,
   'account/signIn': accountStateSchema,
   'account/signOut': accountStateSchema,
+  'protection/retry': accountStateSchema,
   'group/setActive': accountStateSchema,
 } as const;
 

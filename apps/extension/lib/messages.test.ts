@@ -17,10 +17,12 @@ describe('runtime messages', () => {
     expect(parseRequest('status/get')).toBeNull();
   });
 
-  it('reports every feature, none available before it ships', () => {
+  it('reports every feature, available only once it ships', () => {
     const status = buildStatus('1.0.0');
     expect(statusSchema.parse(status)).toEqual(status);
     expect(status.features.map((f) => f.id).sort()).toEqual([...featureIdSchema.options].sort());
-    expect(status.features.every((f) => !f.available)).toBe(true);
+    expect(status.features.filter((f) => f.available).map((f) => f.id)).toEqual([
+      'domain-protection',
+    ]);
   });
 });

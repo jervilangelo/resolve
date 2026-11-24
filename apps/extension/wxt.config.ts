@@ -47,8 +47,9 @@ function hostPermissions(settings: Record<string, string>): string[] {
 
 // Chrome, Brave and Edge share the Chromium MV3 build; Firefox gets its own MV3 build (`-b firefox`).
 // Permissions are added only with the features that need them (docs/MASTER_PLAN.md §13):
-// `identity` for Cognito sign-in. Session data lives in the extension origin's IndexedDB, which
-// needs no permission and, unlike chrome.storage, is unreachable from content scripts.
+// `identity` for Cognito sign-in; `declarativeNetRequest` to block group domains (block/allow
+// rules need no host access); `alarms` for periodic rule sync. Session data lives in the extension
+// origin's IndexedDB, which needs no permission and is unreachable from content scripts.
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifestVersion: 3,
@@ -59,7 +60,7 @@ export default defineConfig({
   manifest: ({ browser, mode }) => ({
     name: 'Resolve',
     description: 'In development: privacy-first browser protection and voluntary accountability.',
-    permissions: ['identity'],
+    permissions: ['identity', 'declarativeNetRequest', 'alarms'],
     host_permissions: hostPermissions(loadSettings(mode)),
     // Development builds use a fixed public key so the unpacked extension ID (and therefore its
     // registered Cognito callback) is stable. Store builds get their ID from the store.

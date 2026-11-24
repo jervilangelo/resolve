@@ -30,7 +30,8 @@ function Options() {
         </section>
         <p className="text-muted-foreground text-sm">
           Resolve is a supporting tool. Browser protection can be bypassed and AI classification can
-          make mistakes.
+          make mistakes. Domain protection blocks page loads that go to the network; pages a site
+          has stored for offline use may still open, and only this browser is covered.
         </p>
       </main>
     </div>

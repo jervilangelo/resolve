@@ -50,6 +50,9 @@ importers:
       '@resolve/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@resolve/domain-policy':
+        specifier: workspace:*
+        version: link:../../packages/domain-policy
       '@resolve/ui':
         specifier: workspace:*
         version: link:../../packages/ui

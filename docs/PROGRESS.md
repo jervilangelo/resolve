@@ -9,7 +9,7 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-24 · **Current:** Phase 5 in progress (5a policy engine and 5b API/dashboard done; 5c extension enforcement next)
+**Last updated:** 2026-11-24 · **Current:** Phase 5 complete; Phase 6 (on-device AI media protection) next
 
 ## Phase status
 
@@ -19,8 +19,9 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 | 2 — Repository and engineering        | Done        | Monorepo, web, extension, contracts, CI, E2E                                 |
 | 3 — AWS infrastructure and backend    | Done        | Dev deployed; CI deploy pipeline live; acceptance tests pass                 |
 | 4 — Accounts and groups               | Done        | Dashboard + extension sign-in, groups, invites, roles, active group          |
-| **5 — Domain protection**             | **Active**  | 5a engine + 5b API/dashboard done. Next: 5c extension enforcement            |
-| 6–10                                  | Not started | AI blur, accountability, notifications, QA, beta                             |
+| 5 — Domain protection                 | Done        | Policy engine, blocklist API/UI, extension enforcement (Chromium DNR)        |
+| **6 — On-device AI media protection** | **Next**    | Local image/video classification and blur; no media uploads                  |
+| 7–11                                  | Not started | Accountability, notifications, QA, beta, Focus Mode                          |
 
 ## What exists and works (verified)
 
@@ -59,17 +60,24 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
   (1000 per group) with an audit trail; `GET /v1/extension/rules` serves versioned snapshots to the
   extension client only (lists live as string sets on the group META item). Dashboard: blocked
   websites section (admin list, reclassify, remove, recent changes; member submit-only).
+- **Extension enforcement (Phase 5c):** two declarativeNetRequest block rules (non-negotiable,
+  additional; page and frame navigations; essentials excluded inside each rule so Focus Mode can
+  later use its own range ≥100000). Rules sync on sign-in, group switch, startup and every 15 min,
+  are cached and restored offline, and are removed on sign-out or loss of membership. Popup shows
+  on / stale / error (with retry). Verified in real Chromium: blocked/allowed matrix incl. Google
+  sign-in, Gmail, Drive and YouTube reachable with google.com blocked.
 - **Checks:** `pnpm check`, `pnpm build`, `pnpm e2e`, `pnpm integration` all passing at pause.
 
-## Next steps (Phase 5 — domain protection)
+## Next steps (Phase 6 — on-device AI media protection)
 
-1. Done: policy engine (5a); domain API, admin console and member submission (5b).
-2. **Next — 5c:** extension enforcement with Chromium declarativeNetRequest (essential allow rules
-   above group blocks; page and frame navigations only; rule IDs reserved per category so a future
-   Focus Mode range stays isolated), versioned rule sync from `/v1/extension/rules`, cached
-   snapshot for offline enforcement with stale-sync status, clearing on group switch or sign-out.
-3. Carry-overs: per-user group quota, revoked-token handling for the dashboard, idempotency request
-   fingerprint, group picture upload, a janitor for interrupted dissolves, branded block page.
+1. Model spike: evaluate an on-device classifier (e.g. NSFWJS + TensorFlow.js or an alternative)
+   for size, speed, accuracy and false positives; decide before integrating.
+2. Content script (runtime-registered) that observes images and feasible video frames, classifies
+   locally, and blurs; zero media uploads (verify with network tests); CPU/GPU budgets.
+3. Options: on/off and sensitivity with clear risk language.
+4. Carry-overs: per-user group quota, dashboard revoked-token handling, idempotency request
+   fingerprint, group picture upload, dissolve janitor, branded block page (needs host access),
+   Firefox enforcement adapter (with Firefox sign-in).
 
 ## Decisions log
 
