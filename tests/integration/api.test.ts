@@ -14,6 +14,7 @@ import {
   CognitoIdentityProviderClient,
 } from '@aws-sdk/client-cognito-identity-provider';
 import {
+  GetItemCommand,
   BatchWriteItemCommand,
   type BatchWriteItemCommandOutput,
   DynamoDBClient,
@@ -31,6 +32,7 @@ import {
   healthResponseSchema,
   memberListSchema,
   profileSchema,
+  accountabilityViewSchema,
 } from '@resolve/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -405,6 +407,69 @@ describe(`deployed domain protection (${env.RESOLVE_STAGE})`, () => {
     expect(after.ruleVersion).toBe(rules.ruleVersion + 2);
     expect((await api('GET', `/v1/extension/rules?groupId=${groupId}`, carol)).status).toBe(404);
 
+    expect((await api('DELETE', `/v1/groups/${groupId}`, alice)).status).toBe(204);
+  });
+});
+
+describe(`deployed accountability (${env.RESOLVE_STAGE})`, () => {
+  it('keeps sharing private by default, needs recipient consent, and clears it on leave', async () => {
+    const created = groupSummarySchema.parse(
+      (await api('POST', '/v1/groups', alice, { name: 'Accountability flow' })).body,
+    );
+    const groupId = created.groupId;
+    trackGroup(groupId, alice, bob, carol);
+    for (const user of [bob, carol]) {
+      const inv = createdInvitationSchema.parse(
+        (await api('POST', `/v1/groups/${groupId}/invitations`, alice, {})).body,
+      );
+      trackInvitation(groupId, inv.invitationId, inv.token);
+      expect((await api('POST', '/v1/invitations/accept', user, { token: inv.token })).status).toBe(
+        201,
+      );
+    }
+    const [aliceId, bobId, carolId] = [alice, bob, carol].map(subjectOf);
+    const base = `/v1/groups/${groupId}/accountability`;
+    const view = async (token: string) =>
+      accountabilityViewSchema.parse((await api('GET', base, token)).body);
+
+    expect((await view(bob)).sharing.mode).toBe('PRIVATE');
+
+    // Bob shares with Carol only; Carol must agree before anything reaches her.
+    expect(
+      (await api('PUT', `${base}/sharing`, bob, { mode: 'SELECTED', recipientIds: [carolId] }))
+        .status,
+    ).toBe(200);
+    expect((await view(carol)).senders).toEqual([
+      expect.objectContaining({ userId: bobId, status: 'needs_consent' }),
+    ]);
+    expect((await view(alice)).senders).toEqual([]); // admins see nothing of it
+    expect((await api('PUT', `${base}/senders/${bobId}`, carol)).status).toBe(200);
+    expect((await view(bob)).recipients).toEqual([
+      expect.objectContaining({ userId: carolId, status: 'receiving' }),
+    ]);
+
+    // EVERYONE + Alice accepting everyone; Carol withdraws.
+    await api('PUT', `${base}/sharing`, bob, { mode: 'EVERYONE', recipientIds: [] });
+    await api('PUT', `${base}/receiving`, alice, { acceptAll: true });
+    await api('DELETE', `${base}/senders/${bobId}`, carol);
+    const bobView = await view(bob);
+    expect(bobView.recipients.find((r) => r.userId === aliceId)?.status).toBe('receiving');
+    expect(bobView.recipients.find((r) => r.userId === carolId)?.status).toBe('awaiting');
+
+    // Leaving deletes Bob's own sharing and consent items in the same transaction.
+    expect((await api('POST', `/v1/groups/${groupId}/leave`, bob)).status).toBe(204);
+    for (const SK of [`SHARE#${bobId}`, `CONSENT#${bobId}`]) {
+      const item = await dynamo.send(
+        new GetItemCommand({
+          TableName: env.RESOLVE_TABLE_NAME,
+          Key: { PK: { S: `GROUP#${groupId}` }, SK: { S: SK } },
+          ConsistentRead: true,
+        }),
+      );
+      expect(item.Item).toBeUndefined();
+    }
+
+    // Dissolving sweeps the rest (consent items and their audit records included).
     expect((await api('DELETE', `/v1/groups/${groupId}`, alice)).status).toBe(204);
   });
 });

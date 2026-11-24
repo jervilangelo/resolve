@@ -5,6 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
+export * from './accountability';
 export * from './api';
 export * from './domain';
 export * from './env';

@@ -14,6 +14,8 @@ import {
   type DomainAuditEntry,
   type StoredDomain,
   type StoredProfile,
+  type StoredConsent,
+  type StoredSharing,
 } from './store';
 
 interface MemoryMembership extends StoredMembership {
@@ -32,6 +34,17 @@ export function createMemoryStore(): Store {
   const ruleVersions = new Map<string, number>();
   const rateCounters = new Map<string, number>();
   const audit: (DomainAuditEntry & { groupId: string })[] = [];
+  /** Keyed by memberKey(groupId, userId). */
+  const sharing = new Map<string, StoredSharing>();
+  const consents = new Map<string, StoredConsent>();
+  const liveMember = (groupId: string, userId: string) =>
+    groups.has(groupId) && memberships.has(memberKey(groupId, userId));
+  const inGroup = <T>(map: Map<string, T>, groupId: string) =>
+    new Map(
+      [...map]
+        .filter(([key]) => key.startsWith(`${groupId}#`))
+        .map(([key, value]) => [key.slice(groupId.length + 1), value]),
+    );
   const bump = (groupId: string) => ruleVersions.set(groupId, (ruleVersions.get(groupId) ?? 0) + 1);
 
   const memberKey = (groupId: string, userId: string) => `${groupId}#${userId}`;
@@ -210,6 +223,8 @@ export function createMemoryStore(): Store {
       }
       group.memberCount -= 1;
       memberships.delete(memberKey(groupId, userId));
+      sharing.delete(memberKey(groupId, userId));
+      consents.delete(memberKey(groupId, userId));
       return Promise.resolve('removed' as const);
     },
     renameGroup: (groupId, name, actorId) => {
@@ -244,6 +259,9 @@ export function createMemoryStore(): Store {
       for (const [key, m] of memberships) if (m.groupId === groupId) memberships.delete(key);
       for (const [id, inv] of invitations) if (inv.groupId === groupId) invitations.delete(id);
       for (const [key, d] of domains) if (d.groupId === groupId) domains.delete(key);
+      for (const map of [sharing, consents]) {
+        for (const key of map.keys()) if (key.startsWith(`${groupId}#`)) map.delete(key);
+      }
       return Promise.resolve('dissolved' as const);
     },
     addDomain: (input) => {
@@ -340,6 +358,32 @@ export function createMemoryStore(): Store {
           .map((d) => d.domain)
           .sort(),
       });
+    },
+    getAccountability: (groupId) =>
+      Promise.resolve({ sharing: inGroup(sharing, groupId), consents: inGroup(consents, groupId) }),
+    setSharing: (groupId, userId, mode, recipientIds, at) => {
+      if (!liveMember(groupId, userId)) return Promise.resolve('not_allowed' as const);
+      sharing.set(memberKey(groupId, userId), {
+        mode,
+        recipients: Object.fromEntries(recipientIds.map((id) => [id, at])),
+        updatedAt: at,
+      });
+      return Promise.resolve('saved' as const);
+    },
+    setAcceptAll: (groupId, userId, acceptAll) => {
+      if (!liveMember(groupId, userId)) return Promise.resolve('not_allowed' as const);
+      const key = memberKey(groupId, userId);
+      consents.set(key, { senders: {}, ...consents.get(key), acceptAll });
+      return Promise.resolve('saved' as const);
+    },
+    setSenderConsent: (groupId, recipientId, senderId, accepted, at) => {
+      if (!liveMember(groupId, recipientId)) return Promise.resolve('not_allowed' as const);
+      const key = memberKey(groupId, recipientId);
+      const current = consents.get(key) ?? { acceptAll: false, senders: {} };
+      const others = Object.entries(current.senders).filter(([id]) => id !== senderId);
+      const senders = Object.fromEntries(accepted ? [...others, [senderId, at]] : others);
+      consents.set(key, { ...current, senders });
+      return Promise.resolve('saved' as const);
     },
   };
   return store;

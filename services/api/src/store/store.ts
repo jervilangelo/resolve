@@ -5,7 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-import type { DomainType, GroupRole } from '@resolve/contracts';
+import type { DomainType, GroupRole, SharingMode } from '@resolve/contracts';
 
 export interface StoredProfile {
   displayName: string | null;
@@ -91,6 +91,22 @@ export interface RuleState {
   additional: string[];
 }
 
+/** A member's own sharing choice; `recipients` maps each selected member to when they were chosen. */
+export interface StoredSharing {
+  mode: SharingMode;
+  recipients: Record<string, string>;
+  updatedAt: string | null;
+}
+
+/** A member's own consent; `senders` maps each accepted sender to when they were accepted. */
+export interface StoredConsent {
+  acceptAll: boolean;
+  senders: Record<string, string>;
+}
+
+/** Writes need the caller to be a member of a live group when they commit. */
+export type AccountabilityWrite = 'saved' | 'not_allowed';
+
 export interface Page<T> {
   items: T[];
   nextCursor: string | null;
@@ -131,7 +147,8 @@ export interface Store {
   ): Promise<AcceptResult>;
   /**
    * Removes a membership. `self` = leaving; otherwise `actorId` must be an admin and the target a
-   * member. The last admin can never be removed or leave.
+   * member. The last admin can never be removed or leave. The member's own sharing choice and
+   * consent in the group are deleted with it, so rejoining starts private.
    */
   removeMember(groupId: string, userId: string, actorId: string): Promise<RemoveResult>;
 
@@ -154,7 +171,8 @@ export interface Store {
   dissolveGroup(groupId: string, actorId: string): Promise<'dissolved' | 'not_allowed'>;
 
   /**
-   * Counts one blocklist submission against the user's hourly budget (bucket e.g. 2026-11-25T10).
+   * Counts one action against the user's hourly budget; `bucket` names the action and hour, e.g.
+   * `domains#2026-11-25T10`.
    * Charged before the list is consulted, so the budget never reveals whether a domain existed.
    */
   chargeSubmission(userId: string, bucket: string, maxPerHour: number): Promise<boolean>;
@@ -183,6 +201,35 @@ export interface Store {
   listDomainAudit(groupId: string, limit: number): Promise<DomainAuditEntry[]>;
   /** The group's current ruleVersion and blocklists, read consistently. */
   ruleState(groupId: string): Promise<RuleState | null>;
+
+  /** Every member's sharing choice and consent in the group (absent = PRIVATE / none). */
+  getAccountability(groupId: string): Promise<{
+    sharing: Map<string, StoredSharing>;
+    consents: Map<string, StoredConsent>;
+  }>;
+  /** Replaces the caller's own sharing choice (with an audit record). */
+  setSharing(
+    groupId: string,
+    userId: string,
+    mode: SharingMode,
+    recipientIds: string[],
+    at: string,
+  ): Promise<AccountabilityWrite>;
+  /** The caller's own "accept from anyone who shares with me" consent. */
+  setAcceptAll(
+    groupId: string,
+    userId: string,
+    acceptAll: boolean,
+    at: string,
+  ): Promise<AccountabilityWrite>;
+  /** The caller's own consent to receive one sender's alerts (given or withdrawn). */
+  setSenderConsent(
+    groupId: string,
+    recipientId: string,
+    senderId: string,
+    accepted: boolean,
+    at: string,
+  ): Promise<AccountabilityWrite>;
 }
 
 export class InvalidCursorError extends Error {

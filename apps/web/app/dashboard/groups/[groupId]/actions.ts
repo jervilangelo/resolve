@@ -8,6 +8,7 @@
 'use server';
 
 import {
+  accountabilityViewSchema,
   addedDomainSchema,
   createdInvitationSchema,
   domainTypeSchema,
@@ -16,6 +17,7 @@ import {
   groupSummarySchema,
   invitationIdSchema,
   updateGroupRequestSchema,
+  updateSharingRequestSchema,
   userIdSchema,
 } from '@resolve/contracts';
 import { revalidatePath } from 'next/cache';
@@ -254,6 +256,79 @@ export async function setBlockedDomainType(
     await api(`/v1/groups/${id}/domains/${domain}`, empty, {
       method: 'PATCH',
       body: { type: parsedType.data },
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    return { error: GENERIC_ERROR };
+  }
+  revalidatePath(`/dashboard/groups/${id}`);
+  return {};
+}
+
+// ---- Accountability (§6): the caller's own choices only -------------------------------------------
+
+export async function saveSharing(
+  groupId: string,
+  mode: unknown,
+  recipientIds: unknown,
+): Promise<ActionState> {
+  const id = parseId(groupIdSchema, groupId);
+  const body = updateSharingRequestSchema.safeParse({ mode, recipientIds });
+  if (!id) return INVALID;
+  if (!body.success) {
+    const none = mode === 'SELECTED' && Array.isArray(recipientIds) && recipientIds.length === 0;
+    return {
+      error: none
+        ? 'Choose at least one member to share with.'
+        : 'That sharing choice is not valid.',
+    };
+  }
+  try {
+    await api(`/v1/groups/${id}/accountability/sharing`, accountabilityViewSchema, {
+      method: 'PUT',
+      body: body.data,
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiRequestError && error.status === 422) {
+      return { error: 'Someone you chose is no longer in the group. Reload and choose again.' };
+    }
+    if (error instanceof ApiRequestError && error.status === 429) {
+      return { error: 'Too many changes in a short time. Please wait a while and try again.' };
+    }
+    return { error: GENERIC_ERROR };
+  }
+  revalidatePath(`/dashboard/groups/${id}`);
+  return { saved: true };
+}
+
+export async function setAcceptAll(groupId: string, acceptAll: unknown): Promise<ActionState> {
+  const id = parseId(groupIdSchema, groupId);
+  if (!id || typeof acceptAll !== 'boolean') return INVALID;
+  try {
+    await api(`/v1/groups/${id}/accountability/receiving`, accountabilityViewSchema, {
+      method: 'PUT',
+      body: { acceptAll },
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    return { error: GENERIC_ERROR };
+  }
+  revalidatePath(`/dashboard/groups/${id}`);
+  return {};
+}
+
+export async function setSenderConsent(
+  groupId: string,
+  senderId: string,
+  accepted: unknown,
+): Promise<ActionState> {
+  const id = parseId(groupIdSchema, groupId);
+  const sender = parseId(userIdSchema, senderId);
+  if (!id || !sender || typeof accepted !== 'boolean') return INVALID;
+  try {
+    await api(`/v1/groups/${id}/accountability/senders/${sender}`, accountabilityViewSchema, {
+      method: accepted ? 'PUT' : 'DELETE',
     });
   } catch (error) {
     unstable_rethrow(error);

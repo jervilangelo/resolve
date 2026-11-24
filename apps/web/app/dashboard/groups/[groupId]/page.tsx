@@ -6,6 +6,7 @@
  */
 
 import {
+  accountabilityViewSchema,
   type GroupSummary,
   domainAuditListSchema,
   groupDomainListSchema,
@@ -19,6 +20,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ApiRequestError, api } from '@/lib/api';
+import { AccountabilityPanel } from './accountability';
 import {
   BlockDomainForm,
   DissolveGroupPanel,
@@ -47,9 +49,10 @@ export default async function GroupPage({ params }: { params: Promise<{ groupId:
     throw error;
   }
   const isAdmin = group.role === 'ADMIN';
-  const [me, members, invitations, domains, audit] = await Promise.all([
+  const [me, members, accountability, invitations, domains, audit] = await Promise.all([
     api('/v1/me', profileSchema),
     api(`/v1/groups/${groupId}/members?limit=100`, memberListSchema),
+    api(`/v1/groups/${groupId}/accountability`, accountabilityViewSchema),
     isAdmin ? api(`/v1/groups/${groupId}/invitations`, invitationListSchema) : null,
     isAdmin ? api(`/v1/groups/${groupId}/domains`, groupDomainListSchema) : null,
     isAdmin ? api(`/v1/groups/${groupId}/domains/audit`, domainAuditListSchema) : null,
@@ -132,6 +135,19 @@ export default async function GroupPage({ params }: { params: Promise<{ groupId:
             );
           })}
         </ul>
+      </section>
+
+      <section aria-labelledby="accountability" className="space-y-4">
+        <h2 id="accountability" className="font-semibold">
+          Accountability
+        </h2>
+        <AccountabilityPanel
+          groupId={groupId}
+          view={accountability}
+          others={members.items
+            .filter((m) => m.userId !== me.userId)
+            .map((m) => ({ userId: m.userId, name: m.displayName ?? 'Unnamed member' }))}
+        />
       </section>
 
       {isAdmin && invitations && (

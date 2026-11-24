@@ -7,6 +7,10 @@
 
 import { createHash, randomBytes } from 'node:crypto';
 import {
+  ACCOUNTABILITY_CHANGES_PER_HOUR,
+  type AccountabilityView,
+  updateReceivingRequestSchema,
+  updateSharingRequestSchema,
   type AddedDomain,
   type CreatedInvitation,
   DOMAIN_SUBMISSIONS_PER_HOUR,
@@ -47,6 +51,7 @@ import {
 } from '@resolve/domain-policy';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import type { z } from 'zod';
+import { accountabilityView } from './accountability';
 import { requireIdentity } from './auth';
 import type { ApiEnv } from './env';
 import { ApiError, type Route } from './http';
@@ -121,6 +126,51 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
     const live = await liveMembership(groupId, userId);
     if (!live) throw new ApiError('NOT_FOUND');
     return { groupId, userId, ...live };
+  }
+
+  /** Every current member, across pages (a group normally holds at most MAX_GROUP_MEMBERS). */
+  async function allMembers(groupId: string) {
+    const members = [];
+    let cursor: string | undefined;
+    do {
+      const page = await store.listMembers(groupId, MAX_GROUP_MEMBERS, cursor);
+      members.push(...page.items);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    return members;
+  }
+
+  /** The caller's own accountability view, computed from current members and choices. */
+  async function ownView(groupId: string, userId: string) {
+    const [members, state] = await Promise.all([
+      allMembers(groupId),
+      store.getAccountability(groupId),
+    ]);
+    const body: AccountabilityView = accountabilityView(userId, members, state);
+    return { status: 200, body };
+  }
+
+  /**
+   * Charges one accountability change to the caller's hourly budget. Saves that would change
+   * nothing are answered before this, so they neither write nor count.
+   */
+  async function chargeAccountabilityChange(userId: string) {
+    const bucket = `accountability#${now().toISOString().slice(0, 13)}`;
+    if (!(await store.chargeSubmission(userId, bucket, ACCOUNTABILITY_CHANGES_PER_HOUR))) {
+      throw new ApiError('RATE_LIMITED');
+    }
+  }
+
+  /** A fellow member from the path (never the caller); anyone else is simply not found. */
+  async function pathFellowMember(
+    event: APIGatewayProxyEventV2,
+    groupId: string,
+    callerId: string,
+  ): Promise<string> {
+    const target = userIdSchema.safeParse(event.pathParameters?.userId);
+    if (!target.success || target.data === callerId) throw new ApiError('NOT_FOUND');
+    if (!(await store.getMembership(groupId, target.data))) throw new ApiError('NOT_FOUND');
+    return target.data;
   }
 
   /** Members already know the group exists, so a missing admin role is 403. */
@@ -311,6 +361,90 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
       return { status: 200, body: summary({ ...live.membership, groupName: live.group.name }) };
     },
 
+    // ---- Accountability (§6): every route acts on the caller's own choices only. Admins have
+    // no route to read or change another member's sharing or consent.
+
+    'GET /v1/groups/{groupId}/accountability': async (event) => {
+      const { groupId, userId } = await requireMember(event);
+      return ownView(groupId, userId);
+    },
+
+    'PUT /v1/groups/{groupId}/accountability/sharing': async (event) => {
+      const { groupId, userId } = await requireMember(event);
+      const { mode, recipientIds } = parseBody(event, updateSharingRequestSchema);
+      if (recipientIds.length > 0) {
+        const memberIds = new Set((await allMembers(groupId)).map((m) => m.userId));
+        // Recipients must be current fellow members (never yourself or outsiders).
+        if (recipientIds.some((id) => id === userId || !memberIds.has(id))) {
+          throw new ApiError('VALIDATION_FAILED');
+        }
+      }
+      const current = (await ownView(groupId, userId)).body.sharing;
+      if (
+        current.mode === mode &&
+        [...current.recipientIds].sort().join() === [...recipientIds].sort().join()
+      ) {
+        return ownView(groupId, userId);
+      }
+      await chargeAccountabilityChange(userId);
+      const result = await store.setSharing(
+        groupId,
+        userId,
+        mode,
+        recipientIds,
+        now().toISOString(),
+      );
+      if (result === 'not_allowed') throw new ApiError('NOT_FOUND');
+      return ownView(groupId, userId);
+    },
+
+    'PUT /v1/groups/{groupId}/accountability/receiving': async (event) => {
+      const { groupId, userId } = await requireMember(event);
+      const { acceptAll } = parseBody(event, updateReceivingRequestSchema);
+      if ((await ownView(groupId, userId)).body.receiving.acceptAll === acceptAll) {
+        return ownView(groupId, userId);
+      }
+      await chargeAccountabilityChange(userId);
+      const result = await store.setAcceptAll(groupId, userId, acceptAll, now().toISOString());
+      if (result === 'not_allowed') throw new ApiError('NOT_FOUND');
+      return ownView(groupId, userId);
+    },
+
+    'PUT /v1/groups/{groupId}/accountability/senders/{userId}': async (event) => {
+      // The caller agrees to receive this member's alerts.
+      const { groupId, userId } = await requireMember(event);
+      const senderId = await pathFellowMember(event, groupId, userId);
+      await chargeAccountabilityChange(userId);
+      const result = await store.setSenderConsent(
+        groupId,
+        userId,
+        senderId,
+        true,
+        now().toISOString(),
+      );
+      if (result === 'not_allowed') throw new ApiError('NOT_FOUND');
+      return ownView(groupId, userId);
+    },
+
+    'DELETE /v1/groups/{groupId}/accountability/senders/{userId}': async (event) => {
+      // Withdrawal always works, even for someone who has since left.
+      const { groupId, userId } = await requireMember(event);
+      const sender = userIdSchema.safeParse(event.pathParameters?.userId);
+      if (!sender.success) throw new ApiError('NOT_FOUND');
+      const consent = (await store.getAccountability(groupId)).consents.get(userId);
+      if (!consent || !(sender.data in consent.senders)) return ownView(groupId, userId);
+      await chargeAccountabilityChange(userId);
+      const result = await store.setSenderConsent(
+        groupId,
+        userId,
+        sender.data,
+        false,
+        now().toISOString(),
+      );
+      if (result === 'not_allowed') throw new ApiError('NOT_FOUND');
+      return ownView(groupId, userId);
+    },
+
     'POST /v1/groups/{groupId}/leave': async (event) => {
       const { groupId, userId } = await requireMember(event);
       const result = await store.removeMember(groupId, userId, userId);
@@ -372,7 +506,7 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
       // reveal whether a domain was already listed.
       const allowed = await store.chargeSubmission(
         userId,
-        createdAt.slice(0, 13),
+        `domains#${createdAt.slice(0, 13)}`,
         DOMAIN_SUBMISSIONS_PER_HOUR,
       );
       if (!allowed) throw new ApiError('RATE_LIMITED');

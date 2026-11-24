@@ -6,29 +6,34 @@
 locals {
   # Must match the route keys in services/api/src/routes.ts.
   routes = {
-    "GET /v1/health"                                         = false
-    "GET /v1/me"                                             = true
-    "PATCH /v1/me"                                           = true
-    "POST /v1/groups"                                        = true
-    "GET /v1/groups"                                         = true
-    "GET /v1/groups/{groupId}"                               = true
-    "PATCH /v1/groups/{groupId}"                             = true
-    "DELETE /v1/groups/{groupId}"                            = true
-    "PATCH /v1/groups/{groupId}/members/{userId}"            = true
-    "POST /v1/groups/{groupId}/domains"                      = true
-    "GET /v1/groups/{groupId}/domains"                       = true
-    "DELETE /v1/groups/{groupId}/domains/{domain}"           = true
-    "PATCH /v1/groups/{groupId}/domains/{domain}"            = true
-    "GET /v1/groups/{groupId}/domains/audit"                 = true
-    "GET /v1/extension/rules"                                = true
-    "GET /v1/groups/{groupId}/members"                       = true
-    "DELETE /v1/groups/{groupId}/members/{userId}"           = true
-    "POST /v1/groups/{groupId}/leave"                        = true
-    "POST /v1/groups/{groupId}/invitations"                  = true
-    "GET /v1/groups/{groupId}/invitations"                   = true
-    "DELETE /v1/groups/{groupId}/invitations/{invitationId}" = true
-    "POST /v1/invitations/preview"                           = true
-    "POST /v1/invitations/accept"                            = true
+    "GET /v1/health"                                              = false
+    "GET /v1/me"                                                  = true
+    "PATCH /v1/me"                                                = true
+    "POST /v1/groups"                                             = true
+    "GET /v1/groups"                                              = true
+    "GET /v1/groups/{groupId}"                                    = true
+    "PATCH /v1/groups/{groupId}"                                  = true
+    "DELETE /v1/groups/{groupId}"                                 = true
+    "PATCH /v1/groups/{groupId}/members/{userId}"                 = true
+    "POST /v1/groups/{groupId}/domains"                           = true
+    "GET /v1/groups/{groupId}/domains"                            = true
+    "DELETE /v1/groups/{groupId}/domains/{domain}"                = true
+    "PATCH /v1/groups/{groupId}/domains/{domain}"                 = true
+    "GET /v1/groups/{groupId}/domains/audit"                      = true
+    "GET /v1/extension/rules"                                     = true
+    "GET /v1/groups/{groupId}/members"                            = true
+    "DELETE /v1/groups/{groupId}/members/{userId}"                = true
+    "POST /v1/groups/{groupId}/leave"                             = true
+    "POST /v1/groups/{groupId}/invitations"                       = true
+    "GET /v1/groups/{groupId}/invitations"                        = true
+    "DELETE /v1/groups/{groupId}/invitations/{invitationId}"      = true
+    "POST /v1/invitations/preview"                                = true
+    "POST /v1/invitations/accept"                                 = true
+    "GET /v1/groups/{groupId}/accountability"                     = true
+    "PUT /v1/groups/{groupId}/accountability/sharing"             = true
+    "PUT /v1/groups/{groupId}/accountability/receiving"           = true
+    "PUT /v1/groups/{groupId}/accountability/senders/{userId}"    = true
+    "DELETE /v1/groups/{groupId}/accountability/senders/{userId}" = true
   }
 }
 

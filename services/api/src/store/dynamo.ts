@@ -35,6 +35,8 @@ import {
   type StoredGroup,
   type StoredMembership,
   type StoredProfile,
+  type StoredConsent,
+  type StoredSharing,
 } from './store';
 
 /**
@@ -45,6 +47,9 @@ import {
  *   GROUP#<id>   MEMBER#<sub>                 membership; GSI1 = USER#<sub> / GROUP#<id>
  *   GROUP#<id>   INVITE#<invitationId>        invitation (token stored only as a hash; TTL)
  *   INVITE#<sha256(token)>  INVITE            token lookup pointer to the invitation (TTL)
+ *   GROUP#<id>   SHARE#<sub>                  the member's own sharing choice (§6)
+ *   GROUP#<id>   CONSENT#<sub>                the member's own consent; `from_<senderSub>` = accepted at
+ *   GROUP#<id>   CAUDIT#<at>#<rand>           consent-change audit, no browsing data (TTL)
  *   OUTBOX#<id>  OUTBOX                       notification outbox (relayed from the stream)
  */
 export const keys = {
@@ -55,8 +60,14 @@ export const keys = {
   token: (tokenHash: string) => `INVITE#${tokenHash}`,
   redemption: (invitationId: string, userId: string) => `REDEEMED#${invitationId}#${userId}`,
   domain: (domain: string) => `DOMAIN#${domain}`,
-  rate: (bucket: string) => `RATE#domains#${bucket}`,
+  /** Hourly rate counters, e.g. `RATE#domains#2026-11-25T10`. */
+  rate: (bucket: string) => `RATE#${bucket}`,
+  sharing: (userId: string) => `SHARE#${userId}`,
+  consent: (userId: string) => `CONSENT#${userId}`,
 };
+
+/** Consent items hold one attribute per accepted sender: `from_<senderId>` = accepted at. */
+const CONSENT_SENDER_PREFIX = 'from_';
 
 /** Invitation items outlive their expiry briefly so revocation and late clicks behave. */
 const INVITE_TTL_GRACE_SECONDS = 24 * 60 * 60;
@@ -66,6 +77,14 @@ const DISSOLVED_MARKER_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DISSOLVE_SWEEP_BUDGET_MS = 5_000;
 /** Condition fragment: the group exists and has not been dissolved. */
 const LIVE_GROUP = 'attribute_exists(PK) AND attribute_not_exists(dissolvedAt)';
+
+const sharingItemSchema = z.object({
+  SK: z.string(),
+  mode: z.enum(['PRIVATE', 'SELECTED', 'EVERYONE']),
+  recipients: z.record(z.string(), z.string()).default({}),
+  updatedAt: z.string(),
+});
+const consentItemSchema = z.looseObject({ SK: z.string(), acceptAll: z.boolean().default(false) });
 
 const liveMetaSchema = z.object({
   PK: z.string(),
@@ -278,6 +297,80 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         ExpressionAttributeValues: { ':admin': 'ADMIN' },
       },
     };
+  }
+
+  /** The caller is a member of a live group when the write commits (two condition checks). */
+  function liveMemberChecks(groupId: string, userId: string): TransactItems {
+    return [
+      {
+        ConditionCheck: {
+          TableName: tableName,
+          Key: { PK: keys.group(groupId), SK: keys.member(userId) },
+          ConditionExpression: 'attribute_exists(PK)',
+        },
+      },
+      {
+        ConditionCheck: {
+          TableName: tableName,
+          Key: { PK: keys.group(groupId), SK: 'META' },
+          ConditionExpression: LIVE_GROUP,
+        },
+      },
+    ];
+  }
+
+  /** Consent-change audit (§6.2): who changed what, never any browsing data. */
+  function consentAuditPut(
+    groupId: string,
+    actorId: string,
+    at: string,
+    entry: Record<string, string | number | boolean>,
+  ): TransactItems[number] {
+    return {
+      Put: {
+        TableName: tableName,
+        Item: {
+          PK: keys.group(groupId),
+          SK: `CAUDIT#${at}#${randomBytes(6).toString('hex')}`,
+          type: 'ConsentAudit',
+          actorId,
+          at,
+          ...entry,
+          ttl: Math.floor(Date.parse(at) / 1000) + AUDIT_TTL_SECONDS,
+        },
+      },
+    };
+  }
+
+  /** Runs a caller-owned accountability write; a failed membership check is not_allowed. */
+  async function ownWrite(groupId: string, userId: string, items: TransactItems) {
+    try {
+      await transact([...liveMemberChecks(groupId, userId), ...items]);
+      return 'saved' as const;
+    } catch (error) {
+      if (cancellationCodes(error)?.includes('ConditionalCheckFailed'))
+        return 'not_allowed' as const;
+      throw error;
+    }
+  }
+
+  async function queryPrefix(groupId: string, prefix: string) {
+    const items: Record<string, unknown>[] = [];
+    let start: Record<string, unknown> | undefined;
+    do {
+      const page = await db.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+          ExpressionAttributeValues: { ':pk': keys.group(groupId), ':prefix': prefix },
+          ConsistentRead: true,
+          ExclusiveStartKey: start,
+        }),
+      );
+      items.push(...(page.Items ?? []));
+      start = page.LastEvaluatedKey;
+    } while (start);
+    return items;
   }
 
   /** BatchGetItem for up to 100 keys, retrying unprocessed keys. */
@@ -772,6 +865,11 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
           },
         });
       }
+      // The member's own sharing choice and consent go with the membership (rejoining starts
+      // private). Unconditional, so they never affect the cancellation codes above.
+      for (const SK of [keys.sharing(userId), keys.consent(userId)]) {
+        items.push({ Delete: { TableName: tableName, Key: { PK: keys.group(groupId), SK } } });
+      }
       try {
         await transact(items);
         return 'removed';
@@ -1162,6 +1260,92 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         ...(item.from && { from: item.from }),
         ...(item.to && { to: item.to }),
       }));
+    },
+
+    async getAccountability(groupId) {
+      const [sharingItems, consentItems] = await Promise.all([
+        queryPrefix(groupId, 'SHARE#'),
+        queryPrefix(groupId, 'CONSENT#'),
+      ]);
+      const sharing = new Map<string, StoredSharing>();
+      for (const item of sharingItems) {
+        const parsed = sharingItemSchema.safeParse(item);
+        if (!parsed.success) continue;
+        const { SK, mode, recipients, updatedAt } = parsed.data;
+        sharing.set(SK.slice('SHARE#'.length), { mode, recipients, updatedAt });
+      }
+      const consents = new Map<string, StoredConsent>();
+      for (const item of consentItems) {
+        const parsed = consentItemSchema.safeParse(item);
+        if (!parsed.success) continue;
+        const senders: Record<string, string> = {};
+        for (const [name, value] of Object.entries(parsed.data)) {
+          if (name.startsWith(CONSENT_SENDER_PREFIX) && typeof value === 'string') {
+            senders[name.slice(CONSENT_SENDER_PREFIX.length)] = value;
+          }
+        }
+        consents.set(parsed.data.SK.slice('CONSENT#'.length), {
+          acceptAll: parsed.data.acceptAll,
+          senders,
+        });
+      }
+      return { sharing, consents };
+    },
+
+    async setSharing(groupId, userId, mode, recipientIds, at) {
+      return ownWrite(groupId, userId, [
+        {
+          Put: {
+            TableName: tableName,
+            Item: {
+              PK: keys.group(groupId),
+              SK: keys.sharing(userId),
+              type: 'Sharing',
+              mode,
+              recipients: Object.fromEntries(recipientIds.map((id) => [id, at])),
+              updatedAt: at,
+            },
+          },
+        },
+        consentAuditPut(groupId, userId, at, {
+          action: 'SHARING',
+          mode,
+          recipientCount: recipientIds.length,
+        }),
+      ]);
+    },
+
+    async setAcceptAll(groupId, userId, acceptAll, at) {
+      return ownWrite(groupId, userId, [
+        {
+          Update: {
+            TableName: tableName,
+            Key: { PK: keys.group(groupId), SK: keys.consent(userId) },
+            UpdateExpression: 'SET #type = :type, acceptAll = :all, updatedAt = :at',
+            ExpressionAttributeNames: { '#type': 'type' },
+            ExpressionAttributeValues: { ':type': 'Consent', ':all': acceptAll, ':at': at },
+          },
+        },
+        consentAuditPut(groupId, userId, at, { action: 'ACCEPT_ALL', acceptAll }),
+      ]);
+    },
+
+    async setSenderConsent(groupId, recipientId, senderId, accepted, at) {
+      const names = { '#type': 'type', '#from': `${CONSENT_SENDER_PREFIX}${senderId}` };
+      return ownWrite(groupId, recipientId, [
+        {
+          Update: {
+            TableName: tableName,
+            Key: { PK: keys.group(groupId), SK: keys.consent(recipientId) },
+            UpdateExpression: accepted
+              ? 'SET #type = :type, #from = :at, updatedAt = :at'
+              : 'SET #type = :type, updatedAt = :at REMOVE #from',
+            ExpressionAttributeNames: names,
+            ExpressionAttributeValues: { ':type': 'Consent', ':at': at },
+          },
+        },
+        consentAuditPut(groupId, recipientId, at, { action: 'SENDER_CONSENT', senderId, accepted }),
+      ]);
     },
 
     async ruleState(groupId) {
