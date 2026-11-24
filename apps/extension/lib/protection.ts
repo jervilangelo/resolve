@@ -119,8 +119,11 @@ export type FetchRules = (
 ) => Promise<RuleSnapshot | 'not_found' | 'unavailable'>;
 
 export interface ProtectionStatus {
-  /** off: no active group; starting: first install pending; error: install failed. */
-  state: 'off' | 'starting' | 'on' | 'stale' | 'error';
+  /**
+   * off: no active group; starting: first install pending; error: install failed; idle: synced,
+   * but the group blocks no websites yet (protection starts by itself once it does).
+   */
+  state: 'off' | 'starting' | 'idle' | 'on' | 'stale' | 'error';
   syncedAt: number | null;
 }
 
@@ -241,7 +244,8 @@ export function createProtection(deps: {
         return { state: failed ? 'error' : 'starting', syncedAt: null };
       }
       const stale = deps.now() - meta.syncedAt > STALE_AFTER_MS;
-      return { state: stale ? 'stale' : 'on', syncedAt: meta.syncedAt };
+      if (stale) return { state: 'stale', syncedAt: meta.syncedAt };
+      return { state: meta.rules.length === 0 ? 'idle' : 'on', syncedAt: meta.syncedAt };
     },
   };
 }

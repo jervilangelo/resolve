@@ -140,6 +140,16 @@ describe('compileRules', () => {
   it('installs nothing for an empty policy', () => {
     expect(compileRules(snapshot(GROUP_A, 1, [], []))).toEqual([]);
   });
+
+  it('reports idle while the group blocks nothing, and on once it does', async () => {
+    const t = setup({ [GROUP_A]: snapshot(GROUP_A, 1, [], []) });
+    t.select(GROUP_A);
+    await t.protection.sync();
+    expect(await t.protection.status(GROUP_A)).toMatchObject({ state: 'idle' });
+    t.respond(GROUP_A, snapshot(GROUP_A, 2, ['nn.example'], []));
+    await t.protection.sync();
+    expect(await t.protection.status(GROUP_A)).toMatchObject({ state: 'on' });
+  });
 });
 
 describe('protection sync', () => {

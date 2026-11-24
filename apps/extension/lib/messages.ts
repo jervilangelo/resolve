@@ -55,9 +55,9 @@ export const accountStateSchema = z.discriminatedUnion('state', [
     groupsLoaded: z.boolean(),
     /** The one group this installation protects for (MVP: one per installation). */
     activeGroupId: groupIdSchema.nullable(),
-    /** Domain protection for the active group: off, on, or on with stale rules. */
+    /** Domain protection for the active group (see ProtectionStatus in lib/protection.ts). */
     protection: z.strictObject({
-      state: z.enum(['off', 'starting', 'on', 'stale', 'error']),
+      state: z.enum(['off', 'starting', 'idle', 'on', 'stale', 'error']),
       syncedAt: z.number().nullable(),
     }),
     dashboardUrl: z.url(),

@@ -49,6 +49,14 @@ function ProtectionLine({
     );
   }
   const when = protection.syncedAt ? ` · rules updated ${ago(protection.syncedAt)}` : '';
+  if (protection.state === 'idle') {
+    return (
+      <p className="text-muted-foreground text-xs">
+        Domain protection: no websites blocked yet. It starts automatically when your group adds
+        some{when}.
+      </p>
+    );
+  }
   return protection.state === 'stale' ? (
     <p role="status" className="text-destructive text-xs">
       Domain protection: on, but rules could not be updated recently{when}. Check your connection.
