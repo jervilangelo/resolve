@@ -33,3 +33,9 @@ variable "logo_dark_svg" {
   description = "Logo shown on managed login pages in dark mode."
   type        = string
 }
+
+variable "extension_callback_urls" {
+  description = "https://<extension-id>.chromiumapp.org/ callbacks allowed for the extension client."
+  type        = list(string)
+  default     = []
+}

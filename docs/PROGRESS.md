@@ -9,7 +9,7 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-24 · **Current:** Phase 4 in progress (slices 1, 2, 3a done; 3b next)
+**Last updated:** 2026-11-24 · **Current:** Phase 4 complete; Phase 5 (domain protection) next
 
 ## Phase status
 
@@ -18,8 +18,9 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 | 1 — Branding                          | Done        | Owner-made; wordmark refined 2026-11-23                                      |
 | 2 — Repository and engineering        | Done        | Monorepo, web, extension, contracts, CI, E2E                                 |
 | 3 — AWS infrastructure and backend    | Done        | Dev deployed; CI deploy pipeline live; acceptance tests pass                 |
-| **4 — Accounts and groups**           | **Active**  | 1–3a done (sign-in, groups, invites, roles, dissolve). Next: 3b extension   |
-| 5–10                                  | Not started | Domain protection, AI blur, accountability, notifications, QA, beta          |
+| 4 — Accounts and groups               | Done        | Dashboard + extension sign-in, groups, invites, roles, active group          |
+| **5 — Domain protection**             | **Next**    | Essential exemptions, non-negotiable/additional blocklists, enforcement      |
+| 6–10                                  | Not started | AI blur, accountability, notifications, QA, beta                             |
 
 ## What exists and works (verified)
 
@@ -45,16 +46,25 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 - **Ownership (Phase 4 slice 3a):** make-admin / step-down, rename, and dissolve (typed name
   confirmation). Dissolve marks the group dissolved atomically, then sweeps its items; any
   leftovers are inert and the marker expires via TTL.
+- **Extension sign-in (Phase 4 slice 3b):** Cognito managed login via `identity.launchWebAuthFlow`
+  (code + PKCE, `prompt=login`); tokens and the active group live only in the background worker's
+  origin-private IndexedDB (no `storage` permission; unreachable from content scripts). Permissions:
+  `identity` + host access to the API and Cognito origins only. Popup/options show account, active
+  group picker (one per installation, verified against the API), dashboard link, sign out.
+  Chromium only; Firefox sign-in stays off until a Gecko ID is chosen.
 - **Checks:** `pnpm check`, `pnpm build`, `pnpm e2e`, `pnpm integration` all passing at pause.
 
-## Next steps (Phase 4 — accounts and groups)
+## Next steps (Phase 5 — domain protection)
 
-1. Done: sign-in and profile (1), invitations and members (2), ownership, rename, dissolve (3a).
-2. **Next — slice 3b:** extension sign-in (Cognito app client for the extension, PKCE via the
-   browser identity API) and choosing one active protection group per install; then Phase 4
-   acceptance review.
-3. Carry-overs: per-user group quota, revoked-token handling, idempotency request fingerprint,
-   group picture upload (private S3, signed URLs), a background janitor for interrupted dissolves.
+1. Platform essential-domain allowlist (Facebook, Messenger, YouTube, Gmail, Outlook, Microsoft 365,
+   Google login/Drive/Meet, Teams and tested dependencies) with precedence over group blocks.
+2. Group domain API: admins add/remove/list non-negotiable and additional domains; members add
+   additional domains without approval and get a generic response (no list/duplicate oracle).
+3. Domain normalization (hostnames, IDNs, subdomains, public-suffix rejection) in a shared package.
+4. Versioned rule snapshot for the extension's active group; Chromium declarativeNetRequest
+   enforcement with an offline cache.
+5. Carry-overs: per-user group quota, revoked-token handling for the dashboard, idempotency request
+   fingerprint, group picture upload, a janitor for interrupted dissolves.
 
 ## Decisions log
 
@@ -78,3 +88,6 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
   and exist only on the owner's machine. Build Lambdas before plan/apply:
   `pnpm --filter @resolve/api --filter @resolve/notifications build`.
 - Codex CLI is the secondary reviewer (read-only); see the `/codex` skill.
+- Extension (dev): `pnpm extension:env dev`, then `pnpm --filter @resolve/extension build:dev` and
+  load `apps/extension/.output/chrome-mv3-dev` unpacked (fixed ID
+  `glglgjmdobecmhnnnnobipaamapflppg`, registered as a Cognito callback in dev).

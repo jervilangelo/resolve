@@ -27,10 +27,18 @@ output "integration_test_client_id" {
 
 # Every client whose access tokens the API accepts.
 output "api_client_ids" {
-  value = concat([aws_cognito_user_pool_client.web.id], aws_cognito_user_pool_client.integration_test[*].id)
+  value = concat(
+    [aws_cognito_user_pool_client.web.id],
+    aws_cognito_user_pool_client.extension[*].id,
+    aws_cognito_user_pool_client.integration_test[*].id,
+  )
 }
 
 output "hosted_domain" {
   description = "Base URL of the Cognito managed login and OAuth endpoints."
   value       = "https://${aws_cognito_user_pool_domain.this.domain}.auth.${data.aws_region.current.region}.amazoncognito.com"
+}
+
+output "extension_client_id" {
+  value = one(aws_cognito_user_pool_client.extension[*].id)
 }

@@ -13,9 +13,11 @@
     "postinstall": "wxt prepare",
     "lint": "eslint .",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:dev": "node ../../scripts/sync-brand-assets.mjs extension && wxt build --mode development"
   },
   "dependencies": {
+    "@resolve/contracts": "workspace:*",
     "@resolve/ui": "workspace:*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

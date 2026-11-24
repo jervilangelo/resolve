@@ -34,3 +34,7 @@ output "alerts_topic_arn" {
 output "hosted_domain" {
   value = module.identity.hosted_domain
 }
+
+output "extension_client_id" {
+  value = module.identity.extension_client_id
+}

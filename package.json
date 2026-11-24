@@ -22,7 +22,8 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "integration": "pnpm --filter @resolve/integration integration",
-    "web:env": "node scripts/web-env.mjs"
+    "web:env": "node scripts/web-env.mjs",
+    "extension:env": "node scripts/extension-env.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

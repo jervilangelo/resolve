@@ -18,6 +18,7 @@ module "identity" {
   web_callback_urls              = [for origin in var.web_origins : "${origin}/auth/callback"]
   web_logout_urls                = var.web_origins
   enable_integration_test_client = !local.is_prod
+  extension_callback_urls        = [for id in var.extension_ids : "https://${id}.chromiumapp.org/"]
   logo_light_svg                 = "${local.repo_root}/assets/branding/logo/horizontal-light.svg"
   logo_dark_svg                  = "${local.repo_root}/assets/branding/logo/horizontal-dark.svg"
 }

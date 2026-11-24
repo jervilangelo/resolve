@@ -6,12 +6,12 @@
  */
 
 import { browser } from 'wxt/browser';
-import { type Request, type ResponseMap, statusSchema } from './messages';
-
-const responseSchemas = { 'status/get': statusSchema } as const;
+import { type Request, type ResponseMap, responseSchemas } from './messages';
 
 /** Send a typed request to the background worker and validate its reply. */
-export async function send<T extends Request['type']>(request: Extract<Request, { type: T }>) {
+export async function send<T extends Request['type']>(
+  request: Extract<Request, { type: T }>,
+): Promise<ResponseMap[T]> {
   const reply: unknown = await browser.runtime.sendMessage(request);
   return responseSchemas[request.type].parse(reply) as ResponseMap[T];
 }

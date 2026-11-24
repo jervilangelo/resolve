@@ -5,6 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
+import { AccountPanel } from '@/components/account-panel';
 import { BrandHeader } from '@/components/brand-header';
 import { FeatureStatus } from '@/components/feature-status';
 import { mount } from '@/lib/mount';
@@ -15,6 +16,12 @@ function Options() {
       <BrandHeader />
       <main className="space-y-6 p-6">
         <h1 className="font-display text-2xl">Settings</h1>
+        <section aria-labelledby="account" className="space-y-3">
+          <h2 id="account" className="font-semibold">
+            Account and group
+          </h2>
+          <AccountPanel />
+        </section>
         <section aria-labelledby="features" className="space-y-3">
           <h2 id="features" className="font-semibold">
             Protection features

@@ -33,3 +33,9 @@ variable "ses_sender_email" {
   type    = string
   default = null
 }
+
+variable "extension_ids" {
+  description = "Browser extension IDs allowed to sign in (unpacked dev key or store IDs)."
+  type        = list(string)
+  default     = []
+}

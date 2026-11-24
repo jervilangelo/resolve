@@ -25,6 +25,8 @@ module "resolve" {
   # CI passes unset secrets as empty strings; treat them as "not configured".
   alert_email      = var.alert_email == "" ? null : var.alert_email
   ses_sender_email = var.ses_sender_email == "" ? null : var.ses_sender_email
+  # Unpacked development build (fixed ID from apps/extension/dev-key.pub.txt).
+  extension_ids = [trimspace(file("${path.root}/../../../../apps/extension/dev-extension-id.txt"))]
 }
 
 module "github_deploy" {

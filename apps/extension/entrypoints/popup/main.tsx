@@ -6,6 +6,7 @@
  */
 
 import { browser } from 'wxt/browser';
+import { AccountPanel } from '@/components/account-panel';
 import { BrandHeader } from '@/components/brand-header';
 import { FeatureStatus } from '@/components/feature-status';
 import { mount } from '@/lib/mount';
@@ -15,6 +16,7 @@ function Popup() {
     <div className="w-80">
       <BrandHeader />
       <main className="space-y-4 p-4">
+        <AccountPanel />
         <FeatureStatus />
         <button
           type="button"

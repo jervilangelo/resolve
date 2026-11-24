@@ -30,3 +30,7 @@ output "github_deploy_role_arn" {
 output "hosted_domain" {
   value = module.resolve.hosted_domain
 }
+
+output "extension_client_id" {
+  value = module.resolve.extension_client_id
+}

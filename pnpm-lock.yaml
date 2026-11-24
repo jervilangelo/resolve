@@ -47,6 +47,9 @@ importers:
 
   apps/extension:
     dependencies:
+      '@resolve/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@resolve/ui':
         specifier: workspace:*
         version: link:../../packages/ui

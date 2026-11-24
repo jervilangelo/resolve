@@ -114,9 +114,59 @@ locals {
 resource "aws_cognito_managed_login_branding" "web" {
   user_pool_id = aws_cognito_user_pool.this.id
   client_id    = aws_cognito_user_pool_client.web.id
-  # Monochrome Resolve palette (docs/BRAND_GUIDELINES.md) over the full Cognito style schema; follows
+  # Slate Resolve palette (docs/BRAND_GUIDELINES.md) over the full Cognito style schema; follows
   # the visitor's light/dark preference.
   settings = file("${path.module}/managed-login-settings.json")
+
+  asset {
+    category   = "FORM_LOGO"
+    color_mode = "LIGHT"
+    extension  = "SVG"
+    bytes      = base64encode(local.logo_light)
+  }
+
+  asset {
+    category   = "FORM_LOGO"
+    color_mode = "DARK"
+    extension  = "SVG"
+    bytes      = base64encode(local.logo_dark)
+  }
+
+  depends_on = [aws_cognito_user_pool_domain.this]
+}
+
+# Public client for the browser extension: authorization code + PKCE through the browser identity
+# API. Callbacks are https://<extension-id>.chromiumapp.org/ (Chrome, Edge, Brave).
+resource "aws_cognito_user_pool_client" "extension" {
+  count        = length(var.extension_callback_urls) > 0 ? 1 : 0
+  name         = "${var.name_prefix}-extension"
+  user_pool_id = aws_cognito_user_pool.this.id
+
+  generate_secret                      = false
+  explicit_auth_flows                  = ["ALLOW_REFRESH_TOKEN_AUTH"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  supported_identity_providers         = ["COGNITO"]
+  callback_urls                        = var.extension_callback_urls
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+  access_token_validity         = 60
+  id_token_validity             = 60
+  refresh_token_validity        = 30
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "days"
+  }
+}
+
+resource "aws_cognito_managed_login_branding" "extension" {
+  count        = length(var.extension_callback_urls) > 0 ? 1 : 0
+  user_pool_id = aws_cognito_user_pool.this.id
+  client_id    = aws_cognito_user_pool_client.extension[0].id
+  settings     = file("${path.module}/managed-login-settings.json")
 
   asset {
     category   = "FORM_LOGO"
