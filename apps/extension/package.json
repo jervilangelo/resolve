@@ -10,7 +10,7 @@
     "dev:firefox": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt -b firefox",
     "build": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt build && wxt build -b firefox",
     "zip": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt zip && wxt zip -b firefox",
-    "postinstall": "wxt prepare",
+    "postinstall": "node ../../scripts/extract-nsfw-model.mjs && wxt prepare",
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
