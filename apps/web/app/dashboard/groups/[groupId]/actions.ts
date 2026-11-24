@@ -8,7 +8,9 @@
 'use server';
 
 import {
+  addedDomainSchema,
   createdInvitationSchema,
+  domainTypeSchema,
   groupIdSchema,
   groupRoleSchema,
   groupSummarySchema,
@@ -166,4 +168,97 @@ export async function dissolveGroup(groupId: string): Promise<ActionState> {
   }
   revalidatePath('/dashboard/groups', 'layout');
   redirect('/dashboard/groups');
+}
+
+export interface DomainFormState extends ActionState {
+  message?: string;
+}
+
+export async function addBlockedDomain(
+  groupId: string,
+  _state: DomainFormState,
+  formData: FormData,
+): Promise<DomainFormState> {
+  const id = parseId(groupIdSchema, groupId);
+  if (!id || !(formData instanceof FormData)) return INVALID;
+  const domain = formData.get('domain');
+  const type = formData.get('type');
+  if (typeof domain !== 'string' || domain.trim() === '') return { error: 'Enter a website.' };
+  const parsedType = type === null ? undefined : domainTypeSchema.safeParse(type);
+  if (parsedType && !parsedType.success) return INVALID;
+  try {
+    const response = await api(`/v1/groups/${id}/domains`, z.unknown(), {
+      method: 'POST',
+      body: { domain: domain.trim(), ...(parsedType && { type: parsedType.data }) },
+    });
+    const added = addedDomainSchema.safeParse(response);
+    revalidatePath(`/dashboard/groups/${id}`);
+    if (added.success) {
+      const exempt = added.data.exempted;
+      return {
+        saved: true,
+        message:
+          exempt.length > 0
+            ? `Blocked ${added.data.domain}. ${exempt.join(', ')} stay reachable as essential services.`
+            : `Blocked ${added.data.domain}.`,
+      };
+    }
+    return { saved: true, message: 'Submission received.' };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiRequestError) {
+      if (error.code === 'VALIDATION_FAILED') {
+        return {
+          error:
+            'That website cannot be blocked. Enter a domain like example.com (not a link), and note that essential services cannot be blocked.',
+        };
+      }
+      if (error.code === 'RATE_LIMITED') return { error: 'Too many submissions. Try again later.' };
+      if (error.code === 'CONFLICT') {
+        return { error: 'That website is already listed, or the list is full.' };
+      }
+    }
+    return { error: GENERIC_ERROR };
+  }
+}
+
+export async function removeBlockedDomain(groupId: string, domain: string): Promise<ActionState> {
+  const id = parseId(groupIdSchema, groupId);
+  if (!id || typeof domain !== 'string' || !/^[a-z0-9.-]{1,253}$/.test(domain)) return INVALID;
+  try {
+    await api(`/v1/groups/${id}/domains/${domain}`, empty, { method: 'DELETE' });
+  } catch (error) {
+    unstable_rethrow(error);
+    return { error: GENERIC_ERROR };
+  }
+  revalidatePath(`/dashboard/groups/${id}`);
+  return {};
+}
+
+export async function setBlockedDomainType(
+  groupId: string,
+  domain: string,
+  type: string,
+): Promise<ActionState> {
+  const id = parseId(groupIdSchema, groupId);
+  const parsedType = domainTypeSchema.safeParse(type);
+  if (
+    !id ||
+    !parsedType.success ||
+    typeof domain !== 'string' ||
+    !/^[a-z0-9.-]{1,253}$/.test(domain)
+  ) {
+    return INVALID;
+  }
+  try {
+    await api(`/v1/groups/${id}/domains/${domain}`, empty, {
+      method: 'PATCH',
+      body: { type: parsedType.data },
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    return { error: GENERIC_ERROR };
+  }
+  revalidatePath(`/dashboard/groups/${id}`);
+  return {};
 }

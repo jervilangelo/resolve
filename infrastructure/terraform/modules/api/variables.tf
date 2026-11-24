@@ -32,6 +32,11 @@ variable "client_ids" {
   type        = list(string)
 }
 
+variable "rules_client_ids" {
+  description = "Cognito app clients allowed to fetch extension enforcement rules."
+  type        = list(string)
+}
+
 variable "cors_allow_origins" {
   type = list(string)
 }

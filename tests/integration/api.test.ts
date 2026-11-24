@@ -22,7 +22,10 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import {
   apiErrorResponseSchema,
+  addedDomainSchema,
   createdInvitationSchema,
+  groupDomainListSchema,
+  ruleSnapshotSchema,
   groupListSchema,
   groupSummarySchema,
   healthResponseSchema,
@@ -309,5 +312,99 @@ describe(`deployed ownership and dissolution (${env.RESOLVE_STAGE})`, () => {
       }),
     );
     expect(left.Count).toBe(0);
+  });
+});
+
+describe(`deployed domain protection (${env.RESOLVE_STAGE})`, () => {
+  it('lets members submit without approval or oracle; only admins list, remove and reclassify', async () => {
+    const created = groupSummarySchema.parse(
+      (await api('POST', '/v1/groups', alice, { name: 'Domain flow' })).body,
+    );
+    const groupId = created.groupId;
+    trackGroup(groupId, alice, bob);
+    const hour = new Date().toISOString().slice(0, 13);
+    for (const token of [alice, bob]) {
+      fixtures.push({ PK: `USER#${subjectOf(token)}`, SK: `RATE#domains#${hour}` });
+    }
+    const inv = createdInvitationSchema.parse(
+      (await api('POST', `/v1/groups/${groupId}/invitations`, alice, {})).body,
+    );
+    trackInvitation(groupId, inv.invitationId, inv.token);
+    await api('POST', '/v1/invitations/accept', bob, { token: inv.token });
+
+    const nn = await api('POST', `/v1/groups/${groupId}/domains`, alice, {
+      domain: 'google.com',
+      type: 'NON_NEGOTIABLE',
+    });
+    expect(nn.status).toBe(201);
+    expect(addedDomainSchema.parse(nn.body).exempted).toContain('Gmail');
+
+    const dup = await api('POST', `/v1/groups/${groupId}/domains`, bob, { domain: 'google.com' });
+    const fresh = await api('POST', `/v1/groups/${groupId}/domains`, bob, {
+      domain: 'Extra.Example',
+    });
+    expect(dup).toEqual(fresh);
+    expect(fresh.status).toBe(202);
+    expect(
+      (
+        await api('POST', `/v1/groups/${groupId}/domains`, bob, {
+          domain: 'x.example',
+          type: 'NON_NEGOTIABLE',
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (await api('POST', `/v1/groups/${groupId}/domains`, bob, { domain: 'youtube.com' })).status,
+    ).toBe(422);
+    expect((await api('GET', `/v1/groups/${groupId}/domains`, bob)).status).toBe(403);
+
+    const list = groupDomainListSchema.parse(
+      (await api('GET', `/v1/groups/${groupId}/domains`, alice)).body,
+    );
+    expect(list.items.map((d) => [d.domain, d.type])).toEqual([
+      ['extra.example', 'ADDITIONAL'],
+      ['google.com', 'NON_NEGOTIABLE'],
+    ]);
+
+    const rules = ruleSnapshotSchema.parse(
+      (await api('GET', `/v1/extension/rules?groupId=${groupId}`, bob)).body,
+    );
+    expect(rules).toMatchObject({
+      status: 'current',
+      nonNegotiable: ['google.com'],
+      additional: ['extra.example'],
+    });
+    const unchanged = ruleSnapshotSchema.parse(
+      (
+        await api(
+          'GET',
+          `/v1/extension/rules?groupId=${groupId}&version=${String(rules.ruleVersion)}&essentialVersion=${rules.essentialVersion}`,
+          bob,
+        )
+      ).body,
+    );
+    expect(unchanged.status).toBe('unchanged');
+
+    expect((await api('DELETE', `/v1/groups/${groupId}/domains/extra.example`, bob)).status).toBe(
+      403,
+    );
+    expect((await api('DELETE', `/v1/groups/${groupId}/domains/extra.example`, alice)).status).toBe(
+      204,
+    );
+    expect(
+      (
+        await api('PATCH', `/v1/groups/${groupId}/domains/google.com`, alice, {
+          type: 'ADDITIONAL',
+        })
+      ).status,
+    ).toBe(204);
+    const after = ruleSnapshotSchema.parse(
+      (await api('GET', `/v1/extension/rules?groupId=${groupId}`, bob)).body,
+    );
+    expect(after).toMatchObject({ nonNegotiable: [], additional: ['google.com'] });
+    expect(after.ruleVersion).toBe(rules.ruleVersion + 2);
+    expect((await api('GET', `/v1/extension/rules?groupId=${groupId}`, carol)).status).toBe(404);
+
+    expect((await api('DELETE', `/v1/groups/${groupId}`, alice)).status).toBe(204);
   });
 });

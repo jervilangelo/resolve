@@ -11,6 +11,8 @@ import { ApiError } from './http';
 
 export interface Identity {
   userId: string;
+  /** The Cognito app client the access token was issued to (dashboard, extension, tests). */
+  clientId: string;
 }
 
 /**
@@ -34,5 +36,5 @@ export function requireIdentity(
   if (!parsed.success || !allowedClientIds.includes(parsed.data.client_id)) {
     throw new ApiError('UNAUTHENTICATED');
   }
-  return { userId: parsed.data.sub };
+  return { userId: parsed.data.sub, clientId: parsed.data.client_id };
 }

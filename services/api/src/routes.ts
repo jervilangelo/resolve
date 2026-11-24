@@ -7,7 +7,17 @@
 
 import { createHash, randomBytes } from 'node:crypto';
 import {
+  type AddedDomain,
   type CreatedInvitation,
+  DOMAIN_SUBMISSIONS_PER_HOUR,
+  type GroupDomainList,
+  MAX_GROUP_DOMAINS,
+  MEMBER_SUBMISSION_RESPONSE,
+  type DomainAuditList,
+  type RuleSnapshot,
+  addDomainRequestSchema,
+  ruleQuerySchema,
+  updateDomainRequestSchema,
   type GroupList,
   type GroupSummary,
   type HealthResponse,
@@ -29,6 +39,12 @@ import {
   updateProfileRequestSchema,
   userIdSchema,
 } from '@resolve/contracts';
+import {
+  ESSENTIAL_VERSION,
+  essentialDomains,
+  normalizeDomain,
+  validateBlockedDomain,
+} from '@resolve/domain-policy';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import type { z } from 'zod';
 import { requireIdentity } from './auth';
@@ -56,6 +72,14 @@ export const generateGroupId = () => randomId('grp');
 /** Invitation tokens are stored only as SHA-256 hashes (§3). */
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
+}
+
+/** A canonical domain from the path; anything non-canonical is simply not found. */
+function pathDomain(event: APIGatewayProxyEventV2): string {
+  const raw = event.pathParameters?.domain ?? '';
+  const normalized = normalizeDomain(raw);
+  if (!normalized.ok || normalized.domain !== raw) throw new ApiError('NOT_FOUND');
+  return normalized.domain;
 }
 
 function bodyTokenHash(event: APIGatewayProxyEventV2): string {
@@ -331,6 +355,118 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
       if (result === 'last_admin' || result === 'conflict') throw new ApiError('CONFLICT');
       if (result === 'not_allowed') throw new ApiError('FORBIDDEN');
       return { status: 204, body: undefined };
+    },
+
+    'POST /v1/groups/{groupId}/domains': async (event) => {
+      const { groupId, userId, membership } = await requireMember(event);
+      const isAdmin = membership.role === 'ADMIN';
+      const input = parseBody(event, addDomainRequestSchema);
+      const type = input.type ?? 'ADDITIONAL';
+      // Only admins manage non-negotiable entries (§3); this is a role check, not a list oracle.
+      if (type === 'NON_NEGOTIABLE' && !isAdmin) throw new ApiError('FORBIDDEN');
+      // Invalid and essential domains get the same generic rejection.
+      const validated = validateBlockedDomain(input.domain);
+      if (!validated.ok) throw new ApiError('VALIDATION_FAILED');
+      const createdAt = now().toISOString();
+      // Every valid submission is charged before the list is consulted, so the rate limit can never
+      // reveal whether a domain was already listed.
+      const allowed = await store.chargeSubmission(
+        userId,
+        createdAt.slice(0, 13),
+        DOMAIN_SUBMISSIONS_PER_HOUR,
+      );
+      if (!allowed) throw new ApiError('RATE_LIMITED');
+      const result = await store.addDomain({
+        groupId,
+        domain: validated.domain,
+        type,
+        addedBy: userId,
+        createdAt,
+        maxDomains: MAX_GROUP_DOMAINS,
+      });
+      if (result === 'not_allowed') throw new ApiError(isAdmin ? 'FORBIDDEN' : 'NOT_FOUND');
+      if (!isAdmin) {
+        // The same answer whether the domain was new, already listed in any category, or the list
+        // is full (section 11): members learn nothing about what the list contains.
+        return { status: 202, body: MEMBER_SUBMISSION_RESPONSE };
+      }
+      if (result === 'exists' || result === 'full') throw new ApiError('CONFLICT');
+      const body: AddedDomain = {
+        domain: validated.domain,
+        type,
+        addedBy: userId,
+        createdAt,
+        exempted: validated.exempted,
+      };
+      return { status: 201, body };
+    },
+
+    'GET /v1/groups/{groupId}/domains': async (event) => {
+      const { groupId, userId } = await requireAdmin(event);
+      const items = await store.listDomains(groupId);
+      // Re-check: only a current admin may see the full list (§4.3).
+      const still = await liveMembership(groupId, userId);
+      if (still?.membership.role !== 'ADMIN') throw new ApiError('NOT_FOUND');
+      const body: GroupDomainList = { items, nextCursor: null };
+      return { status: 200, body };
+    },
+
+    'DELETE /v1/groups/{groupId}/domains/{domain}': async (event) => {
+      const { groupId, userId } = await requireAdmin(event);
+      const at = now().toISOString();
+      const result = await store.removeDomain(groupId, pathDomain(event), userId, at);
+      if (result === 'not_found') throw new ApiError('NOT_FOUND');
+      if (result === 'not_allowed') throw new ApiError('FORBIDDEN');
+      return { status: 204, body: undefined };
+    },
+
+    'PATCH /v1/groups/{groupId}/domains/{domain}': async (event) => {
+      const { groupId, userId } = await requireAdmin(event);
+      const domain = pathDomain(event);
+      const { type } = parseBody(event, updateDomainRequestSchema);
+      const at = now().toISOString();
+      const result = await store.changeDomainType(groupId, domain, type, userId, at);
+      if (result === 'not_found') throw new ApiError('NOT_FOUND');
+      if (result === 'not_allowed') throw new ApiError('FORBIDDEN');
+      return { status: 204, body: undefined };
+    },
+
+    'GET /v1/groups/{groupId}/domains/audit': async (event) => {
+      const { groupId, userId } = await requireAdmin(event);
+      const items = await store.listDomainAudit(groupId, 50);
+      const still = await liveMembership(groupId, userId);
+      if (still?.membership.role !== 'ADMIN') throw new ApiError('NOT_FOUND');
+      const body: DomainAuditList = { items };
+      return { status: 200, body };
+    },
+
+    'GET /v1/extension/rules': async (event) => {
+      const { userId, clientId } = identity(event);
+      // Rules are for the extension to enforce, not for reading: dashboard tokens cannot fetch
+      // them, so the standard UI and API never enumerate the list (section 4.3, FR-09).
+      if (!env.RULES_CLIENT_IDS.includes(clientId)) throw new ApiError('FORBIDDEN');
+      const query = parseOrReject(ruleQuerySchema, event.queryStringParameters ?? {});
+      // Only active members of a live group receive its enforcement rules (§4.3).
+      if (!(await liveMembership(query.groupId, userId))) throw new ApiError('NOT_FOUND');
+      const rules = await store.ruleState(query.groupId);
+      if (!rules || !(await liveMembership(query.groupId, userId))) throw new ApiError('NOT_FOUND');
+      const base = {
+        groupId: query.groupId,
+        ruleVersion: rules.ruleVersion,
+        essentialVersion: ESSENTIAL_VERSION,
+      };
+      const unchanged =
+        query.version === rules.ruleVersion && query.essentialVersion === ESSENTIAL_VERSION;
+      const body: RuleSnapshot = unchanged
+        ? { status: 'unchanged', ...base }
+        : {
+            status: 'current',
+            ...base,
+            essential: essentialDomains(),
+            nonNegotiable: rules.nonNegotiable,
+            additional: rules.additional,
+          };
+      return { status: 200, body };
     },
 
     'DELETE /v1/groups/{groupId}/members/{userId}': async (event) => {

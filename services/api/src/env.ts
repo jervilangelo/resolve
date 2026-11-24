@@ -26,6 +26,16 @@ export const apiEnvSchema = z.object({
         .map((id) => id.trim())
         .filter(Boolean),
     ),
+  /** App clients allowed to fetch enforcement rules (the extension; the test client in dev). */
+  RULES_CLIENT_IDS: z
+    .string()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
 });
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
 

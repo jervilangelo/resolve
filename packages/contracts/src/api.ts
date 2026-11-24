@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { groupRoleSchema } from './domain';
+import { domainTypeSchema, groupRoleSchema } from './domain';
 
 /** Request/response DTOs for docs/MASTER_PLAN.md §11. All bodies are strict: unknown keys fail. */
 
@@ -115,3 +115,81 @@ export type MemberList = z.infer<typeof memberListSchema>;
 /** Groups are capped to keep membership operations and notification fan-out bounded. */
 export const MAX_GROUP_MEMBERS = 50;
 export const INVITATION_TTL_DAYS = 7;
+
+/** A group blocklist submission. Members may only add ADDITIONAL domains (the default). */
+export const addDomainRequestSchema = z.strictObject({
+  domain: z.string().min(1).max(300),
+  type: domainTypeSchema.optional(),
+});
+export type AddDomainRequest = z.infer<typeof addDomainRequestSchema>;
+
+/**
+ * The only response members ever get for a valid submission: it never reveals whether the domain
+ * was already listed, in which category, or by whom (§11).
+ */
+export const memberSubmissionResponseSchema = z.strictObject({
+  message: z.literal('Submission received.'),
+});
+export const MEMBER_SUBMISSION_RESPONSE = { message: 'Submission received.' } as const;
+
+/** A blocklist entry as shown to admins (who may see the full list). */
+export const groupDomainSchema = z.strictObject({
+  domain: z.string(),
+  type: domainTypeSchema,
+  addedBy: z.string(),
+  createdAt: z.iso.datetime(),
+});
+export type GroupDomain = z.infer<typeof groupDomainSchema>;
+export const groupDomainListSchema = pageSchema(groupDomainSchema);
+export type GroupDomainList = z.infer<typeof groupDomainListSchema>;
+
+/** Admin response to an addition, including essential services kept reachable beneath it. */
+export const addedDomainSchema = groupDomainSchema.extend({ exempted: z.array(z.string()) });
+export type AddedDomain = z.infer<typeof addedDomainSchema>;
+
+export const updateDomainRequestSchema = z.strictObject({ type: domainTypeSchema });
+
+/**
+ * Enforcement snapshot for an active member's extension (§4.3). Rule secrecy holds at the
+ * interface/API layer only: a browser that enforces rules can always be inspected.
+ */
+export const ruleSnapshotSchema = z.discriminatedUnion('status', [
+  z.strictObject({
+    status: z.literal('current'),
+    groupId: groupIdSchema,
+    ruleVersion: z.number().int().min(0),
+    essentialVersion: z.string(),
+    essential: z.array(z.string()),
+    nonNegotiable: z.array(z.string()),
+    additional: z.array(z.string()),
+  }),
+  z.strictObject({
+    status: z.literal('unchanged'),
+    groupId: groupIdSchema,
+    ruleVersion: z.number().int().min(0),
+    essentialVersion: z.string(),
+  }),
+]);
+export type RuleSnapshot = z.infer<typeof ruleSnapshotSchema>;
+
+export const ruleQuerySchema = z.strictObject({
+  groupId: groupIdSchema,
+  version: z.coerce.number().int().min(0).optional(),
+  essentialVersion: z.string().max(64).optional(),
+});
+
+/** Per-group cap: keeps compiled browser rules well inside declarativeNetRequest limits. */
+export const MAX_GROUP_DOMAINS = 1000;
+/** Blocklist submissions per user per hour, across groups. */
+export const DOMAIN_SUBMISSIONS_PER_HOUR = 60;
+
+export const domainAuditEntrySchema = z.strictObject({
+  action: z.enum(['ADDED', 'REMOVED', 'RECLASSIFIED']),
+  domain: z.string(),
+  actorId: z.string(),
+  at: z.iso.datetime(),
+  from: domainTypeSchema.optional(),
+  to: domainTypeSchema.optional(),
+});
+export const domainAuditListSchema = z.strictObject({ items: z.array(domainAuditEntrySchema) });
+export type DomainAuditList = z.infer<typeof domainAuditListSchema>;

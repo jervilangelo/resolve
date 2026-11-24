@@ -13,12 +13,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   type ActionState,
+  addBlockedDomain,
   createInvitation,
   dissolveGroup,
   leaveGroup,
+  removeBlockedDomain,
   removeMember,
   renameGroup,
   revokeInvitation,
+  setBlockedDomainType,
   setMemberRole,
 } from './actions';
 
@@ -257,6 +260,73 @@ export function DissolveGroupPanel({ groupId, name }: { groupId: string; name: s
         {pending ? 'Dissolving…' : 'Dissolve group'}
       </Button>
       <ErrorText message={error} />
+    </div>
+  );
+}
+
+export function BlockDomainForm({ groupId, isAdmin }: { groupId: string; isAdmin: boolean }) {
+  const [state, action, pending] = useActionState(addBlockedDomain.bind(null, groupId), {});
+  return (
+    <form action={action} className="space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1 space-y-2">
+          <Label htmlFor="domain">Website to block</Label>
+          <Input id="domain" name="domain" placeholder="example.com" autoComplete="off" required />
+        </div>
+        {isAdmin && (
+          <div className="space-y-2">
+            <Label htmlFor="type">Category</Label>
+            <select
+              id="type"
+              name="type"
+              defaultValue="ADDITIONAL"
+              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+            >
+              <option value="ADDITIONAL">Additional</option>
+              <option value="NON_NEGOTIABLE">Non-negotiable</option>
+            </select>
+          </div>
+        )}
+        <Button type="submit" disabled={pending}>
+          {pending ? 'Adding…' : isAdmin ? 'Block' : 'Submit'}
+        </Button>
+      </div>
+      <p className="text-muted-foreground text-xs">
+        Covers the website and all its subdomains. Essential services (such as Gmail, YouTube and
+        Microsoft 365) always stay reachable.
+      </p>
+      <ErrorText message={state.error} />
+      {state.message && (
+        <p role="status" className="text-primary text-sm">
+          {state.message}
+        </p>
+      )}
+    </form>
+  );
+}
+
+export function DomainActions({
+  groupId,
+  domain,
+  type,
+}: {
+  groupId: string;
+  domain: string;
+  type: 'NON_NEGOTIABLE' | 'ADDITIONAL';
+}) {
+  const to = type === 'ADDITIONAL' ? 'NON_NEGOTIABLE' : 'ADDITIONAL';
+  return (
+    <div className="flex flex-wrap justify-end gap-2">
+      <ConfirmButton
+        label={to === 'NON_NEGOTIABLE' ? 'Make non-negotiable' : 'Make additional'}
+        confirmText={`Change ${domain} to ${to === 'NON_NEGOTIABLE' ? 'non-negotiable' : 'additional'}?`}
+        run={() => setBlockedDomainType(groupId, domain, to)}
+      />
+      <ConfirmButton
+        label="Remove"
+        confirmText={`Stop blocking ${domain} for this group?`}
+        run={() => removeBlockedDomain(groupId, domain)}
+      />
     </div>
   );
 }

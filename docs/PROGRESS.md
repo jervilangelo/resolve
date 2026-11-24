@@ -9,7 +9,7 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-24 · **Current:** Phase 4 complete; Phase 5 (domain protection) next
+**Last updated:** 2026-11-24 · **Current:** Phase 5 in progress (5a policy engine and 5b API/dashboard done; 5c extension enforcement next)
 
 ## Phase status
 
@@ -19,7 +19,7 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 | 2 — Repository and engineering        | Done        | Monorepo, web, extension, contracts, CI, E2E                                 |
 | 3 — AWS infrastructure and backend    | Done        | Dev deployed; CI deploy pipeline live; acceptance tests pass                 |
 | 4 — Accounts and groups               | Done        | Dashboard + extension sign-in, groups, invites, roles, active group          |
-| **5 — Domain protection**             | **Next**    | Essential exemptions, non-negotiable/additional blocklists, enforcement      |
+| **5 — Domain protection**             | **Active**  | 5a engine + 5b API/dashboard done. Next: 5c extension enforcement            |
 | 6–10                                  | Not started | AI blur, accountability, notifications, QA, beta                             |
 
 ## What exists and works (verified)
@@ -52,21 +52,30 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
   `identity` + host access to the API and Cognito origins only. Popup/options show account, active
   group picker (one per installation, verified against the API), dashboard link, sign out.
   Chromium only; Firefox sign-in stays off until a Gecko ID is chosen.
+- **Domain policy (Phase 5a/5b):** `packages/domain-policy` (normalization via the browser URL
+  parser, Public Suffix List rejection, essential registry `ESSENTIAL_VERSION`, `decide()`
+  precedence). API: members add additional domains with a uniform 202 (no existence/category/full
+  oracle; every submission charged to a 60/hour budget); admins add/list/remove/reclassify
+  (1000 per group) with an audit trail; `GET /v1/extension/rules` serves versioned snapshots to the
+  extension client only (lists live as string sets on the group META item). Dashboard: blocked
+  websites section (admin list, reclassify, remove, recent changes; member submit-only).
 - **Checks:** `pnpm check`, `pnpm build`, `pnpm e2e`, `pnpm integration` all passing at pause.
 
 ## Next steps (Phase 5 — domain protection)
 
-1. Platform essential-domain allowlist (Facebook, Messenger, YouTube, Gmail, Outlook, Microsoft 365,
-   Google login/Drive/Meet, Teams and tested dependencies) with precedence over group blocks.
-2. Group domain API: admins add/remove/list non-negotiable and additional domains; members add
-   additional domains without approval and get a generic response (no list/duplicate oracle).
-3. Domain normalization (hostnames, IDNs, subdomains, public-suffix rejection) in a shared package.
-4. Versioned rule snapshot for the extension's active group; Chromium declarativeNetRequest
-   enforcement with an offline cache.
-5. Carry-overs: per-user group quota, revoked-token handling for the dashboard, idempotency request
-   fingerprint, group picture upload, a janitor for interrupted dissolves.
+1. Done: policy engine (5a); domain API, admin console and member submission (5b).
+2. **Next — 5c:** extension enforcement with Chromium declarativeNetRequest (essential allow rules
+   above group blocks; page and frame navigations only; rule IDs reserved per category so a future
+   Focus Mode range stays isolated), versioned rule sync from `/v1/extension/rules`, cached
+   snapshot for offline enforcement with stale-sync status, clearing on group switch or sign-out.
+3. Carry-overs: per-user group quota, revoked-token handling for the dashboard, idempotency request
+   fingerprint, group picture upload, a janitor for interrupted dissolves, branded block page.
 
 ## Decisions log
+
+- 2026-11-25: Group blocks apply to page and frame navigations only (never subresources), so
+  essential services keep their third-party dependencies; public suffixes (incl. private ones such
+  as github.io) cannot be blocked; broad domains may be blocked with essentials staying reachable.
 
 - 2026-11-24: Brand palette changed to slate (navy-charcoal ink, cool greys, slate-grey blade) by
   owner request: interface, logos, icons, favicons, store, social and email images were all

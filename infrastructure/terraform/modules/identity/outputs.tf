@@ -42,3 +42,11 @@ output "hosted_domain" {
 output "extension_client_id" {
   value = one(aws_cognito_user_pool_client.extension[*].id)
 }
+
+# Clients allowed to fetch enforcement rules: the extension (and the test client outside prod).
+output "rules_client_ids" {
+  value = concat(
+    aws_cognito_user_pool_client.extension[*].id,
+    aws_cognito_user_pool_client.integration_test[*].id,
+  )
+}

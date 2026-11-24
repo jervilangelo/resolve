@@ -5,7 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-import type { GroupRole } from '@resolve/contracts';
+import type { DomainType, GroupRole } from '@resolve/contracts';
 
 export interface StoredProfile {
   displayName: string | null;
@@ -61,6 +61,35 @@ export type AcceptResult =
   | { status: 'full' };
 
 export type RemoveResult = 'removed' | 'not_member' | 'last_admin' | 'not_allowed';
+
+export interface StoredDomain {
+  domain: string;
+  type: DomainType;
+  addedBy: string;
+  createdAt: string;
+}
+
+export interface AddDomainInput extends StoredDomain {
+  groupId: string;
+  maxDomains: number;
+}
+
+export type AddDomainResult = 'added' | 'exists' | 'full' | 'not_allowed';
+
+export interface DomainAuditEntry {
+  action: 'ADDED' | 'REMOVED' | 'RECLASSIFIED';
+  domain: string;
+  actorId: string;
+  at: string;
+  from?: DomainType;
+  to?: DomainType;
+}
+
+export interface RuleState {
+  ruleVersion: number;
+  nonNegotiable: string[];
+  additional: string[];
+}
 
 export interface Page<T> {
   items: T[];
@@ -123,6 +152,37 @@ export interface Store {
    * for everyone at once, then every remaining item in its partition and its invitation tokens.
    */
   dissolveGroup(groupId: string, actorId: string): Promise<'dissolved' | 'not_allowed'>;
+
+  /**
+   * Counts one blocklist submission against the user's hourly budget (bucket e.g. 2026-11-25T10).
+   * Charged before the list is consulted, so the budget never reveals whether a domain existed.
+   */
+  chargeSubmission(userId: string, bucket: string, maxPerHour: number): Promise<boolean>;
+  /**
+   * Adds a blocklist entry and bumps the group's ruleVersion atomically, with an audit record. The adder must be a
+   * member of a live group (an admin for NON_NEGOTIABLE). An existing entry is left unchanged.
+   */
+  addDomain(input: AddDomainInput): Promise<AddDomainResult>;
+  listDomains(groupId: string): Promise<StoredDomain[]>;
+  /** Admin-only removal; bumps ruleVersion. */
+  removeDomain(
+    groupId: string,
+    domain: string,
+    actorId: string,
+    at: string,
+  ): Promise<'removed' | 'not_found' | 'not_allowed'>;
+  /** Admin-only reclassification; bumps ruleVersion. */
+  changeDomainType(
+    groupId: string,
+    domain: string,
+    type: DomainType,
+    actorId: string,
+    at: string,
+  ): Promise<'changed' | 'unchanged' | 'not_found' | 'not_allowed'>;
+  /** Most recent domain changes first. */
+  listDomainAudit(groupId: string, limit: number): Promise<DomainAuditEntry[]>;
+  /** The group's current ruleVersion and blocklists, read consistently. */
+  ruleState(groupId: string): Promise<RuleState | null>;
 }
 
 export class InvalidCursorError extends Error {

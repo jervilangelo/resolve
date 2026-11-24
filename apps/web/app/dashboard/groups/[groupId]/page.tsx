@@ -7,6 +7,8 @@
 
 import {
   type GroupSummary,
+  domainAuditListSchema,
+  groupDomainListSchema,
   groupIdSchema,
   groupSummarySchema,
   invitationListSchema,
@@ -18,7 +20,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ApiRequestError, api } from '@/lib/api';
 import {
+  BlockDomainForm,
   DissolveGroupPanel,
+  DomainActions,
   InvitePanel,
   LeaveGroupButton,
   RemoveMemberButton,
@@ -43,11 +47,17 @@ export default async function GroupPage({ params }: { params: Promise<{ groupId:
     throw error;
   }
   const isAdmin = group.role === 'ADMIN';
-  const [me, members, invitations] = await Promise.all([
+  const [me, members, invitations, domains, audit] = await Promise.all([
     api('/v1/me', profileSchema),
     api(`/v1/groups/${groupId}/members?limit=100`, memberListSchema),
     isAdmin ? api(`/v1/groups/${groupId}/invitations`, invitationListSchema) : null,
+    isAdmin ? api(`/v1/groups/${groupId}/domains`, groupDomainListSchema) : null,
+    isAdmin ? api(`/v1/groups/${groupId}/domains/audit`, domainAuditListSchema) : null,
   ]);
+  const memberName = (userId: string) =>
+    members.items.find((m) => m.userId === userId)?.displayName ??
+    (userId === me.userId ? 'You' : 'A former member');
+  const category = (type?: string) => (type === 'NON_NEGOTIABLE' ? 'non-negotiable' : 'additional');
   const adminCount = members.items.filter((m) => m.role === 'ADMIN').length;
 
   return (
@@ -140,6 +150,67 @@ export default async function GroupPage({ params }: { params: Promise<{ groupId:
           )}
         </section>
       )}
+
+      <section aria-labelledby="blocked" className="space-y-4">
+        <div className="space-y-1">
+          <h2 id="blocked" className="font-semibold">
+            Blocked websites
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            {isAdmin
+              ? 'Non-negotiable websites are blocked and can lead to an accountability alert (once sharing is set up). Additional websites are blocked without alerts. Members can add additional websites; only admins can see or change this list.'
+              : 'Add a website to block for everyone in this group. It takes effect immediately. The full list is visible to admins only.'}
+          </p>
+        </div>
+        <BlockDomainForm groupId={groupId} isAdmin={isAdmin} />
+        {domains && domains.items.length > 0 && (
+          <ul className="bg-card divide-y rounded-lg border text-sm">
+            {domains.items.map((entry) => (
+              <li
+                key={entry.domain}
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              >
+                <div>
+                  <p className="font-medium">{entry.domain}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {entry.type === 'NON_NEGOTIABLE' ? 'Non-negotiable' : 'Additional'} · added{' '}
+                    {new Date(entry.createdAt).toLocaleDateString('en', dateFormat)}
+                  </p>
+                </div>
+                <DomainActions groupId={groupId} domain={entry.domain} type={entry.type} />
+              </li>
+            ))}
+          </ul>
+        )}
+        {audit && audit.items.length > 0 && (
+          <details className="text-sm">
+            <summary className="cursor-pointer font-medium">Recent changes</summary>
+            <ul className="mt-2 space-y-1">
+              {audit.items.map((entry) => (
+                <li
+                  key={`${entry.at}-${entry.domain}-${entry.action}`}
+                  className="text-muted-foreground"
+                >
+                  {new Date(entry.at).toLocaleString('en', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}{' '}
+                  · {memberName(entry.actorId)}{' '}
+                  {entry.action === 'ADDED'
+                    ? `added ${entry.domain} (${category(entry.to)})`
+                    : entry.action === 'REMOVED'
+                      ? `removed ${entry.domain}`
+                      : `changed ${entry.domain} to ${category(entry.to)}`}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        <p className="text-muted-foreground text-xs">
+          The list is private in the dashboard and API, but browsers must hold the rules to enforce
+          them, so a technically skilled member could still inspect or infer blocked websites.
+        </p>
+      </section>
 
       {isAdmin && (
         <section aria-labelledby="settings" className="space-y-4">

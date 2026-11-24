@@ -28,6 +28,7 @@ const env: ApiEnv = {
   LOG_LEVEL: 'error',
   TABLE_NAME: 'resolve-test',
   ALLOWED_CLIENT_IDS: ['web-client'],
+  RULES_CLIENT_IDS: [],
 };
 
 beforeEach(() => {

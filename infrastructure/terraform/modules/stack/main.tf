@@ -39,6 +39,7 @@ module "api" {
   table_arn          = module.data.table_arn
   issuer             = module.identity.issuer
   client_ids         = module.identity.api_client_ids
+  rules_client_ids   = module.identity.rules_client_ids
   cors_allow_origins = var.web_origins
   log_retention_days = var.log_retention_days
 }

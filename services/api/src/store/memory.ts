@@ -11,6 +11,8 @@ import {
   type Store,
   type StoredGroup,
   type StoredMembership,
+  type DomainAuditEntry,
+  type StoredDomain,
   type StoredProfile,
 } from './store';
 
@@ -26,6 +28,11 @@ export function createMemoryStore(): Store {
   const idempotency = new Map<string, string>();
   const invitations = new Map<string, CreateInvitationInput>();
   const redemptions = new Set<string>();
+  const domains = new Map<string, StoredDomain & { groupId: string }>();
+  const ruleVersions = new Map<string, number>();
+  const rateCounters = new Map<string, number>();
+  const audit: (DomainAuditEntry & { groupId: string })[] = [];
+  const bump = (groupId: string) => ruleVersions.set(groupId, (ruleVersions.get(groupId) ?? 0) + 1);
 
   const memberKey = (groupId: string, userId: string) => `${groupId}#${userId}`;
   const isAdmin = (groupId: string, userId: string) =>
@@ -236,7 +243,103 @@ export function createMemoryStore(): Store {
       groups.delete(groupId);
       for (const [key, m] of memberships) if (m.groupId === groupId) memberships.delete(key);
       for (const [id, inv] of invitations) if (inv.groupId === groupId) invitations.delete(id);
+      for (const [key, d] of domains) if (d.groupId === groupId) domains.delete(key);
       return Promise.resolve('dissolved' as const);
+    },
+    addDomain: (input) => {
+      const member = memberships.get(memberKey(input.groupId, input.addedBy));
+      const allowed =
+        groups.has(input.groupId) &&
+        member !== undefined &&
+        (input.type === 'ADDITIONAL' || member.role === 'ADMIN');
+      if (!allowed) return Promise.resolve('not_allowed' as const);
+      const key = `${input.groupId}#${input.domain}`;
+      if (domains.has(key)) return Promise.resolve('exists' as const);
+      const count = [...domains.values()].filter((d) => d.groupId === input.groupId).length;
+      if (count >= input.maxDomains) return Promise.resolve('full' as const);
+      audit.push({
+        groupId: input.groupId,
+        action: 'ADDED',
+        domain: input.domain,
+        actorId: input.addedBy,
+        at: input.createdAt,
+        to: input.type,
+      });
+      domains.set(key, {
+        groupId: input.groupId,
+        domain: input.domain,
+        type: input.type,
+        addedBy: input.addedBy,
+        createdAt: input.createdAt,
+      });
+      bump(input.groupId);
+      return Promise.resolve('added' as const);
+    },
+    listDomains: (groupId) =>
+      Promise.resolve(
+        [...domains.values()]
+          .filter((d) => d.groupId === groupId)
+          .sort((a, b) => a.domain.localeCompare(b.domain))
+          .map(({ groupId: _g, ...rest }) => rest),
+      ),
+    chargeSubmission: (userId, bucket, maxPerHour) => {
+      const key = `${userId}#${bucket}`;
+      const used = rateCounters.get(key) ?? 0;
+      if (used >= maxPerHour) return Promise.resolve(false);
+      rateCounters.set(key, used + 1);
+      return Promise.resolve(true);
+    },
+    listDomainAudit: (groupId, limit) =>
+      Promise.resolve(
+        audit
+          .filter((e) => e.groupId === groupId)
+          .reverse()
+          .slice(0, limit)
+          .map(({ groupId: _g, ...rest }) => rest),
+      ),
+    removeDomain: (groupId, domain, actorId, at) => {
+      if (!groups.has(groupId) || !isAdmin(groupId, actorId)) {
+        return Promise.resolve('not_allowed' as const);
+      }
+      if (!domains.delete(`${groupId}#${domain}`)) return Promise.resolve('not_found' as const);
+      audit.push({ groupId, action: 'REMOVED', domain, actorId, at });
+      bump(groupId);
+      return Promise.resolve('removed' as const);
+    },
+    changeDomainType: (groupId, domain, type, actorId, at) => {
+      if (!groups.has(groupId) || !isAdmin(groupId, actorId)) {
+        return Promise.resolve('not_allowed' as const);
+      }
+      const entry = domains.get(`${groupId}#${domain}`);
+      if (!entry) return Promise.resolve('not_found' as const);
+      if (entry.type === type) return Promise.resolve('unchanged' as const);
+      audit.push({
+        groupId,
+        action: 'RECLASSIFIED',
+        domain,
+        actorId,
+        at,
+        from: entry.type,
+        to: type,
+      });
+      entry.type = type;
+      bump(groupId);
+      return Promise.resolve('changed' as const);
+    },
+    ruleState: (groupId) => {
+      if (!groups.has(groupId)) return Promise.resolve(null);
+      const list = [...domains.values()].filter((d) => d.groupId === groupId);
+      return Promise.resolve({
+        ruleVersion: ruleVersions.get(groupId) ?? 0,
+        nonNegotiable: list
+          .filter((d) => d.type === 'NON_NEGOTIABLE')
+          .map((d) => d.domain)
+          .sort(),
+        additional: list
+          .filter((d) => d.type === 'ADDITIONAL')
+          .map((d) => d.domain)
+          .sort(),
+      });
     },
   };
   return store;

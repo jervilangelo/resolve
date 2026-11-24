@@ -15,6 +15,12 @@ locals {
     "PATCH /v1/groups/{groupId}"                             = true
     "DELETE /v1/groups/{groupId}"                            = true
     "PATCH /v1/groups/{groupId}/members/{userId}"            = true
+    "POST /v1/groups/{groupId}/domains"                      = true
+    "GET /v1/groups/{groupId}/domains"                       = true
+    "DELETE /v1/groups/{groupId}/domains/{domain}"           = true
+    "PATCH /v1/groups/{groupId}/domains/{domain}"            = true
+    "GET /v1/groups/{groupId}/domains/audit"                 = true
+    "GET /v1/extension/rules"                                = true
     "GET /v1/groups/{groupId}/members"                       = true
     "DELETE /v1/groups/{groupId}/members/{userId}"           = true
     "POST /v1/groups/{groupId}/leave"                        = true
@@ -94,6 +100,16 @@ data "aws_iam_policy_document" "table_access" {
       values   = ["GROUP#*", "INVITE#*"]
     }
   }
+  statement {
+    sid       = "CountUserSubmissions"
+    actions   = ["dynamodb:UpdateItem"]
+    resources = [var.table_arn]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["USER#*"]
+    }
+  }
 }
 
 module "function" {
@@ -107,6 +123,7 @@ module "function" {
     LOG_LEVEL          = "info"
     TABLE_NAME         = var.table_name
     ALLOWED_CLIENT_IDS = join(",", var.client_ids)
+    RULES_CLIENT_IDS   = join(",", var.rules_client_ids)
   }
 }
 

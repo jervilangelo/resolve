@@ -5,7 +5,12 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-import { DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
+import { randomBytes } from 'node:crypto';
+import {
+  ConditionalCheckFailedException,
+  DynamoDBClient,
+  TransactionCanceledException,
+} from '@aws-sdk/client-dynamodb';
 import {
   BatchGetCommand,
   BatchWriteCommand,
@@ -14,8 +19,9 @@ import {
   PutCommand,
   QueryCommand,
   TransactWriteCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { groupRoleSchema } from '@resolve/contracts';
+import { domainTypeSchema, groupRoleSchema } from '@resolve/contracts';
 import { z } from 'zod';
 import {
   type AcceptResult,
@@ -48,6 +54,8 @@ export const keys = {
   invite: (invitationId: string) => `INVITE#${invitationId}`,
   token: (tokenHash: string) => `INVITE#${tokenHash}`,
   redemption: (invitationId: string, userId: string) => `REDEEMED#${invitationId}#${userId}`,
+  domain: (domain: string) => `DOMAIN#${domain}`,
+  rate: (bucket: string) => `RATE#domains#${bucket}`,
 };
 
 /** Invitation items outlive their expiry briefly so revocation and late clicks behave. */
@@ -63,6 +71,40 @@ const liveMetaSchema = z.object({
   createdAt: z.string(),
   // Must be absent (z.undefined() would require the key to be present).
   dissolvedAt: z.never().optional(),
+  ruleVersion: z.number().optional(),
+});
+
+/** META attributes (DynamoDB string sets) holding the enforcement lists per category. */
+const RULE_SET = { NON_NEGOTIABLE: 'blockNonNegotiable', ADDITIONAL: 'blockAdditional' } as const;
+
+const stringSet = z
+  .union([z.instanceof(Set<string>), z.array(z.string())])
+  .transform((value) => [...value].map(String));
+
+const ruleMetaSchema = z.object({
+  dissolvedAt: z.never().optional(),
+  ruleVersion: z.number().optional(),
+  [RULE_SET.NON_NEGOTIABLE]: stringSet.optional(),
+  [RULE_SET.ADDITIONAL]: stringSet.optional(),
+});
+
+/** Domain audit entries are kept for a year (docs/MASTER_PLAN.md §3, §8.3). */
+const AUDIT_TTL_SECONDS = 365 * 24 * 60 * 60;
+
+const auditItemSchema = z.object({
+  action: z.enum(['ADDED', 'REMOVED', 'RECLASSIFIED']),
+  domain: z.string(),
+  actorId: z.string(),
+  at: z.string(),
+  from: domainTypeSchema.optional(),
+  to: domainTypeSchema.optional(),
+});
+
+const domainItemSchema = z.object({
+  domain: z.string(),
+  domainType: domainTypeSchema,
+  addedBy: z.string(),
+  createdAt: z.string(),
 });
 
 const invitationItemSchema = z.object({
@@ -195,6 +237,34 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
   }
 
   /** Display names for up to 100 users (BatchGetItem limit), retrying unprocessed keys. */
+  /** Transaction item recording a domain change (who, what, when) for the admin audit trail. */
+  function auditPut(
+    groupId: string,
+    actorId: string,
+    at: string,
+    entry: {
+      action: 'ADDED' | 'REMOVED' | 'RECLASSIFIED';
+      domain: string;
+      from?: string;
+      to?: string;
+    },
+  ): TransactItems[number] {
+    return {
+      Put: {
+        TableName: tableName,
+        Item: {
+          PK: keys.group(groupId),
+          SK: `AUDIT#${at}#${randomBytes(6).toString('hex')}`,
+          type: 'DomainAudit',
+          actorId,
+          at,
+          ...entry,
+          ttl: Math.floor(Date.parse(at) / 1000) + AUDIT_TTL_SECONDS,
+        },
+      },
+    };
+  }
+
   /** Transaction item asserting `actorId` is an admin of the group when the write commits. */
   function adminCheck(groupId: string, actorId: string): TransactItems[number] {
     return {
@@ -838,6 +908,259 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         );
       }
       return 'dissolved';
+    },
+
+    async chargeSubmission(userId, bucket, maxPerHour) {
+      try {
+        await db.send(
+          new UpdateCommand({
+            TableName: tableName,
+            Key: { PK: keys.user(userId), SK: keys.rate(bucket) },
+            UpdateExpression:
+              'SET submissions = if_not_exists(submissions, :zero) + :one, #ttl = :ttl',
+            ConditionExpression: 'attribute_not_exists(submissions) OR submissions < :limit',
+            ExpressionAttributeNames: { '#ttl': 'ttl' },
+            ExpressionAttributeValues: {
+              ':zero': 0,
+              ':one': 1,
+              ':limit': maxPerHour,
+              ':ttl': Math.floor(Date.now() / 1000) + 2 * 60 * 60,
+            },
+          }),
+        );
+        return true;
+      } catch (error) {
+        if (error instanceof ConditionalCheckFailedException) return false;
+        throw error;
+      }
+    },
+
+    async addDomain(input) {
+      const groupKey = keys.group(input.groupId);
+      try {
+        await transact([
+          {
+            Put: {
+              TableName: tableName,
+              Item: {
+                PK: groupKey,
+                SK: keys.domain(input.domain),
+                type: 'BlockedDomain',
+                domainType: input.type,
+                domain: input.domain,
+                addedBy: input.addedBy,
+                createdAt: input.createdAt,
+              },
+              ConditionExpression: 'attribute_not_exists(PK)',
+            },
+          },
+          {
+            // The enforcement lists live on META beside ruleVersion, so a single consistent read
+            // always returns a version together with exactly the rules it describes.
+            Update: {
+              TableName: tableName,
+              Key: { PK: groupKey, SK: 'META' },
+              UpdateExpression:
+                'SET ruleVersion = if_not_exists(ruleVersion, :zero) + :one, domainCount = if_not_exists(domainCount, :zero) + :one ADD #set :d',
+              ConditionExpression: `${LIVE_GROUP} AND (attribute_not_exists(domainCount) OR domainCount < :max)`,
+              ExpressionAttributeNames: { '#set': RULE_SET[input.type] },
+              ExpressionAttributeValues: {
+                ':zero': 0,
+                ':one': 1,
+                ':max': input.maxDomains,
+                ':d': new Set([input.domain]),
+              },
+            },
+          },
+          // The adder must still be a member (an admin for non-negotiable entries).
+          input.type === 'NON_NEGOTIABLE'
+            ? adminCheck(input.groupId, input.addedBy)
+            : {
+                ConditionCheck: {
+                  TableName: tableName,
+                  Key: { PK: groupKey, SK: keys.member(input.addedBy) },
+                  ConditionExpression: 'attribute_exists(PK)',
+                },
+              },
+          auditPut(input.groupId, input.addedBy, input.createdAt, {
+            action: 'ADDED',
+            domain: input.domain,
+            to: input.type,
+          }),
+        ]);
+        return 'added';
+      } catch (error) {
+        const codes = cancellationCodes(error);
+        if (!codes) throw error;
+        const failed = (i: number) => codes[i] === 'ConditionalCheckFailed';
+        if (failed(2)) return 'not_allowed';
+        if (failed(0)) return 'exists';
+        if (failed(1)) {
+          const live = liveMetaSchema.safeParse(await getItem(groupKey, 'META'));
+          return live.success ? 'full' : 'not_allowed';
+        }
+        throw error;
+      }
+    },
+
+    async listDomains(groupId) {
+      const items: Record<string, unknown>[] = [];
+      let start: Record<string, unknown> | undefined;
+      do {
+        const page = await db.send(
+          new QueryCommand({
+            TableName: tableName,
+            KeyConditionExpression: 'PK = :pk AND begins_with(SK, :domain)',
+            ExpressionAttributeValues: { ':pk': keys.group(groupId), ':domain': 'DOMAIN#' },
+            ConsistentRead: true,
+            ExclusiveStartKey: start,
+          }),
+        );
+        items.push(...(page.Items ?? []));
+        start = page.LastEvaluatedKey;
+      } while (start);
+      return items.map((raw) => {
+        const item = domainItemSchema.parse(raw);
+        return {
+          domain: item.domain,
+          type: item.domainType,
+          addedBy: item.addedBy,
+          createdAt: item.createdAt,
+        };
+      });
+    },
+
+    async removeDomain(groupId, domain, actorId, at) {
+      const groupKey = keys.group(groupId);
+      try {
+        await transact([
+          adminCheck(groupId, actorId),
+          {
+            Delete: {
+              TableName: tableName,
+              Key: { PK: groupKey, SK: keys.domain(domain) },
+              ConditionExpression: 'attribute_exists(PK)',
+            },
+          },
+          {
+            Update: {
+              TableName: tableName,
+              Key: { PK: groupKey, SK: 'META' },
+              UpdateExpression:
+                'SET ruleVersion = if_not_exists(ruleVersion, :zero) + :one, domainCount = if_not_exists(domainCount, :one) - :one DELETE #nn :d, #add :d',
+              ConditionExpression: LIVE_GROUP,
+              ExpressionAttributeNames: {
+                '#nn': RULE_SET.NON_NEGOTIABLE,
+                '#add': RULE_SET.ADDITIONAL,
+              },
+              ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':d': new Set([domain]) },
+            },
+          },
+          auditPut(groupId, actorId, at, { action: 'REMOVED', domain }),
+        ]);
+        return 'removed';
+      } catch (error) {
+        const codes = cancellationCodes(error);
+        if (!codes) throw error;
+        if (codes[0] === 'ConditionalCheckFailed' || codes[2] === 'ConditionalCheckFailed') {
+          return 'not_allowed';
+        }
+        if (codes[1] === 'ConditionalCheckFailed') return 'not_found';
+        throw error;
+      }
+    },
+
+    async changeDomainType(groupId, domain, domainType, actorId, at) {
+      const groupKey = keys.group(groupId);
+      const from = domainType === 'NON_NEGOTIABLE' ? 'ADDITIONAL' : 'NON_NEGOTIABLE';
+      try {
+        await db.send(
+          new TransactWriteCommand({
+            TransactItems: [
+              adminCheck(groupId, actorId),
+              {
+                Update: {
+                  TableName: tableName,
+                  Key: { PK: groupKey, SK: keys.domain(domain) },
+                  UpdateExpression: 'SET domainType = :type',
+                  ConditionExpression: 'attribute_exists(PK) AND domainType = :from',
+                  ExpressionAttributeValues: { ':type': domainType, ':from': from },
+                  // Lets a failed condition report what the row actually held.
+                  ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
+                },
+              },
+              {
+                Update: {
+                  TableName: tableName,
+                  Key: { PK: groupKey, SK: 'META' },
+                  UpdateExpression:
+                    'SET ruleVersion = if_not_exists(ruleVersion, :zero) + :one DELETE #from :d ADD #to :d',
+                  ConditionExpression: LIVE_GROUP,
+                  ExpressionAttributeNames: {
+                    '#from': RULE_SET[from],
+                    '#to': RULE_SET[domainType],
+                  },
+                  ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':d': new Set([domain]) },
+                },
+              },
+              auditPut(groupId, actorId, at, {
+                action: 'RECLASSIFIED',
+                domain,
+                from,
+                to: domainType,
+              }),
+            ],
+          }),
+        );
+        return 'changed';
+      } catch (error) {
+        if (!(error instanceof TransactionCanceledException)) throw error;
+        const reasons = error.CancellationReasons ?? [];
+        if (
+          reasons[0]?.Code === 'ConditionalCheckFailed' ||
+          reasons[2]?.Code === 'ConditionalCheckFailed'
+        ) {
+          return 'not_allowed';
+        }
+        if (reasons[1]?.Code === 'ConditionalCheckFailed') {
+          // The row's own image at failure time: absent means not found; otherwise it already had
+          // the requested type.
+          return reasons[1].Item ? 'unchanged' : 'not_found';
+        }
+        throw error;
+      }
+    },
+
+    async listDomainAudit(groupId, limit) {
+      const { Items = [] } = await db.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :audit)',
+          ExpressionAttributeValues: { ':pk': keys.group(groupId), ':audit': 'AUDIT#' },
+          ConsistentRead: true,
+          ScanIndexForward: false,
+          Limit: limit,
+        }),
+      );
+      return Items.map((raw) => auditItemSchema.parse(raw)).map((item) => ({
+        action: item.action,
+        domain: item.domain,
+        actorId: item.actorId,
+        at: item.at,
+        ...(item.from && { from: item.from }),
+        ...(item.to && { to: item.to }),
+      }));
+    },
+
+    async ruleState(groupId) {
+      // One strongly consistent read: the version and the lists it describes come from one item.
+      const meta = ruleMetaSchema.safeParse(await getItem(keys.group(groupId), 'META'));
+      if (!meta.success) return null;
+      return {
+        ruleVersion: meta.data.ruleVersion ?? 0,
+        nonNegotiable: [...(meta.data[RULE_SET.NON_NEGOTIABLE] ?? [])].sort(),
+        additional: [...(meta.data[RULE_SET.ADDITIONAL] ?? [])].sort(),
+      };
     },
   };
 }
