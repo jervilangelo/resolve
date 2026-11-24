@@ -9,8 +9,8 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-24 · **Current:** Phase 6 built and verified; explicit-set false-negative
-measurement pending (owner); Phase 7 (voluntary accountability) next
+**Last updated:** 2026-11-24 · **Current:** Phase 7 complete; Phase 8 (exactly two notification
+triggers) next
 
 ## Phase status
 
@@ -22,8 +22,9 @@ measurement pending (owner); Phase 7 (voluntary accountability) next
 | 4 — Accounts and groups               | Done        | Dashboard + extension sign-in, groups, invites, roles, active group          |
 | 5 — Domain protection                 | Done        | Policy engine, blocklist API/UI, extension enforcement (Chromium DNR)        |
 | 6 — On-device AI media protection     | Done        | NSFWJS on-device blur (Chromium); FN rate to be measured on an owner dataset |
-| **7 — Voluntary accountability**      | **Next**    | Sharing modes, consent, alerts                                               |
-| 8–11                                  | Not started | Notifications, QA, beta, Focus Mode                                          |
+| 7 — Voluntary accountability          | Done        | Sharing modes, recipient consent, server-side resolver; dashboard UI         |
+| **8 — Two notification triggers**     | **Next**    | Non-negotiable navigation + departure alerts via outbox/SQS/SES              |
+| 9–11                                  | Not started | QA, beta, Focus Mode                                                         |
 
 ## What exists and works (verified)
 
@@ -78,6 +79,16 @@ measurement pending (owner); Phase 7 (voluntary accountability) next
   Measured: 1.0–2.7% false positives on 300 general photos; ~35 ms per image warm, 3 s cold start.
   See [AI_FILTER_EVALUATION.md](AI_FILTER_EVALUATION.md).
   Reviewed by Claude.
+- **Voluntary accountability (Phase 7):** each member sets who may receive their alerts
+  (`PRIVATE` default / `SELECTED` / `EVERYONE`) and, separately, whose alerts they agree to receive
+  (anyone who shares, or person by person). Only the member can read or change their own choices
+  (no admin route). `eligibleRecipients` (services/api/src/accountability.ts) resolves recipients
+  from current members and consent; choices made before someone (re)joined never count, and leaving
+  deletes the member's own choices in the same transaction. Consent changes are audited (no
+  browsing data), limited to 60/hour, and unchanged saves are no-ops. Dashboard: Accountability
+  section on the group page. Verified: 14 unit/route scenarios (private, selected, everyone,
+  one-way, mutual, withdrawn, admin cannot override, rejoin), a live DynamoDB integration test, and
+  a two-user real-browser flow. No alerts are sent yet (Phase 8).
 - **Whole-system review (2026-11-24, Claude reviewers per area):** no critical or high findings.
   Fixed: media re-reads no longer hit the HTTP disk cache, fetch/classify timeouts and a streamed
   size cap, late video verdicts can't unblur a new source, fair video sampling, rules removed at
@@ -89,21 +100,28 @@ measurement pending (owner); Phase 7 (voluntary accountability) next
 
 ## Next steps
 
-1. Owner: measure the media filter's false-negative rate on a private labelled dataset
-   (`node apps/extension/scripts/evaluate-model.ts <dir>` with `safe/`, `suggestive/`,
-   `explicit/`) and record it in AI_FILTER_EVALUATION.md; tune thresholds if needed.
-2. Phase 7 — voluntary accountability: sharing modes (PRIVATE default / SELECTED / EVERYONE),
-   recipient consent, navigation-observation alerts for blocked top-level visits.
-3. Media filter follow-ups: memory profiling, open shadow DOM, "pages already open" refresh on
-   toggle, Firefox adapter (no offscreen documents there).
+1. Phase 8 — exactly two notification triggers (MASTER_PLAN §7): (A) qualifying non-negotiable
+   top-level navigation reported by the extension (minimal event, server-derived user, idempotency,
+   cooldown, per-recipient caps, no domain in the alert); (B) leave/removal using the pre-departure
+   sharing snapshot in the same transaction as the outbox record. Outbox → SQS → SES worker that
+   rechecks membership and consent before sending (`eligibleRecipients`).
+2. Extension popup: show the current sharing mode (MASTER_PLAN §8 popup contents).
+3. Owner: measure the media filter's false-negative rate on a private labelled dataset
+   (`node apps/extension/scripts/evaluate-model.ts <dir>`) and record it in AI_FILTER_EVALUATION.md.
 4. Review leftovers (low): dissolve janitor (async sweep; leftovers are inert meanwhile), race
    outcomes on leave/remove that answer 404 instead of 409, `returnTo` after an API 401 and a
    loop guard, server-side dates in UTC, Cognito `error` on the callback shown as "expired".
 5. Carry-overs: per-user group quota, dashboard revoked-token handling, idempotency request
-   fingerprint, group picture upload, dissolve janitor, branded block page, Firefox enforcement
-   adapter (with Firefox sign-in).
+   fingerprint, group picture upload, branded block page, Firefox enforcement adapter (with
+   Firefox sign-in), media filter memory profiling and open shadow DOM.
 
 ## Decisions log
+
+- 2026-11-24: Accountability consent is pairwise and personal: a recipient accepts a sender
+  individually or turns on "accept from anyone who shares with me". Senders can see whether each
+  chosen member has agreed (needed to know who actually receives alerts); nobody sees other
+  members' relationships. Choices are bound to the membership they were made in (a leave/rejoin
+  resets them). Owner decision: reviews use Claude (Claude Pro plan), not Codex.
 
 - 2026-11-24: Media filter design: classification in an offscreen document (one model per
   browser, not per tab); site access is an optional permission requested only when the user turns
