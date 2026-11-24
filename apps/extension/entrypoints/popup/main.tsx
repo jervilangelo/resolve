@@ -9,6 +9,7 @@ import { browser } from 'wxt/browser';
 import { AccountPanel } from '@/components/account-panel';
 import { BrandHeader } from '@/components/brand-header';
 import { FeatureStatus } from '@/components/feature-status';
+import { MediaFilterLine } from '@/components/media-filter-panel';
 import { mount } from '@/lib/mount';
 
 function Popup() {
@@ -17,6 +18,7 @@ function Popup() {
       <BrandHeader />
       <main className="space-y-4 p-4">
         <AccountPanel />
+        <MediaFilterLine />
         <FeatureStatus />
         <button
           type="button"

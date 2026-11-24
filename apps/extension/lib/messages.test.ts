@@ -22,6 +22,7 @@ describe('runtime messages', () => {
     expect(statusSchema.parse(status)).toEqual(status);
     expect(status.features.map((f) => f.id).sort()).toEqual([...featureIdSchema.options].sort());
     expect(status.features.filter((f) => f.available).map((f) => f.id)).toEqual([
+      'ai-filter',
       'domain-protection',
     ]);
   });

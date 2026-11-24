@@ -23,6 +23,9 @@ apps/web/public/site.webmanifest
 apps/extension/public/icon/
 apps/extension/public/brand/
 
+# On-device model unpacked from the nsfwjs package by scripts/extract-nsfw-model.mjs
+apps/extension/public/models/
+
 # Tests
 coverage/
 playwright-report/

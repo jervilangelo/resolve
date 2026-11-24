@@ -9,7 +9,7 @@ import type { FeatureId, Status } from './messages';
 
 /** Features flip to available only when their implementation ships (roadmap phases 5–8). */
 const AVAILABLE_FEATURES: Readonly<Record<FeatureId, boolean>> = {
-  'ai-filter': false,
+  'ai-filter': true,
   'domain-protection': true,
   accountability: false,
 };

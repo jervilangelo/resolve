@@ -6,20 +6,24 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "dev": "node ../../scripts/sync-brand-assets.mjs extension && wxt",
-    "dev:firefox": "node ../../scripts/sync-brand-assets.mjs extension && wxt -b firefox",
-    "build": "node ../../scripts/sync-brand-assets.mjs extension && wxt build && wxt build -b firefox",
-    "zip": "node ../../scripts/sync-brand-assets.mjs extension && wxt zip && wxt zip -b firefox",
+    "dev": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt",
+    "dev:firefox": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt -b firefox",
+    "build": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt build && wxt build -b firefox",
+    "zip": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt zip && wxt zip -b firefox",
     "postinstall": "wxt prepare",
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build:dev": "node ../../scripts/sync-brand-assets.mjs extension && wxt build --mode development"
+    "build:dev": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt build --mode development"
   },
   "dependencies": {
     "@resolve/contracts": "workspace:*",
     "@resolve/domain-policy": "workspace:*",
     "@resolve/ui": "workspace:*",
+    "@tensorflow/tfjs-backend-cpu": "4.22.0",
+    "@tensorflow/tfjs-backend-webgl": "4.22.0",
+    "@tensorflow/tfjs-converter": "4.22.0",
+    "@tensorflow/tfjs-core": "4.22.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zod": "catalog:"
@@ -31,6 +35,8 @@
     "@types/react-dom": "^19.3.0",
     "@wxt-dev/module-react": "^1.2.2",
     "eslint": "catalog:",
+    "nsfwjs": "4.4.0",
+    "sharp": "0.35.5",
     "tailwindcss": "^4.3.5",
     "typescript": "catalog:",
     "vitest": "catalog:",

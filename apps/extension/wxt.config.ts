@@ -50,6 +50,9 @@ function hostPermissions(settings: Record<string, string>): string[] {
 // `identity` for Cognito sign-in; `declarativeNetRequest` to block group domains (block/allow
 // rules need no host access); `alarms` for periodic rule sync. Session data lives in the extension
 // origin's IndexedDB, which needs no permission and is unreachable from content scripts.
+// The on-device media filter (Chromium) adds `scripting` to register its content script,
+// `offscreen` for the classifier document, and site access to all pages as an *optional*
+// permission requested only when the user turns the filter on.
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifestVersion: 3,
@@ -60,8 +63,14 @@ export default defineConfig({
   manifest: ({ browser, mode }) => ({
     name: 'Resolve',
     description: 'In development: privacy-first browser protection and voluntary accountability.',
-    permissions: ['identity', 'declarativeNetRequest', 'alarms'],
+    permissions: [
+      'identity',
+      'declarativeNetRequest',
+      'alarms',
+      ...(browser === 'firefox' ? [] : ['scripting', 'offscreen']),
+    ],
     host_permissions: hostPermissions(loadSettings(mode)),
+    ...(browser !== 'firefox' && { optional_host_permissions: ['<all_urls>'] }),
     // Development builds use a fixed public key so the unpacked extension ID (and therefore its
     // registered Cognito callback) is stable. Store builds get their ID from the store.
     ...(mode === 'development' && { key: readFileSync('dev-key.pub.txt', 'utf8').trim() }),

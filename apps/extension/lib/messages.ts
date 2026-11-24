@@ -7,6 +7,7 @@
 
 import { groupIdSchema, groupRoleSchema } from '@resolve/contracts';
 import { z } from 'zod';
+import { filterSettingsSchema } from './media/protocol';
 
 /**
  * Typed runtime messages from extension pages to the background worker. Every message is
@@ -20,6 +21,8 @@ export const requestSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('account/signOut') }),
   z.strictObject({ type: z.literal('protection/retry') }),
   z.strictObject({ type: z.literal('group/setActive'), groupId: groupIdSchema.nullable() }),
+  z.strictObject({ type: z.literal('filter/get') }),
+  z.strictObject({ type: z.literal('filter/set'), settings: filterSettingsSchema }),
 ]);
 export type Request = z.infer<typeof requestSchema>;
 
@@ -63,6 +66,13 @@ export const accountStateSchema = z.discriminatedUnion('state', [
 ]);
 export type AccountState = z.infer<typeof accountStateSchema>;
 
+/** The on-device media filter as the options page and popup show it. */
+export const filterStateSchema = z.strictObject({
+  settings: filterSettingsSchema,
+  status: z.enum(['off', 'on', 'needsAccess', 'unsupported']),
+});
+export type FilterStateMessage = z.infer<typeof filterStateSchema>;
+
 export interface ResponseMap {
   'status/get': Status;
   'account/get': AccountState;
@@ -70,6 +80,8 @@ export interface ResponseMap {
   'account/signOut': AccountState;
   'protection/retry': AccountState;
   'group/setActive': AccountState;
+  'filter/get': FilterStateMessage;
+  'filter/set': FilterStateMessage;
 }
 
 export const responseSchemas = {
@@ -79,6 +91,8 @@ export const responseSchemas = {
   'account/signOut': accountStateSchema,
   'protection/retry': accountStateSchema,
   'group/setActive': accountStateSchema,
+  'filter/get': filterStateSchema,
+  'filter/set': filterStateSchema,
 } as const;
 
 export function parseRequest(message: unknown): Request | null {

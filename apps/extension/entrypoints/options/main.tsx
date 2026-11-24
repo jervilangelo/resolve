@@ -8,6 +8,7 @@
 import { AccountPanel } from '@/components/account-panel';
 import { BrandHeader } from '@/components/brand-header';
 import { FeatureStatus } from '@/components/feature-status';
+import { MediaFilterPanel } from '@/components/media-filter-panel';
 import { mount } from '@/lib/mount';
 
 function Options() {
@@ -21,6 +22,12 @@ function Options() {
             Account and group
           </h2>
           <AccountPanel />
+        </section>
+        <section aria-labelledby="media-filter" className="space-y-3">
+          <h2 id="media-filter" className="font-semibold">
+            Media blurring
+          </h2>
+          <MediaFilterPanel />
         </section>
         <section aria-labelledby="features" className="space-y-3">
           <h2 id="features" className="font-semibold">
