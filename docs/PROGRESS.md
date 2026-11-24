@@ -9,7 +9,8 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-24 · **Current:** Phase 5 complete; Phase 6 (on-device AI media protection) next
+**Last updated:** 2026-11-24 · **Current:** Phase 6 built and verified; explicit-set false-negative
+measurement pending (owner); Phase 7 (voluntary accountability) next
 
 ## Phase status
 
@@ -20,8 +21,9 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 | 3 — AWS infrastructure and backend    | Done        | Dev deployed; CI deploy pipeline live; acceptance tests pass                 |
 | 4 — Accounts and groups               | Done        | Dashboard + extension sign-in, groups, invites, roles, active group          |
 | 5 — Domain protection                 | Done        | Policy engine, blocklist API/UI, extension enforcement (Chromium DNR)        |
-| **6 — On-device AI media protection** | **Next**    | Local image/video classification and blur; no media uploads                  |
-| 7–11                                  | Not started | Accountability, notifications, QA, beta, Focus Mode                          |
+| 6 — On-device AI media protection     | Done        | NSFWJS on-device blur (Chromium); FN rate to be measured on an owner dataset |
+| **7 — Voluntary accountability**      | **Next**    | Sharing modes, consent, alerts                                               |
+| 8–11                                  | Not started | Notifications, QA, beta, Focus Mode                                          |
 
 ## What exists and works (verified)
 
@@ -66,20 +68,41 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
   are cached and restored offline, and are removed on sign-out or loss of membership. Popup shows
   on / stale / error (with retry). Verified in real Chromium: blocked/allowed matrix incl. Google
   sign-in, Gmail, Drive and YouTube reachable with google.com blocked.
+- **On-device media filter (Phase 6):** NSFWJS MobileNetV2-Mid (MIT, 4.3 MB, unpacked at build
+  from the pinned npm package by `scripts/extract-nsfw-model.mjs`) on TF.js WebGL in an offscreen
+  document that closes after a minute idle. Off by default; turning it on in Settings requests
+  optional `<all_urls>` access and registers a content script (all frames, `document_start`) that
+  blurs every img/video until classified safe; visible-first, bounded queues, URL cache, re-checks
+  on src changes, video sampled every 2 s; sensitivity strict/balanced/relaxed; media that can't
+  be checked stays blurred by default. Nothing leaves the device (Chromium net-log E2E proof).
+  Measured: 1.0–2.7% false positives on 300 general photos; ~35 ms per image warm, 3 s cold start.
+  See [AI_FILTER_EVALUATION.md](AI_FILTER_EVALUATION.md).
+  Reviewed by Claude (the Codex run hit its usage limit before reporting); re-run a Codex
+  review of `apps/extension/lib/media` when available.
 - **Checks:** `pnpm check`, `pnpm build`, `pnpm e2e`, `pnpm integration` all passing at pause.
 
-## Next steps (Phase 6 — on-device AI media protection)
+## Next steps
 
-1. Model spike: evaluate an on-device classifier (e.g. NSFWJS + TensorFlow.js or an alternative)
-   for size, speed, accuracy and false positives; decide before integrating.
-2. Content script (runtime-registered) that observes images and feasible video frames, classifies
-   locally, and blurs; zero media uploads (verify with network tests); CPU/GPU budgets.
-3. Options: on/off and sensitivity with clear risk language.
+1. Owner: measure the media filter's false-negative rate on a private labelled dataset
+   (`node apps/extension/scripts/evaluate-model.ts <dir>` with `safe/`, `suggestive/`,
+   `explicit/`) and record it in AI_FILTER_EVALUATION.md; tune thresholds if needed.
+2. Phase 7 — voluntary accountability: sharing modes (PRIVATE default / SELECTED / EVERYONE),
+   recipient consent, navigation-observation alerts for blocked top-level visits.
+3. Media filter follow-ups: memory profiling, open shadow DOM, "pages already open" refresh on
+   toggle, Firefox adapter (no offscreen documents there).
 4. Carry-overs: per-user group quota, dashboard revoked-token handling, idempotency request
-   fingerprint, group picture upload, dissolve janitor, branded block page (needs host access),
-   Firefox enforcement adapter (with Firefox sign-in).
+   fingerprint, group picture upload, dissolve janitor, branded block page, Firefox enforcement
+   adapter (with Firefox sign-in).
 
 ## Decisions log
+
+- 2026-11-24: Media filter design: classification in an offscreen document (one model per
+  browser, not per tab); site access is an optional permission requested only when the user turns
+  the filter on (install-time permissions unchanged apart from `scripting` and `offscreen`, which
+  show no warning); off by default; cross-origin images are re-read by the extension without
+  cookies; unverifiable media stays blurred by default; SVGs and images under 64 px are treated
+  as safe. No explicit test material in the repository; fixtures use a harmless photo the model
+  misreads.
 
 - 2026-11-25: Group blocks apply to page and frame navigations only (never subresources), so
   essential services keep their third-party dependencies; public suffixes (incl. private ones such
