@@ -114,7 +114,7 @@ locals {
 resource "aws_cognito_managed_login_branding" "web" {
   user_pool_id = aws_cognito_user_pool.this.id
   client_id    = aws_cognito_user_pool_client.web.id
-  # Resolve palette (docs/BRAND_GUIDELINES.md) applied to the full Cognito style schema; follows
+  # Monochrome Resolve palette (docs/BRAND_GUIDELINES.md) over the full Cognito style schema; follows
   # the visitor's light/dark preference.
   settings = file("${path.module}/managed-login-settings.json")
 

@@ -25,7 +25,7 @@ const targets = {
   ],
   extension: [
     ['extension', 'apps/extension/public/icon', /^icon-\d+\.png$/],
-    ['logo', 'apps/extension/public/brand', /^horizontal-compact-(light|dark)\.svg$/],
+    ['logo', 'apps/extension/public/brand', /^horizontal-(black|white)\.svg$/],
   ],
 };
 

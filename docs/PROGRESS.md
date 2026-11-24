@@ -48,6 +48,11 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 5. Carry-overs from Phase 3 review: per-user group quota, revoked-token handling, consistent
    membership list after removal, idempotency request fingerprint.
 
+## Decisions log
+
+- 2026-11-24: Interface switched to a monochrome (black-and-white) palette by owner request; logo
+  artwork, favicons and store/social images keep the brand colours. See BRAND_GUIDELINES.md.
+
 ## Open decisions for the owner
 
 - Phase order: roadmap (Phase 4 next) vs. handbook (on-device AI blur next). Currently following the

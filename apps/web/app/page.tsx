@@ -26,7 +26,7 @@ export default function HomePage() {
   return (
     <>
       <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
-        <Logo variant="stacked" height={160} priority className="mb-10" />
+        <Logo height={72} priority className="mb-10" />
         <h1 className="font-display max-w-2xl text-3xl leading-tight sm:text-5xl">
           Take every thought captive.
         </h1>

@@ -14,7 +14,7 @@ export function SiteHeader() {
     <header className="border-b">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="rounded-sm" aria-label="Resolve home">
-          <Logo variant="horizontal-compact" height={28} priority />
+          <Logo height={38} priority />
         </Link>
         <Button asChild variant="outline" size="sm">
           <Link href="/dashboard" prefetch={false}>

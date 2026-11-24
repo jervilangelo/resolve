@@ -40,22 +40,30 @@ A serpent drawn as an **S** (for sin) is run through by a horizontal blade. Its 
 
 Measured contrast (WCAG): charcoal/ivory 14.3 · forest/ivory 9.0 · brass-deep/ivory 5.0 · ivory/night 16.3 · sage-light/night 10.6 · brass-light/night 8.6 · ivory/forest 9.0 · brass-light/forest 4.7 · sage/ivory **2.3** (never use for text).
 
-### Design tokens
+### Interface palette (monochrome)
+
+By owner decision (2026-11-24), the dashboard, extension and sign-in pages use a **black-and-white
+interface** with neutral greys. The brand colours above remain in the logo artwork, app icons,
+favicons and store/social images. Red is used only for errors and destructive actions. Source of
+truth: `packages/ui/tokens.css`.
 
 ```css
 :root {
-  --rs-bg: #F6F2E8; --rs-surface: #FFFFFF; --rs-border: #E9E2D2;
-  --rs-text: #1E2321; --rs-text-muted: #4A524D;
-  --rs-primary: #1F4A36; --rs-primary-pressed: #163627; --rs-on-primary: #F6F2E8;
-  --rs-accent: #7E6339; --rs-focus: #1F4A36;
+  --rs-bg: #FFFFFF; --rs-surface: #FFFFFF; --rs-border: #E5E5E5; --rs-subtle: #F4F4F4;
+  --rs-text: #0A0A0A; --rs-text-muted: #525252;
+  --rs-primary: #0A0A0A; --rs-primary-pressed: #262626; --rs-on-primary: #FAFAFA;
+  --rs-accent: #404040; --rs-focus: #0A0A0A; --rs-danger: #B91C1C;
 }
 [data-theme="dark"] {
-  --rs-bg: #121614; --rs-surface: #1A201D; --rs-border: #2A322E;
-  --rs-text: #F6F2E8; --rs-text-muted: #B5CBB9;
-  --rs-primary: #B5CBB9; --rs-primary-pressed: #8FA894; --rs-on-primary: #121614;
-  --rs-accent: #C9AE80; --rs-focus: #C9AE80;
+  --rs-bg: #0A0A0A; --rs-surface: #141414; --rs-border: #262626; --rs-subtle: #1F1F1F;
+  --rs-text: #FAFAFA; --rs-text-muted: #A3A3A3;
+  --rs-primary: #FAFAFA; --rs-primary-pressed: #D4D4D4; --rs-on-primary: #0A0A0A;
+  --rs-accent: #D4D4D4; --rs-focus: #FAFAFA; --rs-danger: #F87171;
 }
 ```
+
+In the interface, use the one-colour lockups: `horizontal-black.svg` on light and
+`horizontal-white.svg` on dark (at least 140 px wide).
 
 ## Typography
 
@@ -96,9 +104,9 @@ assets/branding/
 
 ## Implementation
 
-- **Extension (WXT):** copy `extension/icon-*.png` to `apps/extension/public/icon/` and set `manifest.icons` (16/32/48/96/128) and `action.default_icon` (16/32). The tile icon works on light and dark toolbars in Chrome, Brave, Edge and Firefox, so Firefox `theme_icons` aren't needed. The popup header uses `horizontal-compact-{light,dark}.svg`.
+- **Extension (WXT):** copy `extension/icon-*.png` to `apps/extension/public/icon/` and set `manifest.icons` (16/32/48/96/128) and `action.default_icon` (16/32). The tile icon works on light and dark toolbars in Chrome, Brave, Edge and Firefox, so Firefox `theme_icons` aren't needed. The popup header uses `horizontal-{black,white}.svg`.
 - **Store listings:** Chrome and Edge use `store-icon-128.png` (96 px art + 16 px padding) and the two promo tiles. Firefox AMO uses `icon-128.png`.
-- **Dashboard (Next.js):** place `web/*` in `apps/web/public/`. Use `horizontal-*` in the sidebar, `horizontal-compact-*` when collapsed or on mobile, `tagline-*` or `stacked-*` on auth, onboarding and landing heroes, and `og-image.png` for Open Graph.
+- **Dashboard (Next.js):** place `web/*` in `apps/web/public/`. Use `horizontal-{black,white}.svg` in the interface (header, landing hero, Cognito sign-in pages) and `og-image.png` for Open Graph.
 - **Email:** `email-header.png` at 600×120, alt text "Resolve".
 - **GitHub:** upload `social/github-social-preview.png` under Settings → Social preview.
 
