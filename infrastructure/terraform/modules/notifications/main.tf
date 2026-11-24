@@ -173,9 +173,9 @@ module "worker" {
 }
 
 resource "aws_lambda_event_source_mapping" "worker" {
-  count                   = local.worker_enabled ? 1 : 0
-  event_source_arn        = aws_sqs_queue.delivery.arn
-  function_name           = module.worker[0].function_arn
+  count            = local.worker_enabled ? 1 : 0
+  event_source_arn = aws_sqs_queue.delivery.arn
+  function_name    = module.worker[0].function_arn
   # One outbox item per invocation: a large group's fan-out gets the whole time budget.
   batch_size              = 1
   function_response_types = ["ReportBatchItemFailures"]
