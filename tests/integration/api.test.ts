@@ -138,6 +138,9 @@ function trackInvitation(groupId: string, invitationId: string, token: string) {
 }
 
 afterAll(async () => {
+  // Polling helpers may register the same key more than once; batches must not repeat keys.
+  const unique = [...new Map(fixtures.map((key) => [`${key.PK}|${key.SK}`, key])).values()];
+  fixtures.splice(0, fixtures.length, ...unique);
   try {
     for (let i = 0; i < fixtures.length; i += 25) {
       let pending: Record<string, WriteRequest[]> | undefined = {
