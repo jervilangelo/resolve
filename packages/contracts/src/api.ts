@@ -12,12 +12,26 @@ import { domainTypeSchema, groupRoleSchema } from './domain';
 
 export const groupIdSchema = z.string().regex(/^grp_[a-z0-9]{26}$/);
 
+/**
+ * Group and display names appear in alert emails sent from Resolve's address, so they may not
+ * carry links, web addresses or email addresses (phishing; FR-19).
+ */
+const LINK_PATTERN = /:\/\/|www\.|@|[a-z0-9-]+\.[a-z]{2,}\b/iu;
+/**
+ * Whether a name looks like a link or address, including look-alike dots (。．｡). "word. Word"
+ * (a space after the dot, as in "St. Mark's") stays allowed.
+ */
+export const LINK_LIKE = {
+  test: (value: string) => LINK_PATTERN.test(value.normalize('NFKC').replace(/[。．｡]/gu, '.')),
+};
+
 const displayNameSchema = z
   .string()
   .trim()
   .min(1)
   .max(60)
-  .regex(/^[^\p{Cc}<>]+$/u, 'Must not contain control characters or angle brackets');
+  .regex(/^[^\p{Cc}<>]+$/u, 'Must not contain control characters or angle brackets')
+  .refine((value) => !LINK_LIKE.test(value), 'Must not contain links, web or email addresses');
 
 export const profileSchema = z.strictObject({
   userId: z.string(),

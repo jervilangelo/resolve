@@ -129,6 +129,17 @@ const deps: DeliveryDeps = {
       throw error;
     }
   },
+  async markSending(outboxId, recipientId) {
+    await db.send(
+      new UpdateCommand({
+        TableName: env.TABLE_NAME,
+        Key: deliveryKey(outboxId, recipientId),
+        UpdateExpression: 'SET #status = :sending',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':sending': 'sending' },
+      }),
+    );
+  },
   async release(outboxId, recipientId) {
     await db.send(
       new DeleteCommand({ TableName: env.TABLE_NAME, Key: deliveryKey(outboxId, recipientId) }),

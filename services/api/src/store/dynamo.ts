@@ -53,12 +53,17 @@ import {
  *   GROUP#<id>   MEMBER#<sub>                 membership; GSI1 = USER#<sub> / GROUP#<id>
  *   GROUP#<id>   INVITE#<invitationId>        invitation (token stored only as a hash; TTL)
  *   INVITE#<sha256(token)>  INVITE            token lookup pointer to the invitation (TTL)
+ *   GROUP#<id>   REDEEMED#<invId>#<sub>       one redemption per person per invitation (TTL)
+ *   GROUP#<id>   DOMAIN#<domain>              blocked domain and category (META holds the rule sets)
+ *   GROUP#<id>   AUDIT#<at>#<rand>            domain-change audit (TTL 1 year)
+ *   USER#<sub>   RATE#<action>#<hour>         hourly rate counters (domains, accountability, alerts; TTL)
  *   GROUP#<id>   SHARE#<sub>                  the member's own sharing choice (§6)
  *   GROUP#<id>   CONSENT#<sub>                the member's own consent; `from_<senderSub>` = accepted at
  *   GROUP#<id>   CAUDIT#<at>#<rand>           consent-change audit, no browsing data (TTL)
  *   USER#<sub>   EVENT#<eventId>              Trigger A idempotency (TTL)
  *   USER#<sub>   COOLDOWN#<groupId>           Trigger A per-member cooldown (TTL)
  *   OUTBOX#<id>  OUTBOX                       notification outbox (relayed from the stream)
+ *   DELIVERY#<outboxId>  <recipientSub>       per-recipient delivery state (worker; TTL 30 days)
  */
 export const keys = {
   user: (userId: string) => `USER#${userId}`,
@@ -1148,6 +1153,9 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
             to: input.type,
           }),
         ]);
+        // The same consistent read as the rejection paths below, so the response time of a member
+        // submission does not reveal whether the domain was already listed (FR-10).
+        await getItem(groupKey, 'META').catch(() => undefined);
         return 'added';
       } catch (error) {
         const codes = cancellationCodes(error);

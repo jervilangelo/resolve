@@ -5,6 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
+import { browserLaunchOptions } from '../fixtures/browser';
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { type IncomingHttpHeaders, type Server, createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -155,7 +156,7 @@ test.beforeAll(async () => {
   extensionDir = grantedBuild();
   netLog = path.join(extensionDir, 'netlog.json');
   context = await chromium.launchPersistentContext('', {
-    channel: 'chromium',
+    ...browserLaunchOptions(),
     args: [
       `--disable-extensions-except=${extensionDir}`,
       `--load-extension=${extensionDir}`,
@@ -278,17 +279,36 @@ test('no media or results leave the browser', async () => {
   await context.close();
   // Every request any part of the browser made (pages, extension worker, offscreen document).
   const log = JSON.parse(readFileSync(netLog, 'utf8')) as {
-    events: { params?: { url?: string } }[];
+    constants: { logEventTypes: Record<string, number> };
+    events: {
+      type: number;
+      params?: { url?: string; initiator?: string; network_isolation_key?: string };
+    }[];
   };
-  const hosts = new Set(
-    log.events
-      .map((event) => event.params?.url)
-      .filter((url): url is string => typeof url === 'string' && /^(https?|wss?):/.test(url))
-      .map((url) => new URL(url).host),
-  );
+  const startJob = log.constants.logEventTypes.URL_REQUEST_START_JOB;
+  const requests = log.events
+    .filter((event) => event.type === startJob)
+    .map((event) => event.params ?? {})
+    .filter((params) => /^(https?|wss?):/.test(params.url ?? ''));
+  const hostOf = (params: { url?: string }) => new URL(params.url ?? '').host;
   const local = [pageServer.port, crossServer.port].map((port) => `127.0.0.1:${String(port)}`);
-  expect(hosts).toContain(local[0]); // the log really captured this session's traffic
-  expect([...hosts].filter((host) => !local.includes(host))).toEqual([]);
+  expect(requests.map(hostOf)).toContain(local[0]); // the log really captured this session
+
+  // Requests made by the extension or by the test pages: all to the local test servers only.
+  const extensionOrigin = `chrome-extension://${extensionId}`;
+  const ours = requests.filter((params) =>
+    [params.initiator, params.network_isolation_key].some(
+      (value) =>
+        (value?.includes(extensionOrigin) ?? false) || local.some((host) => value?.includes(host)),
+    ),
+  );
+  expect(ours.length).toBeGreaterThan(0);
+  expect([...new Set(ours.map(hostOf))].filter((host) => !local.includes(host))).toEqual([]);
+  // Playwright's Chromium has no vendor background services, so there the whole browser must
+  // stay local. Branded browsers (Edge, Brave) contact their vendors on their own.
+  if ((process.env.RESOLVE_E2E_BROWSER ?? 'chromium') === 'chromium') {
+    expect([...new Set(requests.map(hostOf))].filter((host) => !local.includes(host))).toEqual([]);
+  }
 
   const hits = [...pageServer.hits, ...crossServer.hits];
   // Only reads: nothing is ever sent to a server, not even the page's own.

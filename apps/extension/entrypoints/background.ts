@@ -10,6 +10,7 @@ import { defineBackground } from 'wxt/utils/define-background';
 import { createAccount } from '@/lib/account';
 import { createAuth } from '@/lib/auth';
 import { config } from '@/lib/config';
+import { z } from 'zod';
 import { createFilterController } from '@/lib/media/controller';
 import { createMediaEngine } from '@/lib/media/engine';
 import {
@@ -25,6 +26,7 @@ import {
   supportsMediaFilter,
 } from '@/lib/media/registration';
 import {
+  type AlertsStatus,
   type FeatureId,
   type Request,
   type ResponseMap,
@@ -67,17 +69,66 @@ const protection =
   });
 if (account && protection) account.attachProtection(protection);
 
+const ALERT_COOLDOWNS = 'alertCooldowns';
+
 /** Trigger A: reports qualifying blocked visits, once the user grants `webNavigation`. */
 const reporter =
   account &&
   protection &&
   createNavigationReporter({
-    rule: async () => protection.nonNegotiableRule((await auth.session())?.activeGroupId ?? null),
-    report: (event) => account.reportEvent(event),
+    rule: async () => {
+      const session = await auth.session();
+      if (!session) return null;
+      const rule = await protection.nonNegotiableRule(session.activeGroupId ?? null);
+      return rule && { ...rule, sid: session.sid };
+    },
+    report: (event, expected) => account.reportEvent(event, expected),
     now: () => Date.now(),
     randomBytes: (length) => crypto.getRandomValues(new Uint8Array(length)),
     wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    // In the private store (one atomic transaction) so a worker restart does not reset it and
+    // two tabs cannot both take the slot. Expired entries are dropped on every write.
+    claimCooldown: async (key, now, cooldownMs) => {
+      let claimed = false;
+      await privateStore.update(ALERT_COOLDOWNS, (raw) => {
+        const parsed = z.record(z.string(), z.number()).safeParse(raw);
+        const live = Object.entries(parsed.success ? parsed.data : {}).filter(
+          ([, at]) => now - at < cooldownMs,
+        );
+        if (live.some(([id]) => id === key)) return Object.fromEntries(live);
+        claimed = true;
+        return Object.fromEntries([...live, [key, now]]);
+      });
+      return claimed;
+    },
+    releaseCooldown: async (key, at) => {
+      await privateStore.update(ALERT_COOLDOWNS, (raw) => {
+        const parsed = z.record(z.string(), z.number()).safeParse(raw);
+        const all = parsed.success ? parsed.data : {};
+        return Object.fromEntries(
+          Object.entries(all).filter(([id, value]) => !(id === key && value === at)),
+        );
+      });
+    },
   });
+
+/** Alerts status for the popup and settings: "on" only when a report could actually be sent. */
+async function alertsStatus(): Promise<AlertsStatus> {
+  const api = (browser as Partial<typeof browser>).webNavigation;
+  if (!browser.runtime.getManifest().optional_permissions?.includes('webNavigation') || !reporter) {
+    return { state: 'unsupported' };
+  }
+  if (!api || !(await browser.permissions.contains({ permissions: ['webNavigation'] }))) {
+    return { state: 'off' };
+  }
+  const session = await auth.session();
+  if (!session) return { state: 'inactive', reason: 'signedOut' };
+  if (!session.activeGroupId) return { state: 'inactive', reason: 'noGroup' };
+  if (!(await protection.nonNegotiableRule(session.activeGroupId))) {
+    return { state: 'inactive', reason: 'noRestrictions' };
+  }
+  return { state: 'on' };
+}
 
 const onBeforeNavigate = (details: Parameters<NavigationReporter['onBeforeNavigate']>[0]) => {
   reporter?.onBeforeNavigate(details);
@@ -87,6 +138,15 @@ const onNavigationError = (details: Parameters<NavigationReporter['onErrorOccurr
 };
 const onTabRemoved = (tabId: number) => {
   reporter?.onTabRemoved(tabId);
+};
+const onCommitted = (details: Parameters<NavigationReporter['onCommitted']>[0]) => {
+  reporter?.onCommitted(details);
+};
+const onCreatedTarget = (details: { tabId: number }) => {
+  reporter?.onCreatedNavigationTarget(details.tabId);
+};
+const onTabUpdated = (tabId: number, change: { discarded?: boolean }) => {
+  if (change.discarded === true) reporter?.onTabDiscarded(tabId);
 };
 
 /**
@@ -102,12 +162,29 @@ function listenForBlockedVisits(): void {
   if (!api.onErrorOccurred.hasListener(onNavigationError)) {
     api.onErrorOccurred.addListener(onNavigationError);
   }
+  if (!api.onCommitted.hasListener(onCommitted)) api.onCommitted.addListener(onCommitted);
+  if (!api.onCreatedNavigationTarget.hasListener(onCreatedTarget)) {
+    api.onCreatedNavigationTarget.addListener(onCreatedTarget);
+  }
   if (!browser.tabs.onRemoved.hasListener(onTabRemoved)) {
     browser.tabs.onRemoved.addListener(onTabRemoved);
+  }
+  if (!browser.tabs.onUpdated.hasListener(onTabUpdated)) {
+    // Filtered to discards only, so ordinary page loads do not wake the worker.
+    (
+      browser.tabs.onUpdated.addListener as (
+        callback: typeof onTabUpdated,
+        filter: { properties: string[] },
+      ) => void
+    )(onTabUpdated, { properties: ['discarded'] });
   }
 }
 // Registered synchronously at startup when already granted, so blocked visits wake the worker.
 listenForBlockedVisits();
+// Restored tabs reload on their own after the browser starts; those are never reported.
+browser.runtime.onStartup.addListener(() => {
+  reporter?.onBrowserStartup();
+});
 
 const filter = createFilterController({
   store: privateStore,
@@ -141,6 +218,7 @@ const handlers: {
   'account/signIn': () => account?.signIn() ?? Promise.resolve(unconfigured),
   'account/signOut': () => account?.signOut() ?? Promise.resolve(unconfigured),
   'protection/retry': () => account?.retryProtection() ?? Promise.resolve(unconfigured),
+  'alerts/get': () => alertsStatus(),
   'group/setActive': (request) =>
     account?.setActiveGroup(request.groupId) ?? Promise.resolve(unconfigured),
   'filter/get': () => filter.state(),

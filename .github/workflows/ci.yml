@@ -30,6 +30,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Known-vulnerable dependencies (high or critical) fail the build.
+      - run: pnpm audit --audit-level high
       - run: pnpm check
       - run: pnpm build
       - run: pnpm --filter @resolve/e2e exec playwright install --with-deps chromium
@@ -59,3 +61,16 @@ jobs:
       - run: terraform fmt -check -recursive ../..
       - run: terraform init -backend=false -input=false
       - run: terraform validate
+
+  iac-scan:
+    name: Infrastructure security scan (Checkov)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # Accepted findings and their reasons live in infrastructure/terraform/.checkov.yaml.
+      - run: pip install checkov==3.2.477
+      - run: checkov -d infrastructure/terraform --config-file infrastructure/terraform/.checkov.yaml

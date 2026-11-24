@@ -47,6 +47,11 @@ export interface DeliveryDeps {
    * left behind by a run that died (timeout, crash) can be taken over once it is stale.
    */
   claim(outboxId: string, recipientId: string): Promise<boolean>;
+  /**
+   * Marks the claim as sending, just before the email goes out. A claim in this state is never
+   * taken over, so an email can never be sent twice (at worst, a crash right here loses one).
+   */
+  markSending(outboxId: string, recipientId: string): Promise<void>;
   /** Gives the claim back so a retry can try again (transient failure). */
   release(outboxId: string, recipientId: string): Promise<void>;
   finish(outboxId: string, recipientId: string, outcome: Outcome): Promise<void>;
@@ -83,6 +88,8 @@ async function eligibility(
 ): Promise<Outcome | null> {
   const recipient = await deps.getMembership(item.groupId, recipientId);
   if (!recipient) return 'not_member';
+  // No retroactive disclosure: someone who (re)joined after the event never hears of it.
+  if (recipient.joinedAt > item.createdAt) return 'not_member';
   const epoch = { userId: recipientId, joinedAt: recipient.joinedAt };
 
   let sharing: SharingRecord;
@@ -138,6 +145,7 @@ export async function deliverOutbox(outboxId: string, deps: DeliveryDeps): Promi
           if (!address) outcome = 'no_address';
           else {
             try {
+              await deps.markSending(outboxId, recipientId);
               await deps.send(address, message);
             } catch (error) {
               if (!(error instanceof PermanentSendError)) throw error;
@@ -156,7 +164,8 @@ export async function deliverOutbox(outboxId: string, deps: DeliveryDeps): Promi
       await deps.release(outboxId, recipientId);
       throw error;
     }
-    await deps.finish(outboxId, recipientId, outcome);
+    // Best effort: the 'sending' mark already prevents a second send if recording fails.
+    await deps.finish(outboxId, recipientId, outcome).catch(() => undefined);
     outcomes[outcome] = (outcomes[outcome] ?? 0) + 1;
   }
   return { kind: item.kind, outcomes };

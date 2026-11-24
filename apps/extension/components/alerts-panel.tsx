@@ -7,6 +7,8 @@
 
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
+import { send } from '@/lib/client';
+import type { AlertsStatus } from '@/lib/messages';
 
 /**
  * Alerts for blocked visits (Trigger A). Reporting needs the optional `webNavigation` permission,
@@ -20,7 +22,7 @@ function supported(): boolean {
   return browser.runtime.getManifest().optional_permissions?.includes('webNavigation') ?? false;
 }
 
-function useAlertsGranted(): [boolean | null, (value: boolean) => void] {
+export function useAlertsGranted(): [boolean | null, (value: boolean) => void] {
   const [granted, setGranted] = useState<boolean | null>(null);
   useEffect(() => {
     if (!supported()) return;
@@ -41,19 +43,42 @@ function useAlertsGranted(): [boolean | null, (value: boolean) => void] {
   return [granted, setGranted];
 }
 
+const INACTIVE_REASON: Record<Extract<AlertsStatus, { state: 'inactive' }>['reason'], string> = {
+  signedOut: 'sign in to report',
+  noGroup: 'choose an active group',
+  noRestrictions: 'your group has no non-negotiable websites',
+};
+
+function describe(status: AlertsStatus): string {
+  if (status.state === 'inactive') return `on, but inactive (${INACTIVE_REASON[status.reason]})`;
+  if (status.state === 'on') return 'on (sent only if your sharing is not Private)';
+  return status.state === 'off' ? 'off' : 'not supported in this browser';
+}
+
+/** The background's view of whether a report could actually be sent right now. */
+function useAlertsStatus(granted: boolean | null): AlertsStatus | null {
+  const [status, setStatus] = useState<AlertsStatus | null>(null);
+  useEffect(() => {
+    send({ type: 'alerts/get' }).then(setStatus, () => {
+      setStatus(null);
+    });
+  }, [granted]);
+  return status;
+}
+
 /** Compact state for the popup. */
 export function AlertsLine() {
   const [granted] = useAlertsGranted();
-  if (granted === null) return null;
+  const status = useAlertsStatus(granted);
+  if (!status || status.state === 'unsupported') return null;
   return (
-    <p className="text-muted-foreground text-xs">
-      Alerts for blocked visits: {granted ? 'on (sent only if your sharing is not Private)' : 'off'}
-    </p>
+    <p className="text-muted-foreground text-xs">Alerts for blocked visits: {describe(status)}</p>
   );
 }
 
 export function AlertsPanel() {
   const [granted, setGranted] = useAlertsGranted();
+  const status = useAlertsStatus(granted);
   const [error, setError] = useState<string | null>(null);
 
   if (!supported()) {
@@ -89,6 +114,11 @@ export function AlertsPanel() {
           onChange={(event) => void toggle(event.target.checked)}
         />
       </div>
+      {status && granted && (
+        <p role="status" className="text-muted-foreground text-xs">
+          Status: {describe(status)}
+        </p>
+      )}
       {error && (
         <p role="alert" className="text-destructive text-xs">
           {error}
@@ -96,14 +126,16 @@ export function AlertsPanel() {
       )}
       <div className="text-muted-foreground space-y-2 text-xs">
         <p>
-          When you open a page your group lists as non-negotiable and Resolve blocks it, the members
-          you chose under Accountability in the dashboard (and who agreed) receive a short alert. It
-          never says which website it was. Nothing is sent while your sharing is Private.
+          When you deliberately open a page your group lists as non-negotiable and Resolve blocks
+          it, the members you chose under Accountability in the dashboard (and who agreed) receive a
+          short alert that never says which website it was. Nothing is sent while your sharing is
+          Private. Not every block produces an alert: to avoid false alerts, Resolve skips blocks a
+          page or ad caused, restored and reloaded tabs, and repeats within ten minutes.
         </p>
         <p>
-          The browser describes this permission as reading your browsing history. Resolve only
-          checks pages it blocked, on this device, and keeps no history. An alert is reported by
-          this extension and is not proof of intent.
+          The browser describes this permission as reading your browsing history. Resolve sees each
+          page address briefly, on this device only, to recognise blocked visits; it stores and
+          sends none of them. An alert is reported by this extension and is not proof of intent.
         </p>
       </div>
     </div>

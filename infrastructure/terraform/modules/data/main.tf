@@ -86,14 +86,35 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "avatars" {
   }
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "avatars" {
+# Versioning protects against accidental overwrites; replaced versions are kept only briefly so a
+# removed picture does not linger (MASTER_PLAN §16).
+resource "aws_s3_bucket_versioning" "avatars" {
   bucket = aws_s3_bucket.avatars.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "avatars" {
+  bucket     = aws_s3_bucket.avatars.id
+  depends_on = [aws_s3_bucket_versioning.avatars]
   rule {
     id     = "abort-incomplete-uploads"
     status = "Enabled"
     filter {}
     abort_incomplete_multipart_upload {
       days_after_initiation = 1
+    }
+  }
+  rule {
+    id     = "expire-replaced-versions"
+    status = "Enabled"
+    filter {}
+    noncurrent_version_expiration {
+      noncurrent_days = 7
+    }
+    expiration {
+      expired_object_delete_marker = true
     }
   }
 }

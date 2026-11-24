@@ -11,6 +11,7 @@ data "aws_caller_identity" "current" {}
 # Not encrypted with the AWS managed SNS key: CloudWatch and Budgets cannot publish to topics
 # using it. Alert messages contain only alarm names and thresholds.
 resource "aws_sns_topic" "alerts" {
+  #checkov:skip=CKV_AWS_26:CloudWatch alarms cannot publish to a topic using the AWS-managed SNS key; messages hold only alarm names and thresholds.
   name = "${var.name_prefix}-alerts"
 }
 

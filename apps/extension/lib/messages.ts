@@ -22,6 +22,7 @@ export const requestSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('protection/retry') }),
   z.strictObject({ type: z.literal('group/setActive'), groupId: groupIdSchema.nullable() }),
   z.strictObject({ type: z.literal('filter/get') }),
+  z.strictObject({ type: z.literal('alerts/get') }),
   z.strictObject({ type: z.literal('filter/set'), settings: filterSettingsSchema }),
 ]);
 export type Request = z.infer<typeof requestSchema>;
@@ -60,6 +61,16 @@ export const accountStateSchema = z.discriminatedUnion('state', [
       state: z.enum(['off', 'starting', 'idle', 'on', 'stale', 'error']),
       syncedAt: z.number().nullable(),
     }),
+    /**
+     * The user's own accountability sharing in the active group (null: no group, or offline):
+     * the mode and how many chosen members agreed to receive alerts.
+     */
+    sharing: z
+      .strictObject({
+        mode: z.enum(['PRIVATE', 'SELECTED', 'EVERYONE']),
+        receiving: z.number().int().min(0),
+      })
+      .nullable(),
     dashboardUrl: z.url(),
     error: z.string().optional(),
   }),
@@ -73,6 +84,18 @@ export const filterStateSchema = z.strictObject({
 });
 export type FilterStateMessage = z.infer<typeof filterStateSchema>;
 
+/** Blocked-visit alerts: `on` only when a report could actually be sent right now. */
+export const alertsStatusSchema = z.discriminatedUnion('state', [
+  z.strictObject({ state: z.literal('on') }),
+  z.strictObject({ state: z.literal('off') }),
+  z.strictObject({ state: z.literal('unsupported') }),
+  z.strictObject({
+    state: z.literal('inactive'),
+    reason: z.enum(['signedOut', 'noGroup', 'noRestrictions']),
+  }),
+]);
+export type AlertsStatus = z.infer<typeof alertsStatusSchema>;
+
 export interface ResponseMap {
   'status/get': Status;
   'account/get': AccountState;
@@ -81,6 +104,7 @@ export interface ResponseMap {
   'protection/retry': AccountState;
   'group/setActive': AccountState;
   'filter/get': FilterStateMessage;
+  'alerts/get': AlertsStatus;
   'filter/set': FilterStateMessage;
 }
 
@@ -92,6 +116,7 @@ export const responseSchemas = {
   'protection/retry': accountStateSchema,
   'group/setActive': accountStateSchema,
   'filter/get': filterStateSchema,
+  'alerts/get': alertsStatusSchema,
   'filter/set': filterStateSchema,
 } as const;
 

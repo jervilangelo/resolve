@@ -1,0 +1,34 @@
+# Resolve — Take every thought captive.
+# Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+# Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
+# See LICENSE for terms and applicable exceptions.
+
+# Checkov (IaC security scan, run in CI). Accepted findings, each with its reason; see
+# docs/qa/THREAT_MODEL.md. Revisit before production launch.
+framework:
+  - terraform
+compact: true
+quiet: true
+skip-check:
+  # AWS-managed encryption is used throughout (MASTER_PLAN §13 allows KMS or AWS-managed);
+  # customer-managed keys add cost and key-management duty without a current requirement.
+  - CKV_AWS_119 # DynamoDB customer-managed KMS key
+  - CKV_AWS_145 # S3 KMS by default (SSE-S3 is on)
+  - CKV_AWS_158 # CloudWatch log group KMS (encrypted at rest by default)
+  - CKV_AWS_173 # Lambda environment KMS (environment holds no secrets)
+  # Serverless design: no VPC resources to reach; private networking would add NAT cost only.
+  - CKV_AWS_117 # Lambda in VPC
+  # Retries are handled where they happen: API is synchronous, the stream relay has an on-failure
+  # destination, the delivery worker uses its queue's DLQ.
+  - CKV_AWS_116 # Lambda DLQ
+  # Account-level concurrency is small; reservations would starve other functions. API Gateway
+  # throttling and SQS maximum_concurrency bound load instead. (Backlog: revisit at launch.)
+  - CKV_AWS_115 # Lambda reserved concurrency
+  - CKV_AWS_272 # Lambda code signing (backlog: signed artifacts in CI before production)
+  - CKV_AWS_50 # X-Ray tracing (backlog: enable if latency investigations need it)
+  # Logs contain no personal or browsing data; short retention is the privacy-friendlier choice.
+  - CKV_AWS_338 # 1-year log retention
+  # Avatar bucket is not yet in use (group picture upload is a carry-over).
+  - CKV_AWS_144 # S3 cross-region replication
+  - CKV_AWS_18 # S3 access logging
+  - CKV2_AWS_62 # S3 event notifications

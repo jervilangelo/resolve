@@ -5,6 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 test('home page renders brand, tagline and development-status notice', async ({ page }) => {
@@ -48,4 +49,19 @@ test('security headers are set', async ({ request }) => {
   expect(csp).toContain("default-src 'self'");
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp).not.toContain('unsafe-eval');
+});
+
+test.describe('accessibility (WCAG 2.1 A/AA, axe)', () => {
+  for (const scheme of ['light', 'dark'] as const) {
+    for (const path of ['/', '/does-not-exist']) {
+      test(`${path} in ${scheme} mode has no violations`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: scheme });
+        await page.goto(path);
+        const results = await new AxeBuilder({ page })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze();
+        expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      });
+    }
+  }
 });

@@ -6,6 +6,7 @@
  */
 
 import {
+  accountabilityViewSchema,
   type NavigationEventRequest,
   navigationEventRequestSchema,
   type GroupList,
@@ -101,12 +102,25 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
           active = (await auth.session())?.activeGroupId ?? null;
         }
       }
+      // Optional detail: a failure here must not hide the groups and protection state.
+      const view = active
+        ? await api(`/v1/groups/${active}/accountability`, accountabilityViewSchema).catch(
+            (caught: unknown) => {
+              if (caught instanceof SignedOutError) throw caught;
+              return null;
+            },
+          )
+        : null;
       return {
         ...base,
         groups,
         groupsLoaded: true,
         activeGroupId: active,
         protection: (await protection?.status(active)) ?? { state: 'off', syncedAt: null },
+        sharing: view && {
+          mode: view.sharing.mode,
+          receiving: view.recipients.filter((r) => r.status === 'receiving').length,
+        },
         ...(notice && { error: notice }),
       };
     } catch (caught) {
@@ -122,6 +136,7 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
         groupsLoaded: false,
         activeGroupId: active,
         protection: (await protection?.status(active)) ?? { state: 'off', syncedAt: null },
+        sharing: null,
         error: OFFLINE,
       };
     }
@@ -157,9 +172,18 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
      * Trigger A (§7.1): reports a qualifying blocked navigation. The body is the minimal event and
      * nothing else; the server derives the user from the token. `retry` = try again later.
      */
-    async reportEvent(event: NavigationEventRequest): Promise<'sent' | 'retry' | 'drop'> {
+    async reportEvent(
+      event: NavigationEventRequest,
+      expected: { sid: string; groupId: string },
+    ): Promise<'sent' | 'retry' | 'drop'> {
       const body = navigationEventRequestSchema.safeParse(event);
       if (!body.success) return 'drop'; // can never succeed
+      // Only for the sign-in and active group the visit happened under: a switch or another
+      // account signing in meanwhile must never send it under someone else's name or group.
+      const session = await auth.session();
+      if (session?.sid !== expected.sid || session.activeGroupId !== expected.groupId) {
+        return 'drop';
+      }
       let access: Awaited<ReturnType<Auth['accessToken']>>;
       try {
         access = await auth.accessToken();
@@ -167,7 +191,7 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
         // Offline while refreshing an expired token: worth another try; otherwise give up.
         return caught instanceof TransientAuthError ? 'retry' : 'drop';
       }
-      if (!access) return 'drop';
+      if (access?.sid !== expected.sid) return 'drop';
       try {
         const res = await platform.fetch(new URL('/v1/events', config.apiUrl), {
           method: 'POST',

@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { send } from '@/lib/client';
 import type { AccountState } from '@/lib/messages';
+import { useAlertsGranted } from './alerts-panel';
 
 const buttonClass =
   'w-full rounded-md px-3 py-2 text-sm font-medium disabled:opacity-60 bg-primary text-primary-foreground hover:bg-primary-pressed';
@@ -63,6 +64,35 @@ function ProtectionLine({
     </p>
   ) : (
     <p className="text-muted-foreground text-xs">Domain protection: on{when}</p>
+  );
+}
+
+type Sharing = Extract<AccountState, { state: 'signedIn' }>['sharing'];
+
+/**
+ * The user's own accountability sharing in the active group, kept distinct from protection state
+ * (MASTER_PLAN §8.4), with a warning when alerts are shared but this browser does not report them.
+ */
+function SharingLine({ sharing }: { sharing: NonNullable<Sharing> }) {
+  const [alertsOn] = useAlertsGranted();
+  if (sharing.mode === 'PRIVATE') {
+    return <p className="text-muted-foreground text-xs">Accountability sharing: private</p>;
+  }
+  const who = sharing.mode === 'EVERYONE' ? 'everyone in the group' : 'selected members';
+  const agreed =
+    sharing.receiving === 1 ? '1 has agreed' : `${String(sharing.receiving)} have agreed`;
+  return (
+    <div className="space-y-1 text-xs">
+      <p className="text-muted-foreground">
+        Accountability sharing: {who} ({agreed})
+      </p>
+      {alertsOn === false && (
+        <p role="alert" className="text-destructive">
+          Blocked visits in this browser are not reported. Turn on accountability alerts in
+          Settings.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -175,6 +205,7 @@ export function AccountPanel() {
           onRetry={() => void run(() => send({ type: 'protection/retry' }))}
         />
       )}
+      {account.activeGroupId && account.sharing && <SharingLine sharing={account.sharing} />}
       {error}
       <div className="flex gap-2">
         <a

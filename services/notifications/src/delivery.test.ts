@@ -69,6 +69,10 @@ function setup(item: OutboxItem) {
       claims.set(`${id}#${user}`, 'claimed');
       return Promise.resolve(true);
     },
+    markSending: (id, user) => {
+      claims.set(`${id}#${user}`, 'sending');
+      return Promise.resolve();
+    },
     release: (id, user) => {
       claims.delete(`${id}#${user}`);
       return Promise.resolve();
@@ -136,6 +140,20 @@ describe('delivery worker', () => {
     const r = setup(navigation());
     r.members.set('bob', LATER); // the sender left and rejoined: the old event no longer counts
     expect(await deliverOutbox('out_1', r.deps)).toEqual({ not_shared: 2 });
+  });
+
+  it('never tells someone who joined after the event (no retroactive disclosure)', async () => {
+    const t = setup(navigation());
+    t.members.set('carol', '2026-11-24T00:01:00.000Z'); // rejoined after the event
+    expect(await deliverOutbox('out_1', t.deps)).toEqual({ not_member: 1, sent: 1 });
+    expect(t.sent.map((m) => m.to)).toEqual(['dave@example.test']);
+  });
+
+  it('does not resend when recording the outcome fails after sending', async () => {
+    const t = setup(navigation());
+    t.deps.finish = () => Promise.reject(new Error('Throttled'));
+    expect(await deliverOutbox('out_1', t.deps)).toEqual({ sent: 2 });
+    expect(t.sent).toHaveLength(2);
   });
 
   it('never sends twice for the same recipient, even when the message is redelivered', async () => {
@@ -215,6 +233,11 @@ describe('alert emails', () => {
     expect(email.html).toContain('A &amp; B');
     expect(email.text).toContain('is not proof of intent');
     expect(email.text).toContain(`https://app.example.test/dashboard/groups/${GROUP}`);
+    const linky = alertEmail(
+      navigation({ senderName: 'Verify at evil.example', groupName: 'www.phish.test' }),
+      'https://app.example.test',
+    );
+    expect(linky.text).not.toMatch(/evil\.example|phish\.test/);
     const anonymous = alertEmail(navigation({ senderName: null }), 'https://app.example.test');
     expect(anonymous.text).toContain('A member of your accountability group triggered');
   });

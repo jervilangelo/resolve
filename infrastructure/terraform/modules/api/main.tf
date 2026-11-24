@@ -172,6 +172,7 @@ resource "aws_apigatewayv2_integration" "lambda" {
 }
 
 resource "aws_apigatewayv2_route" "this" {
+  #checkov:skip=CKV_AWS_309:Only GET /v1/health is unauthenticated (by design); every other route uses the JWT authorizer.
   for_each           = local.routes
   api_id             = aws_apigatewayv2_api.this.id
   route_key          = each.key

@@ -5,7 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-import type { OutboxItem } from '@resolve/contracts';
+import { LINK_LIKE, type OutboxItem } from '@resolve/contracts';
 
 /**
  * The two generic alert emails (docs/MASTER_PLAN.md §7). They name the sender and the group, never
@@ -27,21 +27,24 @@ const escapeHtml = (value: string) =>
     .replaceAll("'", '&#39;');
 
 export function alertEmail(item: OutboxItem, dashboardUrl: string): EmailMessage {
-  const who = item.senderName ?? 'A member of your accountability group';
-  const theirs = item.senderName ? `${item.senderName}’s` : 'their';
+  // Names set before links were disallowed are never shown in an email.
+  const senderName = item.senderName && !LINK_LIKE.test(item.senderName) ? item.senderName : null;
+  const groupName = LINK_LIKE.test(item.groupName) ? 'your accountability group' : item.groupName;
+  const who = senderName ?? 'A member of your accountability group';
+  const theirs = senderName ? `${senderName}’s` : 'their';
   const settings = new URL(`/dashboard/groups/${item.groupId}`, dashboardUrl).toString();
 
   const paragraphs =
     item.kind === 'NON_NEGOTIABLE_NAVIGATION'
       ? [
-          `${who} triggered a non-negotiable website restriction in ${item.groupName}.`,
+          `${who} triggered a non-negotiable website restriction in ${groupName}.`,
           'Resolve never shares which website it was. This alert comes from the Resolve browser ' +
             'extension and is not proof of intent, so please reach out with grace and care.',
           `You receive this because you agreed to receive ${theirs} alerts. You can stop at any ` +
             `time under Accountability in the group: ${settings}`,
         ]
       : [
-          `${who} is no longer a member of ${item.groupName}.`,
+          `${who} is no longer a member of ${groupName}.`,
           `You receive this because you agreed to receive ${theirs} alerts in this group. You can ` +
             `review your accountability settings in the group: ${settings}`,
         ];
