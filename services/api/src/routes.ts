@@ -7,6 +7,12 @@
 
 import { createHash, randomBytes } from 'node:crypto';
 import {
+  EVENT_COOLDOWN_SECONDS,
+  EVENT_MAX_AGE_SECONDS,
+  EVENT_MAX_SKEW_SECONDS,
+  EVENT_RECEIVED_RESPONSE,
+  type OutboxItem,
+  navigationEventRequestSchema,
   ACCOUNTABILITY_CHANGES_PER_HOUR,
   type AccountabilityView,
   updateReceivingRequestSchema,
@@ -51,12 +57,18 @@ import {
 } from '@resolve/domain-policy';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import type { z } from 'zod';
-import { accountabilityView } from './accountability';
+import { accountabilityView, eligibleRecipients } from './accountability';
 import { requireIdentity } from './auth';
 import type { ApiEnv } from './env';
 import { ApiError, type Route } from './http';
 import { header, parseBody, parseOrReject } from './request';
-import { InvalidCursorError, type Store, type StoredMembership } from './store/store';
+import {
+  type Departure,
+  InvalidCursorError,
+  type RemoveResult,
+  type Store,
+  type StoredMembership,
+} from './store/store';
 
 export interface RouteDeps {
   env: ApiEnv;
@@ -73,6 +85,7 @@ function randomId(prefix: string): string {
 }
 
 export const generateGroupId = () => randomId('grp');
+const generateOutboxId = () => randomId('out');
 
 /** Invitation tokens are stored only as SHA-256 hashes (§3). */
 export function hashToken(token: string): string {
@@ -158,6 +171,56 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
     const bucket = `accountability#${now().toISOString().slice(0, 13)}`;
     if (!(await store.chargeSubmission(userId, bucket, ACCOUNTABILITY_CHANGES_PER_HOUR))) {
       throw new ApiError('RATE_LIMITED');
+    }
+  }
+
+  /**
+   * Trigger B snapshot (§7.2): who should learn that `userId` left, from the sharing and consents
+   * as they stand *before* the departure. Null when nobody qualifies (e.g. the member was PRIVATE).
+   */
+  async function departureOutbox(
+    groupId: string,
+    groupName: string,
+    userId: string,
+  ): Promise<Departure | undefined> {
+    const [members, state] = await Promise.all([
+      allMembers(groupId),
+      store.getAccountability(groupId),
+    ]);
+    const sender = members.find((m) => m.userId === userId);
+    const recipientIds = eligibleRecipients(userId, members, state);
+    const sharing = state.sharing.get(userId);
+    if (!sender || !sharing?.updatedAt || recipientIds.length === 0) return undefined;
+    const outbox: OutboxItem = {
+      outboxId: generateOutboxId(),
+      kind: 'GROUP_DEPARTURE',
+      groupId,
+      groupName,
+      senderId: userId,
+      senderName: sender.displayName,
+      senderJoinedAt: sender.joinedAt,
+      departureSharing: { mode: sharing.mode, recipients: sharing.recipients },
+      recipientIds,
+      createdAt: now().toISOString(),
+    };
+    return { outbox, sharingUpdatedAt: sharing.updatedAt };
+  }
+
+  /**
+   * Ends a membership with its departure alert. If the member's sharing changes between snapshot
+   * and commit, the snapshot is recomputed (a few times at most).
+   */
+  async function depart(
+    groupId: string,
+    groupName: string,
+    userId: string,
+    actorId: string,
+  ): Promise<RemoveResult> {
+    for (let attempt = 0; ; attempt++) {
+      const departure = await departureOutbox(groupId, groupName, userId);
+      const result = await store.removeMember(groupId, userId, actorId, departure);
+      if (result !== 'changed') return result;
+      if (attempt >= 2) throw new ApiError('CONFLICT');
     }
   }
 
@@ -446,8 +509,8 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
     },
 
     'POST /v1/groups/{groupId}/leave': async (event) => {
-      const { groupId, userId } = await requireMember(event);
-      const result = await store.removeMember(groupId, userId, userId);
+      const { groupId, userId, group } = await requireMember(event);
+      const result = await depart(groupId, group.name, userId, userId);
       // The last admin must first make another member an admin, or dissolve the group (§3).
       if (result === 'last_admin') throw new ApiError('CONFLICT');
       if (result === 'not_member') throw new ApiError('NOT_FOUND');
@@ -574,6 +637,49 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
       return { status: 200, body };
     },
 
+    // Trigger A (§7.1): the extension reports a blocked non-negotiable navigation. Every accepted
+    // request gets the same 202, so the response reveals nothing about recipients or cooldowns.
+    'POST /v1/events': async (event) => {
+      const { userId, clientId } = identity(event);
+      if (!env.RULES_CLIENT_IDS.includes(clientId)) throw new ApiError('FORBIDDEN');
+      const input = parseBody(event, navigationEventRequestSchema);
+      const accepted = { status: 202, body: EVENT_RECEIVED_RESPONSE };
+      const at = now();
+      const age = (at.getTime() - Date.parse(input.occurredAt)) / 1000;
+      if (age > EVENT_MAX_AGE_SECONDS || age < -EVENT_MAX_SKEW_SECONDS) return accepted;
+
+      const live = await liveMembership(input.groupId, userId);
+      if (!live) throw new ApiError('NOT_FOUND');
+      const [members, state] = await Promise.all([
+        allMembers(input.groupId),
+        store.getAccountability(input.groupId),
+      ]);
+      const sender = members.find((m) => m.userId === userId);
+      const recipientIds = eligibleRecipients(userId, members, state);
+      // Nobody may receive it: nothing is recorded at all (no event history is kept).
+      if (!sender || recipientIds.length === 0) return accepted;
+      await store.recordNavigationEvent({
+        userId,
+        groupId: input.groupId,
+        eventId: input.eventId,
+        now: at.toISOString(),
+        cooldownSeconds: EVENT_COOLDOWN_SECONDS,
+        outbox: {
+          outboxId: generateOutboxId(),
+          kind: 'NON_NEGOTIABLE_NAVIGATION',
+          groupId: input.groupId,
+          groupName: live.group.name,
+          senderId: userId,
+          senderName: sender.displayName,
+          senderJoinedAt: sender.joinedAt,
+          recipientIds,
+          createdAt: at.toISOString(),
+        },
+      });
+      // Duplicates, cooldowns and a membership that just ended all look the same to the caller.
+      return accepted;
+    },
+
     'GET /v1/extension/rules': async (event) => {
       const { userId, clientId } = identity(event);
       // Rules are for the extension to enforce, not for reading: dashboard tokens cannot fetch
@@ -604,12 +710,12 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
     },
 
     'DELETE /v1/groups/{groupId}/members/{userId}': async (event) => {
-      const { groupId, userId } = await requireAdmin(event);
+      const { groupId, userId, group } = await requireAdmin(event);
       const target = userIdSchema.safeParse(event.pathParameters?.userId);
       if (!target.success) throw new ApiError('NOT_FOUND');
       // Admins leave through /leave, which applies the last-admin rule.
       if (target.data === userId) throw new ApiError('CONFLICT');
-      const result = await store.removeMember(groupId, target.data, userId);
+      const result = await depart(groupId, group.name, target.data, userId);
       if (result === 'not_member') throw new ApiError('NOT_FOUND');
       if (result !== 'removed') throw new ApiError('FORBIDDEN');
       return { status: 204, body: undefined };

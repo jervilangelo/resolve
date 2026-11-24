@@ -73,8 +73,7 @@ function trackGroup(groupId: string, ...members: string[]) {
     fixtures.push({ PK: `GROUP#${groupId}`, SK: `MEMBER#${subjectOf(token)}` });
 }
 
-async function createUser(): Promise<string> {
-  const username = `it-${randomUUID()}@example.invalid`;
+async function createUser(username = `it-${randomUUID()}@example.invalid`): Promise<string> {
   const password = `It-${randomBytes(18).toString('base64url')}9a`;
   usernames.push(username);
   await cognito.send(
@@ -472,4 +471,81 @@ describe(`deployed accountability (${env.RESOLVE_STAGE})`, () => {
     // Dissolving sweeps the rest (consent items and their audit records included).
     expect((await api('DELETE', `/v1/groups/${groupId}`, alice)).status).toBe(204);
   });
+});
+
+describe(`deployed alert triggers (${env.RESOLVE_STAGE})`, () => {
+  it('delivers Trigger A and Trigger B alerts to a consenting recipient only', async () => {
+    // The recipient's address is SES's success mailbox simulator, which sandbox mode allows.
+    const recipient = await createUser(`success+it-${randomUUID()}@simulator.amazonses.com`);
+    const outsider = await createUser();
+    const created = groupSummarySchema.parse(
+      (await api('POST', '/v1/groups', alice, { name: 'Alert flow' })).body,
+    );
+    const groupId = created.groupId;
+    trackGroup(groupId, alice, bob, recipient, outsider);
+    for (const user of [bob, recipient, outsider]) {
+      const inv = createdInvitationSchema.parse(
+        (await api('POST', `/v1/groups/${groupId}/invitations`, alice, {})).body,
+      );
+      trackInvitation(groupId, inv.invitationId, inv.token);
+      await api('POST', '/v1/invitations/accept', user, { token: inv.token });
+    }
+    const bobId = subjectOf(bob);
+    const recipientId = subjectOf(recipient);
+    const outsiderId = subjectOf(outsider);
+    const base = `/v1/groups/${groupId}/accountability`;
+    await api('PUT', `${base}/sharing`, bob, { mode: 'EVERYONE', recipientIds: [] });
+    await api('PUT', `${base}/receiving`, recipient, { acceptAll: true });
+    // The outsider never consents: nothing may reach them.
+
+    /** Alerts the worker charged to a user this hour (charged just before each send). */
+    const alertCount = async (userId: string) => {
+      const res = await dynamo.send(
+        new QueryCommand({
+          TableName: env.RESOLVE_TABLE_NAME,
+          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :rate)',
+          ExpressionAttributeValues: {
+            ':pk': { S: `USER#${userId}` },
+            ':rate': { S: 'RATE#alerts#' },
+          },
+          ConsistentRead: true,
+        }),
+      );
+      for (const item of res.Items ?? []) {
+        const sk = item.SK?.S;
+        if (sk) fixtures.push({ PK: `USER#${userId}`, SK: sk });
+      }
+      return (res.Items ?? []).reduce((sum, item) => sum + Number(item.submissions?.N ?? 0), 0);
+    };
+    const waitForAlerts = async (userId: string, expected: number) => {
+      for (let i = 0; i < 40; i++) {
+        if ((await alertCount(userId)) >= expected) return alertCount(userId);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+      return alertCount(userId);
+    };
+
+    // Trigger A: reported by the extension (this test client stands in for it outside prod).
+    const eventId = `evt_${randomBytes(26)
+      .toString('hex')
+      .replace(/[^a-z2-7]/g, 'a')
+      .slice(0, 26)}`;
+    fixtures.push({ PK: `USER#${bobId}`, SK: `EVENT#${eventId}` });
+    fixtures.push({ PK: `USER#${bobId}`, SK: `COOLDOWN#${groupId}` });
+    const reported = await api('POST', '/v1/events', bob, {
+      eventId,
+      groupId,
+      eventType: 'NON_NEGOTIABLE_NAVIGATION',
+      occurredAt: new Date().toISOString(),
+      clientRuleVersion: 0,
+    });
+    expect(reported).toEqual({ status: 202, body: { status: 'received' } });
+    expect(await waitForAlerts(recipientId, 1)).toBe(1);
+
+    // Trigger B: Bob leaves; the alert comes from his pre-departure sharing.
+    expect((await api('POST', `/v1/groups/${groupId}/leave`, bob)).status).toBe(204);
+    expect(await waitForAlerts(recipientId, 2)).toBe(2);
+    expect(await alertCount(outsiderId)).toBe(0);
+    expect((await api('DELETE', `/v1/groups/${groupId}`, alice)).status).toBe(204);
+  }, 300_000);
 });

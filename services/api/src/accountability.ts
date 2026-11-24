@@ -5,39 +5,30 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-import type { AccountabilityView } from '@resolve/contracts';
+import {
+  type AccountabilityView,
+  NO_CONSENT,
+  PRIVATE_SHARING,
+  consentsTo,
+  sharesWith,
+} from '@resolve/contracts';
 import type { StoredConsent, StoredMember, StoredSharing } from './store/store';
 
 /**
  * Accountability policy (docs/MASTER_PLAN.md §6). Pure functions over the current members and the
  * stored choices, so every rule is decided in one place and tested on its own.
  *
- * Retroactivity: a choice only counts for the membership it was made in. A recipient selection
- * made before that recipient (re)joined, or a consent given before that sender (re)joined, is
- * ignored: rejoining starts from nothing, in both directions.
+ * Retroactivity: a choice only counts for the membership it was made in (see sharesWith and
+ * consentsTo in @resolve/contracts): rejoining starts from nothing, in both directions.
  */
-export const PRIVATE_SHARING: StoredSharing = { mode: 'PRIVATE', recipients: {}, updatedAt: null };
-export const NO_CONSENT: StoredConsent = { acceptAll: false, senders: {} };
-
+export { NO_CONSENT, PRIVATE_SHARING };
 export interface AccountabilityState {
   sharing: ReadonlyMap<string, StoredSharing>;
   consents: ReadonlyMap<string, StoredConsent>;
 }
 
-/** Whether `sender` chose `recipient` (directly or via EVERYONE) in their current memberships. */
-function shares(sharing: StoredSharing, recipient: StoredMember): boolean {
-  if (sharing.mode === 'EVERYONE') return true;
-  if (sharing.mode !== 'SELECTED') return false;
-  const selectedAt = sharing.recipients[recipient.userId];
-  return selectedAt !== undefined && selectedAt >= recipient.joinedAt;
-}
-
-/** Whether `recipient` agreed to receive `sender`'s alerts in their current memberships. */
-function consents(consent: StoredConsent, sender: StoredMember): boolean {
-  if (consent.acceptAll) return true;
-  const acceptedAt = consent.senders[sender.userId];
-  return acceptedAt !== undefined && acceptedAt >= sender.joinedAt;
-}
+const shares = sharesWith;
+const consents = consentsTo;
 
 /**
  * The members who receive `senderId`'s alerts right now: current members (never the sender) whom

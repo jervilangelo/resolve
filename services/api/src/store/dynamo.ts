@@ -21,7 +21,13 @@ import {
   TransactWriteCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { domainTypeSchema, groupRoleSchema } from '@resolve/contracts';
+import {
+  OUTBOX_PK_PREFIX,
+  OUTBOX_TTL_SECONDS,
+  type OutboxItem,
+  domainTypeSchema,
+  groupRoleSchema,
+} from '@resolve/contracts';
 import { z } from 'zod';
 import {
   type AcceptResult,
@@ -50,6 +56,8 @@ import {
  *   GROUP#<id>   SHARE#<sub>                  the member's own sharing choice (§6)
  *   GROUP#<id>   CONSENT#<sub>                the member's own consent; `from_<senderSub>` = accepted at
  *   GROUP#<id>   CAUDIT#<at>#<rand>           consent-change audit, no browsing data (TTL)
+ *   USER#<sub>   EVENT#<eventId>              Trigger A idempotency (TTL)
+ *   USER#<sub>   COOLDOWN#<groupId>           Trigger A per-member cooldown (TTL)
  *   OUTBOX#<id>  OUTBOX                       notification outbox (relayed from the stream)
  */
 export const keys = {
@@ -63,6 +71,9 @@ export const keys = {
   /** Hourly rate counters, e.g. `RATE#domains#2026-11-25T10`. */
   rate: (bucket: string) => `RATE#${bucket}`,
   sharing: (userId: string) => `SHARE#${userId}`,
+  outbox: (outboxId: string) => `${OUTBOX_PK_PREFIX}${outboxId}`,
+  event: (eventId: string) => `EVENT#${eventId}`,
+  cooldown: (groupId: string) => `COOLDOWN#${groupId}`,
   consent: (userId: string) => `CONSENT#${userId}`,
 };
 
@@ -295,6 +306,23 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         ConditionExpression: '#role = :admin',
         ExpressionAttributeNames: { '#role': 'role' },
         ExpressionAttributeValues: { ':admin': 'ADMIN' },
+      },
+    };
+  }
+
+  /** The outbox item as a transaction Put; the stream relays it to the delivery queue. */
+  function outboxPut(item: OutboxItem): TransactItems[number] {
+    return {
+      Put: {
+        TableName: tableName,
+        Item: {
+          PK: keys.outbox(item.outboxId),
+          SK: 'OUTBOX',
+          type: 'Outbox',
+          ...item,
+          ttl: Math.floor(Date.parse(item.createdAt) / 1000) + OUTBOX_TTL_SECONDS,
+        },
+        ConditionExpression: 'attribute_not_exists(PK)',
       },
     };
   }
@@ -824,7 +852,7 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
       }
     },
 
-    async removeMember(groupId, userId, actorId): Promise<RemoveResult> {
+    async removeMember(groupId, userId, actorId, departure): Promise<RemoveResult> {
       const target = await getMembership(groupId, userId);
       if (!target) return 'not_member';
       const self = userId === actorId;
@@ -866,10 +894,27 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         });
       }
       // The member's own sharing choice and consent go with the membership (rejoining starts
-      // private). Unconditional, so they never affect the cancellation codes above.
-      for (const SK of [keys.sharing(userId), keys.consent(userId)]) {
-        items.push({ Delete: { TableName: tableName, Key: { PK: keys.group(groupId), SK } } });
-      }
+      // private). With a departure alert, the sharing must still be the version the alert was
+      // computed from, so a last-moment switch to PRIVATE is never overridden by a stale snapshot.
+      const sharingIndex = items.length;
+      items.push({
+        Delete: {
+          TableName: tableName,
+          Key: { PK: keys.group(groupId), SK: keys.sharing(userId) },
+          ...(departure && {
+            ConditionExpression: 'updatedAt = :snapshot',
+            ExpressionAttributeValues: { ':snapshot': departure.sharingUpdatedAt },
+          }),
+        },
+      });
+      items.push({
+        Delete: {
+          TableName: tableName,
+          Key: { PK: keys.group(groupId), SK: keys.consent(userId) },
+        },
+      });
+      // Trigger B: the departure alert commits with the membership change, or not at all.
+      if (departure) items.push(outboxPut(departure.outbox));
       try {
         await transact(items);
         return 'removed';
@@ -878,7 +923,8 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         if (!codes) throw error;
         if (codes[0] === 'ConditionalCheckFailed') return 'not_member';
         if (codes[1] === 'ConditionalCheckFailed') return isAdmin ? 'last_admin' : 'not_member';
-        if (codes[2] === 'ConditionalCheckFailed') return 'not_allowed';
+        if (!self && codes[2] === 'ConditionalCheckFailed') return 'not_allowed';
+        if (codes[sharingIndex] === 'ConditionalCheckFailed') return 'changed';
         throw error;
       }
     },
@@ -1260,6 +1306,52 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         ...(item.from && { from: item.from }),
         ...(item.to && { to: item.to }),
       }));
+    },
+
+    async recordNavigationEvent({ userId, groupId, eventId, now, cooldownSeconds, outbox }) {
+      const nowSeconds = Math.floor(Date.parse(now) / 1000);
+      try {
+        await transact([
+          {
+            Put: {
+              TableName: tableName,
+              Item: {
+                PK: keys.user(userId),
+                SK: keys.event(eventId),
+                type: 'EventSeen',
+                ttl: nowSeconds + 24 * 60 * 60,
+              },
+              ConditionExpression: 'attribute_not_exists(PK)',
+            },
+          },
+          {
+            Update: {
+              TableName: tableName,
+              Key: { PK: keys.user(userId), SK: keys.cooldown(groupId) },
+              UpdateExpression: 'SET #type = :type, untilAt = :until, #ttl = :ttl',
+              ConditionExpression: 'attribute_not_exists(untilAt) OR untilAt <= :now',
+              ExpressionAttributeNames: { '#type': 'type', '#ttl': 'ttl' },
+              ExpressionAttributeValues: {
+                ':type': 'Cooldown',
+                ':until': nowSeconds + cooldownSeconds,
+                ':now': nowSeconds,
+                ':ttl': nowSeconds + cooldownSeconds + 60 * 60,
+              },
+            },
+          },
+          ...liveMemberChecks(groupId, userId),
+          outboxPut(outbox),
+        ]);
+        return 'recorded';
+      } catch (error) {
+        const codes = cancellationCodes(error);
+        if (!codes) throw error;
+        const failed = (i: number) => codes[i] === 'ConditionalCheckFailed';
+        if (failed(0)) return 'duplicate';
+        if (failed(1)) return 'cooldown';
+        if (failed(2) || failed(3)) return 'not_member';
+        throw error;
+      }
     },
 
     async getAccountability(groupId) {

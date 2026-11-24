@@ -29,6 +29,7 @@ locals {
     "DELETE /v1/groups/{groupId}/invitations/{invitationId}"      = true
     "POST /v1/invitations/preview"                                = true
     "POST /v1/invitations/accept"                                 = true
+    "POST /v1/events"                                             = true
     "GET /v1/groups/{groupId}/accountability"                     = true
     "PUT /v1/groups/{groupId}/accountability/sharing"             = true
     "PUT /v1/groups/{groupId}/accountability/receiving"           = true
@@ -88,7 +89,7 @@ data "aws_iam_policy_document" "table_access" {
     condition {
       test     = "ForAllValues:StringLike"
       variable = "dynamodb:LeadingKeys"
-      values   = ["USER#*", "GROUP#*", "INVITE#*"]
+      values   = ["USER#*", "GROUP#*", "INVITE#*", "OUTBOX#*"]
     }
   }
   statement {

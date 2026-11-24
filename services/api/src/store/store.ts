@@ -5,7 +5,14 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-import type { DomainType, GroupRole, SharingMode } from '@resolve/contracts';
+import type {
+  ConsentRecord,
+  DomainType,
+  GroupRole,
+  OutboxItem,
+  SharingMode,
+  SharingRecord,
+} from '@resolve/contracts';
 
 export interface StoredProfile {
   displayName: string | null;
@@ -60,7 +67,14 @@ export type AcceptResult =
   | { status: 'invalid' }
   | { status: 'full' };
 
-export type RemoveResult = 'removed' | 'not_member' | 'last_admin' | 'not_allowed';
+/** `changed`: the departing member's sharing changed after the departure snapshot; recompute. */
+export type RemoveResult = 'removed' | 'not_member' | 'last_admin' | 'not_allowed' | 'changed';
+
+/** Trigger B: the outbox item plus the sharing version it was computed from. */
+export interface Departure {
+  outbox: OutboxItem;
+  sharingUpdatedAt: string;
+}
 
 export interface StoredDomain {
   domain: string;
@@ -91,18 +105,8 @@ export interface RuleState {
   additional: string[];
 }
 
-/** A member's own sharing choice; `recipients` maps each selected member to when they were chosen. */
-export interface StoredSharing {
-  mode: SharingMode;
-  recipients: Record<string, string>;
-  updatedAt: string | null;
-}
-
-/** A member's own consent; `senders` maps each accepted sender to when they were accepted. */
-export interface StoredConsent {
-  acceptAll: boolean;
-  senders: Record<string, string>;
-}
+export type StoredSharing = SharingRecord;
+export type StoredConsent = ConsentRecord;
 
 /** Writes need the caller to be a member of a live group when they commit. */
 export type AccountabilityWrite = 'saved' | 'not_allowed';
@@ -148,9 +152,16 @@ export interface Store {
   /**
    * Removes a membership. `self` = leaving; otherwise `actorId` must be an admin and the target a
    * member. The last admin can never be removed or leave. The member's own sharing choice and
-   * consent in the group are deleted with it, so rejoining starts private.
+   * consent in the group are deleted with it, so rejoining starts private. `departure`, when given,
+   * is the Trigger B outbox item, written in the same transaction (§7.2) and only if the member's
+   * sharing is still the version it was computed from.
    */
-  removeMember(groupId: string, userId: string, actorId: string): Promise<RemoveResult>;
+  removeMember(
+    groupId: string,
+    userId: string,
+    actorId: string,
+    departure?: Departure,
+  ): Promise<RemoveResult>;
 
   /** Renames a group; `actorId` must be an admin when the write commits. */
   renameGroup(groupId: string, name: string, actorId: string): Promise<'renamed' | 'not_allowed'>;
@@ -207,6 +218,18 @@ export interface Store {
     sharing: Map<string, StoredSharing>;
     consents: Map<string, StoredConsent>;
   }>;
+  /**
+   * Trigger A (§7.1): atomically records the event ID (idempotency), starts the member's cooldown
+   * for the group, checks live membership and writes the outbox item.
+   */
+  recordNavigationEvent(input: {
+    userId: string;
+    groupId: string;
+    eventId: string;
+    now: string;
+    cooldownSeconds: number;
+    outbox: OutboxItem;
+  }): Promise<'recorded' | 'duplicate' | 'cooldown' | 'not_member'>;
   /** Replaces the caller's own sharing choice (with an audit record). */
   setSharing(
     groupId: string,

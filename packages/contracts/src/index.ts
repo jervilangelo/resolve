@@ -10,5 +10,6 @@ export * from './api';
 export * from './domain';
 export * from './env';
 export * from './errors';
+export * from './events';
 export * from './health';
 export * from './outbox';

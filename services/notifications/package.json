@@ -2,7 +2,7 @@
   "name": "@resolve/notifications",
   "version": "0.0.0",
   "private": true,
-  "description": "Resolve notification pipeline Lambdas (outbox relay; delivery worker arrives with roadmap phase 8).",
+  "description": "Resolve notification pipeline Lambdas: outbox relay and delivery worker (the two v1 alert triggers).",
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
@@ -12,7 +12,11 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.1175.0",
+    "@aws-sdk/client-dynamodb": "^3.1175.0",
+    "@aws-sdk/client-sesv2": "^3.1176.0",
     "@aws-sdk/client-sqs": "^3.1175.0",
+    "@aws-sdk/lib-dynamodb": "^3.1175.0",
     "@resolve/contracts": "workspace:*",
     "zod": "catalog:"
   },

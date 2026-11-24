@@ -15,6 +15,12 @@ variable "lambda_function_names" {
   type = list(string)
 }
 
+variable "stuck_queue_names" {
+  description = "Work queues whose oldest message should never be older than an hour."
+  type        = list(string)
+  default     = []
+}
+
 variable "alarm_queue_names" {
   description = "Queues that should always be empty (dead-letter and failure queues)."
   type        = list(string)

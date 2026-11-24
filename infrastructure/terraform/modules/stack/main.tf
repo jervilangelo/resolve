@@ -49,16 +49,26 @@ module "notifications" {
   name_prefix        = local.name_prefix
   table_stream_arn   = module.data.table_stream_arn
   relay_source_dir   = "${local.repo_root}/services/notifications/dist/outbox-relay"
+  worker_source_dir  = "${local.repo_root}/services/notifications/dist/delivery-worker"
   log_retention_days = var.log_retention_days
   sender_email       = var.ses_sender_email
+  table_name         = module.data.table_name
+  table_arn          = module.data.table_arn
+  user_pool_id       = module.identity.user_pool_id
+  user_pool_arn      = module.identity.user_pool_arn
+  dashboard_url      = var.web_origins[0]
 }
 
 module "observability" {
-  source                = "../observability"
-  name_prefix           = local.name_prefix
-  api_id                = module.api.api_id
-  lambda_function_names = [module.api.function_name, module.notifications.relay_function_name]
-  alarm_queue_names     = [module.notifications.delivery_dlq_name, module.notifications.relay_failures_queue_name]
-  monthly_budget_usd    = var.monthly_budget_usd
-  alert_email           = var.alert_email
+  source      = "../observability"
+  name_prefix = local.name_prefix
+  api_id      = module.api.api_id
+  lambda_function_names = concat(
+    [module.api.function_name, module.notifications.relay_function_name],
+    module.notifications.worker_function_names,
+  )
+  alarm_queue_names  = [module.notifications.delivery_dlq_name, module.notifications.relay_failures_queue_name]
+  stuck_queue_names  = [module.notifications.delivery_queue_name]
+  monthly_budget_usd = var.monthly_budget_usd
+  alert_email        = var.alert_email
 }

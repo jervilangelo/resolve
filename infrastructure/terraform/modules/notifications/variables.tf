@@ -24,3 +24,33 @@ variable "sender_email" {
   type        = string
   default     = null
 }
+
+variable "worker_source_dir" {
+  description = "Directory holding the bundled delivery worker (index.mjs)."
+  type        = string
+}
+
+variable "table_name" {
+  description = "Main DynamoDB table name."
+  type        = string
+}
+
+variable "table_arn" {
+  description = "Main DynamoDB table ARN."
+  type        = string
+}
+
+variable "user_pool_id" {
+  description = "Cognito user pool holding recipient email addresses."
+  type        = string
+}
+
+variable "user_pool_arn" {
+  description = "Cognito user pool ARN."
+  type        = string
+}
+
+variable "dashboard_url" {
+  description = "Dashboard origin linked from alert emails (e.g. https://app.example.com)."
+  type        = string
+}

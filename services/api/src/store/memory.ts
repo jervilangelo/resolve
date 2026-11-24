@@ -17,13 +17,14 @@ import {
   type StoredConsent,
   type StoredSharing,
 } from './store';
+import type { OutboxItem } from '@resolve/contracts';
 
 interface MemoryMembership extends StoredMembership {
   joinedAt: string;
 }
 
 /** In-memory Store with the same semantics as the DynamoDB store, for route unit tests. */
-export function createMemoryStore(): Store {
+export function createMemoryStore(): Store & { outboxItems(): OutboxItem[] } {
   const profiles = new Map<string, StoredProfile>();
   const groups = new Map<string, StoredGroup & { memberCount: number; adminCount: number }>();
   const memberships = new Map<string, MemoryMembership>();
@@ -37,6 +38,10 @@ export function createMemoryStore(): Store {
   /** Keyed by memberKey(groupId, userId). */
   const sharing = new Map<string, StoredSharing>();
   const consents = new Map<string, StoredConsent>();
+  /** Outbox items by ID, plus event IDs seen and cooldowns (memberKey -> until, epoch ms). */
+  const outbox = new Map<string, OutboxItem>();
+  const seenEvents = new Set<string>();
+  const cooldowns = new Map<string, number>();
   const liveMember = (groupId: string, userId: string) =>
     groups.has(groupId) && memberships.has(memberKey(groupId, userId));
   const inGroup = <T>(map: Map<string, T>, groupId: string) =>
@@ -71,7 +76,9 @@ export function createMemoryStore(): Store {
     return inv && inv.expiresAt > now && inv.uses < inv.maxUses ? inv : undefined;
   }
 
-  const store: Store = {
+  const store: Store & { outboxItems(): OutboxItem[] } = {
+    /** Test helper: outbox items written so far. */
+    outboxItems: () => [...outbox.values()],
     getProfile: (userId) => Promise.resolve(profiles.get(userId) ?? null),
     putProfile: (userId, profile) => {
       profiles.set(userId, profile);
@@ -206,7 +213,7 @@ export function createMemoryStore(): Store {
         groupCreatedAt: group.createdAt,
       });
     },
-    removeMember: (groupId, userId, actorId) => {
+    removeMember: (groupId, userId, actorId, departure) => {
       const target = memberships.get(memberKey(groupId, userId));
       const group = groups.get(groupId);
       if (!target || !group) return Promise.resolve('not_member' as const);
@@ -225,6 +232,7 @@ export function createMemoryStore(): Store {
       memberships.delete(memberKey(groupId, userId));
       sharing.delete(memberKey(groupId, userId));
       consents.delete(memberKey(groupId, userId));
+      if (departure) outbox.set(departure.outbox.outboxId, departure.outbox);
       return Promise.resolve('removed' as const);
     },
     renameGroup: (groupId, name, actorId) => {
@@ -358,6 +366,17 @@ export function createMemoryStore(): Store {
           .map((d) => d.domain)
           .sort(),
       });
+    },
+    recordNavigationEvent: ({ userId, groupId, eventId, now, cooldownSeconds, outbox: item }) => {
+      if (seenEvents.has(`${userId}#${eventId}`)) return Promise.resolve('duplicate' as const);
+      const key = memberKey(groupId, userId);
+      const at = Date.parse(now);
+      if ((cooldowns.get(key) ?? 0) > at) return Promise.resolve('cooldown' as const);
+      if (!liveMember(groupId, userId)) return Promise.resolve('not_member' as const);
+      seenEvents.add(`${userId}#${eventId}`);
+      cooldowns.set(key, at + cooldownSeconds * 1000);
+      outbox.set(item.outboxId, item);
+      return Promise.resolve('recorded' as const);
     },
     getAccountability: (groupId) =>
       Promise.resolve({ sharing: inGroup(sharing, groupId), consents: inGroup(consents, groupId) }),

@@ -90,6 +90,23 @@ resource "aws_cloudwatch_metric_alarm" "queue_not_empty" {
   ok_actions          = [aws_sns_topic.alerts.arn]
 }
 
+# Work that stopped flowing (e.g. no delivery worker, or a worker failing before it can retry).
+resource "aws_cloudwatch_metric_alarm" "queue_stuck" {
+  for_each            = toset(var.stuck_queue_names)
+  alarm_name          = "${each.value}-stuck"
+  namespace           = "AWS/SQS"
+  metric_name         = "ApproximateAgeOfOldestMessage"
+  dimensions          = { QueueName = each.value }
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 3600
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+}
+
 # Scoped to resources tagged Project=resolve. The tag must also be activated once per account as
 # a cost allocation tag (aws ce update-cost-allocation-tags-status) before costs are attributed.
 resource "aws_budgets_budget" "monthly" {
