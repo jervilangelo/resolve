@@ -188,6 +188,52 @@
 
 **Acceptance:** A new beta user can register, join a group, enable protection, configure consent, and exercise both alert triggers.
 
+## Phase 11 — Focus Mode & Intentional Exit (post-launch v1.1)
+
+**Status:** Planned for after Phase 10; not part of the initial MVP.
+
+**Goal:** Add an optional, privacy-first, extension-native focus timer that temporarily restricts user-selected distracting websites and encourages deliberate decisions before ending a session early.
+
+**Product principles:**
+- Focus Mode is voluntary, controlled by the individual user, and separate from group accountability.
+- Focus activity, selected websites, and basic session statistics stay on-device by default; no browsing history or page content is uploaded.
+- Focus Mode creates **no new accountability notification triggers**; existing v1 alert triggers remain unchanged.
+- User-selected Focus restrictions may cover otherwise group-exempt sites (such as Facebook or YouTube), but group-level essential-service exemptions and group block rules must remain unchanged.
+- Focus restrictions cannot weaken or remove active group protection. Focus Mode is not tamper-proof, and the user retains ultimate control of their browser.
+
+**Core user journey:**
+1. Open the Resolve extension and choose Focus Mode.
+2. Select a purpose (for example Deep Work, Studying, Prayer & Devotion, or Personal Time), a duration (presets such as 25, 60, 120, or 180 minutes), and websites to restrict.
+3. Choose common distraction sites (Facebook, Instagram, X/Twitter, TikTok, Reddit, optionally YouTube/Netflix/Twitch) and/or enter custom domains. Validate domain inputs and explain subdomain coverage.
+4. Click **Start Focus Mode**. Activate temporary browser-specific blocking rules and show the remaining time in the extension.
+5. On attempted navigation to a selected website, show a branded Resolve focus page with the remaining time and an option to return to productive browsing.
+6. At the scheduled end, automatically lift **only** the temporary Focus Mode restrictions and show a private completion summary.
+
+**Intentional Exit — early termination flow:**
+- The active-session interface offers **Stop Focus Mode**.
+- **Step 1: “Is this an emergency?”** Require the exact typed phrase `Yes, this is an emergency.`
+- **Step 2: “Are you sure?”** Show **Yes** and **No** buttons; No returns to the active session.
+- **Step 3: “Like, really really sure?”** Require the exact typed response `Yes`.
+- On completion of all three steps, end the session, remove its temporary rules, and mark the session as stopped early.
+- The countdown continues during confirmation. Closing the popup or abandoning the flow does not end the session; normal expiration still ends it.
+- Offer a clearly identified immediate emergency/accessibility override so urgent access is not delayed by the confirmation flow.
+- **No CAPTCHA, Cloudflare Turnstile, or external verification service** is required.
+
+**Engineering tasks:**
+- Add extension popup/options UI for purposes, duration presets, selected sites, custom domains, and saved presets.
+- Implement a background session controller with persistent start/deadline timestamps, browser alarms, local state recovery, and offline operation; avoid relying on a continuously running popup timer.
+- Enforce temporary restrictions through Chromium declarativeNetRequest and a Firefox-compatible adapter where supported; document browser differences.
+- Keep Focus rules and IDs isolated from group policy rules; ending or expiring Focus must never clear group blocks.
+- Handle restarts, stale/expired rules, already-open tabs, subdomains, invalid domains, browser clock changes, and interrupted confirmation flows.
+- Store minimal local session summaries (purpose, planned duration, completion/early stop); provide deletion controls and avoid storing visited URLs.
+- Test accessibility, keyboard-only interactions, emergency override, performance, and extension disable/uninstall limitations.
+
+**Deferred enhancements (v1.2+):** Pomodoro cycles and breaks, recurring schedules, advanced private analytics, optional Scripture prompts, distraction-free YouTube controls, and opt-in cross-device settings sync.
+
+**Deliverables:** Extension-native Focus Mode UI, temporary website-blocking controller, branded restriction page, three-step Intentional Exit, local session persistence/recovery, privacy-preserving summaries, and cross-browser test coverage.
+
+**Acceptance:** A user can start a timed session, block chosen sites, see a focus page on attempted navigation, complete or intentionally end the session, and regain access when Focus ends. All three early-exit confirmations function in sequence; urgent override remains accessible; Focus data is local by default; group restrictions and the two existing accountability triggers are unaffected.
+
 ## MVP release acceptance checklist
 
 - [ ] Resolve branding, tagline, icons, and accessible design system are consistent.
