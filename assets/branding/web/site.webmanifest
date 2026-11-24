@@ -2,8 +2,8 @@
   "name": "Resolve",
   "short_name": "Resolve",
   "description": "Privacy-first browser protection and voluntary accountability.",
-  "theme_color": "#1F4A36",
-  "background_color": "#F6F2E8",
+  "theme_color": "#0F172A",
+  "background_color": "#F8FAFC",
   "display": "standalone",
   "icons": [
     {

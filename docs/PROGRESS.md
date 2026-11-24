@@ -50,9 +50,9 @@ pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
 ## Decisions log
 
-- 2026-11-24: Interface switched to a monochrome palette, then refined to a professional slate
-  palette (navy-charcoal and cool greys) by owner request; logo artwork, favicons and store/social
-  images keep the brand colours. See BRAND_GUIDELINES.md.
+- 2026-11-24: Brand palette changed to slate (navy-charcoal ink, cool greys, slate-grey blade) by
+  owner request: interface, logos, icons, favicons, store, social and email images were all
+  recoloured; artwork shapes unchanged. See BRAND_GUIDELINES.md.
 
 ## Open decisions for the owner
 

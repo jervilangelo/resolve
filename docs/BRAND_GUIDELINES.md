@@ -25,27 +25,26 @@ A serpent drawn as an **S** (for sin) is run through by a horizontal blade. Its 
 
 ## Colour
 
+Slate palette, adopted by owner decision on 2026-11-24 (replacing forest, ivory and brass). It
+applies to the logo artwork, icons, favicons, store, social and email images, and the interface.
+
 | Token | HEX | Use |
 |---|---|---|
-| `forest` | `#1F4A36` | Primary; serpent on light, app tile, primary buttons |
-| `forest-deep` | `#163627` | Pressed states, deep surfaces |
-| `charcoal` | `#1E2321` | Text and wordmark on light |
-| `night` | `#121614` | Dark-mode background, social/store banners |
-| `ivory` | `#F6F2E8` | Light background; serpent and wordmark on dark |
-| `parchment` | `#E9E2D2` | Borders, dividers |
-| `sage` | `#8FA894` | Decorative only |
-| `sage-light` | `#B5CBB9` | Secondary text and tagline on dark |
-| `brass-deep` | `#7E6339` | Blade on light |
-| `brass-light` | `#C9AE80` | Blade on dark and on forest |
+| `ink` | `#0F172A` | Primary; serpent and wordmark on light, app tile, primary buttons |
+| `ink-deep` | `#020617` | Dark-mode background, social and store banners |
+| `paper` | `#F8FAFC` | Light background; serpent and wordmark on dark and on the tile |
+| `rule` | `#E2E8F0` | Borders, dividers |
+| `slate-300` | `#CBD5E1` | Secondary text and tagline on dark |
+| `slate-400` | `#94A3B8` | Blade on dark and on the tile |
+| `slate-500` | `#64748B` | Blade on light |
 
-Measured contrast (WCAG): charcoal/ivory 14.3 · forest/ivory 9.0 · brass-deep/ivory 5.0 · ivory/night 16.3 · sage-light/night 10.6 · brass-light/night 8.6 · ivory/forest 9.0 · brass-light/forest 4.7 · sage/ivory **2.3** (never use for text).
+Measured contrast (WCAG): ink/paper 17.1 · slate-500/paper 4.5 · paper/ink-deep 19.3 ·
+slate-300/ink-deep 13.6 · slate-400/ink-deep 7.9 · paper/ink 17.1 · slate-400/ink 7.0 ·
+slate-400/paper **2.5** (never use for text on light).
 
-### Interface palette (slate)
+### Interface tokens
 
-By owner decision (2026-11-24), the dashboard, extension and sign-in pages use a restrained
-**slate** interface: navy-charcoal text and buttons on soft cool-grey surfaces. The brand colours
-above remain in the logo artwork, app icons, favicons and store/social images. Red is used only for
-errors and destructive actions. Source of truth: `packages/ui/tokens.css`.
+Source of truth: `packages/ui/tokens.css`. Red is used only for errors and destructive actions.
 
 ```css
 :root {
@@ -62,8 +61,6 @@ errors and destructive actions. Source of truth: `packages/ui/tokens.css`.
 }
 ```
 
-In the interface, use the one-colour lockups: `horizontal-black.svg` on light and
-`horizontal-white.svg` on dark (at least 140 px wide).
 
 ## Typography
 
@@ -77,7 +74,7 @@ Logo files contain outlined paths, not live text. In apps, self-host the fonts w
 ## Logo usage
 
 - **Lockups:** horizontal (default), horizontal with tagline, stacked, horizontal-compact (uses the small cut, for heights under 40 px).
-- **Light/dark:** use `*-light` on ivory or white and `*-dark` on night or forest. Use `black`/`white` only for one-colour reproduction.
+- **Light/dark:** use `*-light` on paper or white and `*-dark` on ink or ink-deep. Use `black`/`white` only for one-colour reproduction.
 - **Clear space:** the blade's thickness × 3 on all sides (≈ 0.28 × symbol height).
 - **Minimum sizes:** symbol 16 px (small cut); horizontal lockup 96 px wide (compact) or 140 px wide (full); tagline lockup 240 px wide.
 - **Do not:** recolour the serpent and blade outside the palette; add gradients, shadows or outlines; rotate the mark or reverse the blade; separate the blade from the serpent; close the cut; re-set the wordmark in another font; place light lockups on busy imagery; scale `icon-16.png` up.
@@ -93,7 +90,7 @@ Logo files contain outlined paths, not live text. In apps, self-host the fonts w
 ```text
 assets/branding/
 ├── logo/       symbol, symbol-small, horizontal, horizontal-compact, stacked, tagline (SVG masters + png/)
-├── icon/       app-icon.svg, app-icon-small.svg (forest tile)
+├── icon/       app-icon.svg, app-icon-small.svg (ink tile)
 ├── extension/  icon-16/32/48/96/128.png
 ├── store/      store-icon-128.png, promo-small-440x280, promo-marquee-1400x560
 ├── web/        favicon.ico, favicon.svg, icon-192/512, icon-maskable-512, apple-touch-icon, site.webmanifest
@@ -104,9 +101,9 @@ assets/branding/
 
 ## Implementation
 
-- **Extension (WXT):** copy `extension/icon-*.png` to `apps/extension/public/icon/` and set `manifest.icons` (16/32/48/96/128) and `action.default_icon` (16/32). The tile icon works on light and dark toolbars in Chrome, Brave, Edge and Firefox, so Firefox `theme_icons` aren't needed. The popup header uses `horizontal-{black,white}.svg`.
+- **Extension (WXT):** copy `extension/icon-*.png` to `apps/extension/public/icon/` and set `manifest.icons` (16/32/48/96/128) and `action.default_icon` (16/32). The tile icon works on light and dark toolbars in Chrome, Brave, Edge and Firefox, so Firefox `theme_icons` aren't needed. The popup header uses `horizontal-compact-{light,dark}.svg`.
 - **Store listings:** Chrome and Edge use `store-icon-128.png` (96 px art + 16 px padding) and the two promo tiles. Firefox AMO uses `icon-128.png`.
-- **Dashboard (Next.js):** place `web/*` in `apps/web/public/`. Use `horizontal-{black,white}.svg` in the interface (header, landing hero, Cognito sign-in pages) and `og-image.png` for Open Graph.
+- **Dashboard (Next.js):** place `web/*` in `apps/web/public/`. Use `horizontal-*` on the Cognito sign-in pages, `horizontal-compact-*` in the header, `stacked-*` on the landing hero, and `og-image.png` for Open Graph.
 - **Email:** `email-header.png` at 600×120, alt text "Resolve".
 - **GitHub:** upload `social/github-social-preview.png` under Settings → Social preview.
 

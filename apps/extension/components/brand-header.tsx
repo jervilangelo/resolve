@@ -5,24 +5,24 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-/** One-colour horizontal lockup matching the monochrome interface; ≥140 px wide per guidelines. */
+/** Compact lockup (docs/BRAND_GUIDELINES.md: popup header) in the active theme's colours. */
 export function BrandHeader() {
   return (
     <header className="flex items-center border-b px-4 py-3">
       <img
-        src="/brand/horizontal-black.svg"
+        src="/brand/horizontal-compact-light.svg"
         alt="Resolve"
-        height={38}
-        width={146}
-        className="rs-only-light h-[38px] w-auto"
+        height={24}
+        width={100}
+        className="rs-only-light h-6 w-auto"
       />
       <img
-        src="/brand/horizontal-white.svg"
+        src="/brand/horizontal-compact-dark.svg"
         alt=""
         aria-hidden
-        height={38}
-        width={146}
-        className="rs-only-dark h-[38px] w-auto"
+        height={24}
+        width={100}
+        className="rs-only-dark h-6 w-auto"
       />
     </header>
   );

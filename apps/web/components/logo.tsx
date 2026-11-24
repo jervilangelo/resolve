@@ -8,10 +8,10 @@
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
-/** One-colour lockups that match the monochrome interface (docs/BRAND_GUIDELINES.md). */
 const lockups = {
   horizontal: { width: 741, height: 193 },
-  symbol: { width: 256, height: 256 },
+  'horizontal-compact': { width: 866, height: 208 },
+  stacked: { width: 324, height: 266 },
 } as const;
 
 interface LogoProps {
@@ -22,22 +22,22 @@ interface LogoProps {
   priority?: boolean;
 }
 
-/** Black artwork in light mode, white artwork in dark mode. */
+/** Brand lockup that swaps between the light and dark artwork with the active theme. */
 export function Logo({ variant = 'horizontal', height, className, priority }: LogoProps) {
   const ratio = lockups[variant].width / lockups[variant].height;
   const width = Math.round(ratio * height);
   return (
     <span className={cn('inline-flex', className)}>
-      {(['black', 'white'] as const).map((tone) => (
+      {(['light', 'dark'] as const).map((theme) => (
         <Image
-          key={tone}
-          src={`/brand/${variant}-${tone}.svg`}
-          alt={tone === 'black' ? 'Resolve' : ''}
-          aria-hidden={tone === 'white' ? true : undefined}
+          key={theme}
+          src={`/brand/${variant}-${theme}.svg`}
+          alt={theme === 'light' ? 'Resolve' : ''}
+          aria-hidden={theme === 'dark' ? true : undefined}
           width={width}
           height={height}
           priority={priority}
-          className={tone === 'black' ? 'rs-only-light' : 'rs-only-dark'}
+          className={theme === 'light' ? 'rs-only-light' : 'rs-only-dark'}
         />
       ))}
     </span>

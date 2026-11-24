@@ -26,11 +26,11 @@ test('no horizontal overflow', async ({ page }) => {
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test('dark theme swaps to the white logo artwork', async ({ page }) => {
+test('dark theme swaps to the dark logo artwork', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto('/');
-  await expect(page.locator('header img[src*="-white.svg"]')).toBeVisible();
-  await expect(page.locator('header img[src*="-black.svg"]')).toBeHidden();
+  await expect(page.locator('header img[src*="-dark.svg"]')).toBeVisible();
+  await expect(page.locator('header img[src*="-light.svg"]')).toBeHidden();
 });
 
 test('unknown routes return the branded 404', async ({ page }) => {
