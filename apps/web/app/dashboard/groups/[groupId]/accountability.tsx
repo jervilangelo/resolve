@@ -271,7 +271,11 @@ export function AccountabilityPanel({
       <p className="text-muted-foreground text-sm">
         Accountability is voluntary and personal. Admins cannot see or change these choices. Alerts
         never include the website, and nothing that happened before someone agreed is ever shared.
-        Alert emails start when notifications launch.
+      </p>
+      <p className="text-muted-foreground text-sm">
+        Only two things send an email: a blocked visit to a non-negotiable website (reported by the
+        Resolve extension once you turn on alerts in its settings), and someone leaving or being
+        removed from the group. An extension report is not proof of intent.
       </p>
       <div className="space-y-3">
         <h3 className="font-semibold">Sharing your alerts</h3>

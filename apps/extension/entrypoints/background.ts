@@ -24,8 +24,15 @@ import {
   scriptRegistration,
   supportsMediaFilter,
 } from '@/lib/media/registration';
-import { type Request, type ResponseMap, isExtensionPage, parseRequest } from '@/lib/messages';
+import {
+  type FeatureId,
+  type Request,
+  type ResponseMap,
+  isExtensionPage,
+  parseRequest,
+} from '@/lib/messages';
 import { privateStore } from '@/lib/private-store';
+import { type NavigationReporter, createNavigationReporter } from '@/lib/navigation';
 import { type DnrRule, createProtection } from '@/lib/protection';
 import { buildStatus } from '@/lib/status';
 
@@ -60,6 +67,48 @@ const protection =
   });
 if (account && protection) account.attachProtection(protection);
 
+/** Trigger A: reports qualifying blocked visits, once the user grants `webNavigation`. */
+const reporter =
+  account &&
+  protection &&
+  createNavigationReporter({
+    rule: async () => protection.nonNegotiableRule((await auth.session())?.activeGroupId ?? null),
+    report: (event) => account.reportEvent(event),
+    now: () => Date.now(),
+    randomBytes: (length) => crypto.getRandomValues(new Uint8Array(length)),
+    wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  });
+
+const onBeforeNavigate = (details: Parameters<NavigationReporter['onBeforeNavigate']>[0]) => {
+  reporter?.onBeforeNavigate(details);
+};
+const onNavigationError = (details: Parameters<NavigationReporter['onErrorOccurred']>[0]) => {
+  void reporter?.onErrorOccurred(details).catch(() => undefined);
+};
+const onTabRemoved = (tabId: number) => {
+  reporter?.onTabRemoved(tabId);
+};
+
+/**
+ * Listens only while the optional permission is granted (the API is absent otherwise). Safe to
+ * call again after a re-grant: each listener is attached at most once to the current API object.
+ */
+function listenForBlockedVisits(): void {
+  const api = (browser as Partial<typeof browser>).webNavigation;
+  if (!reporter || !api) return;
+  if (!api.onBeforeNavigate.hasListener(onBeforeNavigate)) {
+    api.onBeforeNavigate.addListener(onBeforeNavigate);
+  }
+  if (!api.onErrorOccurred.hasListener(onNavigationError)) {
+    api.onErrorOccurred.addListener(onNavigationError);
+  }
+  if (!browser.tabs.onRemoved.hasListener(onTabRemoved)) {
+    browser.tabs.onRemoved.addListener(onTabRemoved);
+  }
+}
+// Registered synchronously at startup when already granted, so blocked visits wake the worker.
+listenForBlockedVisits();
+
 const filter = createFilterController({
   store: privateStore,
   supported: supportsMediaFilter(),
@@ -80,7 +129,14 @@ const unconfigured = { state: 'unconfigured' } as const;
 const handlers: {
   [K in Request['type']]: (request: Extract<Request, { type: K }>) => Promise<ResponseMap[K]>;
 } = {
-  'status/get': () => Promise.resolve(buildStatus(browser.runtime.getManifest().version)),
+  'status/get': () => {
+    const manifest = browser.runtime.getManifest();
+    const unsupported: FeatureId[] = [];
+    if (!supportsMediaFilter()) unsupported.push('ai-filter');
+    if (!manifest.optional_permissions?.includes('webNavigation'))
+      unsupported.push('accountability');
+    return Promise.resolve(buildStatus(manifest.version, unsupported));
+  },
   'account/get': () => account?.state() ?? Promise.resolve(unconfigured),
   'account/signIn': () => account?.signIn() ?? Promise.resolve(unconfigured),
   'account/signOut': () => account?.signOut() ?? Promise.resolve(unconfigured),
@@ -132,6 +188,11 @@ export default defineBackground(() => {
     browser.runtime.onStartup.addListener(() => void account.syncActive());
     browser.runtime.onInstalled.addListener(() => void account.syncActive());
   }
+
+  // Blocked-visit alerts start as soon as the user grants the optional permission.
+  browser.permissions.onAdded.addListener((change) => {
+    if (change.permissions?.includes('webNavigation')) listenForBlockedVisits();
+  });
 
   // The filter's content script registration persists across sessions; keep it in step with the
   // settings and with site access, which the user can withdraw in the browser at any time.

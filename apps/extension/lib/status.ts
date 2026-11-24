@@ -11,15 +11,19 @@ import type { FeatureId, Status } from './messages';
 const AVAILABLE_FEATURES: Readonly<Record<FeatureId, boolean>> = {
   'ai-filter': true,
   'domain-protection': true,
-  accountability: false,
+  accountability: true,
 };
 
-export function buildStatus(version: string): Status {
+/**
+ * `unsupported` lists shipped features this browser cannot run (e.g. Firefox has no offscreen
+ * documents for the media filter and no declared permission for blocked-visit alerts).
+ */
+export function buildStatus(version: string, unsupported: readonly FeatureId[] = []): Status {
   return {
     version,
     features: Object.entries(AVAILABLE_FEATURES).map(([id, available]) => ({
       id: id as FeatureId,
-      available,
+      available: available && !unsupported.includes(id as FeatureId),
     })),
   };
 }

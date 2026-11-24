@@ -6,6 +6,8 @@
  */
 
 import {
+  type NavigationEventRequest,
+  navigationEventRequestSchema,
   type GroupList,
   type RuleSnapshot,
   groupListSchema,
@@ -148,6 +150,44 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
       } catch (caught) {
         // Signed out: the caller clears rules via the account flow; otherwise keep cached rules.
         return caught instanceof SignedOutError ? 'not_found' : 'unavailable';
+      }
+    },
+
+    /**
+     * Trigger A (§7.1): reports a qualifying blocked navigation. The body is the minimal event and
+     * nothing else; the server derives the user from the token. `retry` = try again later.
+     */
+    async reportEvent(event: NavigationEventRequest): Promise<'sent' | 'retry' | 'drop'> {
+      const body = navigationEventRequestSchema.safeParse(event);
+      if (!body.success) return 'drop'; // can never succeed
+      let access: Awaited<ReturnType<Auth['accessToken']>>;
+      try {
+        access = await auth.accessToken();
+      } catch (caught) {
+        // Offline while refreshing an expired token: worth another try; otherwise give up.
+        return caught instanceof TransientAuthError ? 'retry' : 'drop';
+      }
+      if (!access) return 'drop';
+      try {
+        const res = await platform.fetch(new URL('/v1/events', config.apiUrl), {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${access.token}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(body.data),
+        });
+        if (res.status === 202) return 'sent';
+        if (res.status === 401) {
+          await auth.signOut(access.sid);
+          // The session ended: remove its rules now, not at the next periodic sync.
+          await syncProtection();
+          return 'drop';
+        }
+        // Server errors and throttling are worth another try; anything else never will succeed.
+        return res.status >= 500 || res.status === 429 ? 'retry' : 'drop';
+      } catch {
+        return 'retry';
       }
     },
 

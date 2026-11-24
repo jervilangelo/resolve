@@ -52,7 +52,8 @@ function hostPermissions(settings: Record<string, string>): string[] {
 // origin's IndexedDB, which needs no permission and is unreachable from content scripts.
 // The on-device media filter (Chromium) adds `scripting` to register its content script,
 // `offscreen` for the classifier document, and site access to all pages as an *optional*
-// permission requested only when the user turns the filter on.
+// permission requested only when the user turns the filter on. Reporting blocked visits to
+// accountability partners needs `webNavigation`, also optional and requested only on opt-in.
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifestVersion: 3,
@@ -70,7 +71,11 @@ export default defineConfig({
       ...(browser === 'firefox' ? [] : ['scripting', 'offscreen']),
     ],
     host_permissions: hostPermissions(loadSettings(mode)),
-    ...(browser !== 'firefox' && { optional_host_permissions: ['<all_urls>'] }),
+    ...(browser !== 'firefox' && {
+      optional_host_permissions: ['<all_urls>'],
+      // Requested only when the user turns on alerts for blocked visits (Trigger A).
+      optional_permissions: ['webNavigation'],
+    }),
     // Development builds use a fixed public key so the unpacked extension ID (and therefore its
     // registered Cognito callback) is stable. Store builds get their ID from the store.
     ...(mode === 'development' && { key: readFileSync('dev-key.pub.txt', 'utf8').trim() }),

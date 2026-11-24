@@ -7,6 +7,7 @@
 
 import { browser } from 'wxt/browser';
 import { AccountPanel } from '@/components/account-panel';
+import { AlertsLine } from '@/components/alerts-panel';
 import { BrandHeader } from '@/components/brand-header';
 import { FeatureStatus } from '@/components/feature-status';
 import { MediaFilterLine } from '@/components/media-filter-panel';
@@ -19,6 +20,7 @@ function Popup() {
       <main className="space-y-4 p-4">
         <AccountPanel />
         <MediaFilterLine />
+        <AlertsLine />
         <FeatureStatus />
         <button
           type="button"

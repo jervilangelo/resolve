@@ -235,6 +235,23 @@ export function createProtection(deps: {
       await run;
     },
 
+    /**
+     * The non-negotiable rule installed for `activeGroupId` (for Trigger A reporting), or null when
+     * that group's rules are not installed or it blocks nothing non-negotiable.
+     */
+    async nonNegotiableRule(activeGroupId: string | null) {
+      const meta = await readMeta();
+      if (!activeGroupId || meta?.groupId !== activeGroupId) return null;
+      const rule = meta.rules.find((r) => r.id === GROUP_RULE_IDS.nonNegotiable);
+      if (!rule) return null;
+      return {
+        groupId: meta.groupId,
+        ruleVersion: meta.ruleVersion,
+        domains: rule.condition.requestDomains,
+        exempt: rule.condition.excludedRequestDomains,
+      };
+    },
+
     async status(activeGroupId: string | null): Promise<ProtectionStatus> {
       if (!activeGroupId) return { state: 'off', syncedAt: null };
       const meta = await readMeta();

@@ -6,6 +6,7 @@
  */
 
 import { AccountPanel } from '@/components/account-panel';
+import { AlertsPanel } from '@/components/alerts-panel';
 import { BrandHeader } from '@/components/brand-header';
 import { FeatureStatus } from '@/components/feature-status';
 import { MediaFilterPanel } from '@/components/media-filter-panel';
@@ -22,6 +23,12 @@ function Options() {
             Account and group
           </h2>
           <AccountPanel />
+        </section>
+        <section aria-labelledby="alerts" className="space-y-3">
+          <h2 id="alerts" className="font-semibold">
+            Accountability alerts
+          </h2>
+          <AlertsPanel />
         </section>
         <section aria-labelledby="media-filter" className="space-y-3">
           <h2 id="media-filter" className="font-semibold">

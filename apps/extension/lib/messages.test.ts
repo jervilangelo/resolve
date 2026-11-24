@@ -17,6 +17,13 @@ describe('runtime messages', () => {
     expect(parseRequest('status/get')).toBeNull();
   });
 
+  it('marks shipped features unavailable where the browser cannot run them', () => {
+    const status = buildStatus('1.0.0', ['ai-filter', 'accountability']);
+    expect(status.features.filter((f) => f.available).map((f) => f.id)).toEqual([
+      'domain-protection',
+    ]);
+  });
+
   it('reports every feature, available only once it ships', () => {
     const status = buildStatus('1.0.0');
     expect(statusSchema.parse(status)).toEqual(status);
@@ -24,6 +31,7 @@ describe('runtime messages', () => {
     expect(status.features.filter((f) => f.available).map((f) => f.id)).toEqual([
       'ai-filter',
       'domain-protection',
+      'accountability',
     ]);
   });
 });

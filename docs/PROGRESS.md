@@ -9,8 +9,8 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-24 · **Current:** Phase 7 complete; Phase 8 (exactly two notification
-triggers) next
+**Last updated:** 2026-11-24 · **Current:** Phase 8 complete; Phase 9 (QA, security, privacy and
+cross-browser validation) next
 
 ## Phase status
 
@@ -23,8 +23,9 @@ triggers) next
 | 5 — Domain protection                 | Done        | Policy engine, blocklist API/UI, extension enforcement (Chromium DNR)        |
 | 6 — On-device AI media protection     | Done        | NSFWJS on-device blur (Chromium); FN rate to be measured on an owner dataset |
 | 7 — Voluntary accountability          | Done        | Sharing modes, recipient consent, server-side resolver; dashboard UI         |
-| **8 — Two notification triggers**     | **Next**    | Non-negotiable navigation + departure alerts via outbox/SQS/SES              |
-| 9–11                                  | Not started | QA, beta, Focus Mode                                                         |
+| 8 — Two notification triggers         | Done        | Blocked-visit + departure alerts: outbox → SQS → worker → SES, consent-checked |
+| **9 — QA, security, privacy**         | **Next**    | Cross-browser validation, security/privacy review                            |
+| 10–11                                 | Not started | Beta, Focus Mode                                                             |
 
 ## What exists and works (verified)
 
@@ -89,6 +90,21 @@ triggers) next
   section on the group page. Verified: 14 unit/route scenarios (private, selected, everyone,
   one-way, mutual, withdrawn, admin cannot override, rejoin), a live DynamoDB integration test, and
   a two-user real-browser flow. No alerts are sent yet (Phase 8).
+- **Notification triggers (Phase 8):** exactly two. (A) Blocked non-negotiable visit: the
+  extension (optional `webNavigation`, turned on in its settings) reports only top-level pages it
+  blocked under the active group's non-negotiable rule (no frames, prerenders, cross-site
+  redirects or essentials; 10-min cooldown) as a minimal event with no URL; `POST /v1/events`
+  (extension clients only) records idempotency, cooldown and the outbox item in one transaction,
+  only if someone consented. (B) Leave/removal writes the outbox item from the pre-departure
+  sharing in the membership transaction (a racing sharing change forces a recompute). Delivery
+  worker (SQS → Lambda): claims each recipient once (stale claims reclaimable), re-checks
+  membership, sender sharing and recipient consent at send time, caps 10 alerts/recipient/hour
+  (refunded unless delivered), looks the address up in Cognito, sends a generic SES email, stops
+  before timing out, and retries sender-side failures into the alarmed DLQ; delivery metrics in
+  CloudWatch (`Resolve/Notifications`) and an alarm when the queue stalls for an hour. Verified:
+  unit tests (API 72, worker 11, extension 44), live integration (11) and a real-Chromium run
+  (blocked visit → exactly one email to the consenting recipient; repeat within cooldown: none).
+  SES is in sandbox: real emails reach only verified addresses until production access.
 - **Whole-system review (2026-11-24, Claude reviewers per area):** no critical or high findings.
   Fixed: media re-reads no longer hit the HTTP disk cache, fetch/classify timeouts and a streamed
   size cap, late video verdicts can't unblur a new source, fair video sampling, rules removed at
@@ -100,22 +116,25 @@ triggers) next
 
 ## Next steps
 
-1. Phase 8 — exactly two notification triggers (MASTER_PLAN §7): (A) qualifying non-negotiable
-   top-level navigation reported by the extension (minimal event, server-derived user, idempotency,
-   cooldown, per-recipient caps, no domain in the alert); (B) leave/removal using the pre-departure
-   sharing snapshot in the same transaction as the outbox record. Outbox → SQS → SES worker that
-   rechecks membership and consent before sending (`eligibleRecipients`).
-2. Extension popup: show the current sharing mode (MASTER_PLAN §8 popup contents).
-3. Owner: measure the media filter's false-negative rate on a private labelled dataset
+1. Phase 9 — QA, security, privacy and cross-browser validation (roadmap): permission and data
+   audits, Brave/Edge runs, accessibility, load and failure drills, privacy policy.
+2. SES production access + a verified sender domain (SPF/DKIM/DMARC) before real users; until then
+   alert emails reach only verified addresses. Bounce/complaint handling to follow with it.
+3. Extension popup: show the current sharing mode and warn when alerts are off while sharing.
+4. Owner: measure the media filter's false-negative rate on a private labelled dataset
    (`node apps/extension/scripts/evaluate-model.ts <dir>`) and record it in AI_FILTER_EVALUATION.md.
-4. Review leftovers (low): dissolve janitor (async sweep; leftovers are inert meanwhile), race
-   outcomes on leave/remove that answer 404 instead of 409, `returnTo` after an API 401 and a
-   loop guard, server-side dates in UTC, Cognito `error` on the callback shown as "expired".
-5. Carry-overs: per-user group quota, dashboard revoked-token handling, idempotency request
-   fingerprint, group picture upload, branded block page, Firefox enforcement adapter (with
-   Firefox sign-in), media filter memory profiling and open shadow DOM.
+5. Review leftovers (low): dissolve janitor, leave/remove race answering 404 instead of 409,
+   `returnTo` after an API 401, server-side dates in UTC, Cognito `error` on the callback.
+6. Carry-overs: per-user group quota, dashboard revoked-token handling, idempotency request
+   fingerprint, group picture upload, branded block page, Firefox adapters (enforcement, media
+   filter, alerts, sign-in), media filter memory profiling and open shadow DOM.
 
 ## Decisions log
+
+- 2026-11-24: Alerts: blocked-visit reporting uses `webNavigation` as an optional permission
+  (Chrome words it "read your browsing history"), requested only on opt-in. Departure emails use
+  the same generic wording for leaving and removal. One alert per member per group per 10
+  minutes; at most 10 alerts per recipient per hour. Late (over 24 h) alerts are dropped.
 
 - 2026-11-24: Accountability consent is pairwise and personal: a recipient accepts a sender
   individually or turns on "accept from anyone who shares with me". Senders can see whether each
