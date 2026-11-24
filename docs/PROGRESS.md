@@ -77,8 +77,7 @@ measurement pending (owner); Phase 7 (voluntary accountability) next
   be checked stays blurred by default. Nothing leaves the device (Chromium net-log E2E proof).
   Measured: 1.0–2.7% false positives on 300 general photos; ~35 ms per image warm, 3 s cold start.
   See [AI_FILTER_EVALUATION.md](AI_FILTER_EVALUATION.md).
-  Reviewed by Claude (the Codex run hit its usage limit before reporting); re-run a Codex
-  review of `apps/extension/lib/media` when available.
+  Reviewed by Claude.
 - **Checks:** `pnpm check`, `pnpm build`, `pnpm e2e`, `pnpm integration` all passing at pause.
 
 ## Next steps
@@ -127,7 +126,8 @@ measurement pending (owner); Phase 7 (voluntary accountability) next
 - Terraform (local): files `environments/dev/backend.hcl` and `terraform.tfvars` are git-ignored
   and exist only on the owner's machine. Build Lambdas before plan/apply:
   `pnpm --filter @resolve/api --filter @resolve/notifications build`.
-- Codex CLI is the secondary reviewer (read-only); see the `/codex` skill.
+- Reviews: Claude via the owner's Claude Pro plan (`/code-review`, reviewer agents); Codex is no
+  longer used (owner decision 2026-11-24). See handbook §4.2.
 - Extension (dev): `pnpm extension:env dev`, then `pnpm --filter @resolve/extension build:dev` and
   load `apps/extension/.output/chrome-mv3-dev` unpacked (fixed ID
   `glglgjmdobecmhnnnnobipaamapflppg`, registered as a Cognito callback in dev).

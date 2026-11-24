@@ -8,7 +8,7 @@
 
 ## 1. Purpose of this document
 
-This is the single practical working handbook for developing Resolve with **Claude Code as lead implementation agent** and **OpenAI Codex as secondary agent**. It combines developer responsibilities, existing repository state, product principles, confirmed functionality requirements, architecture, security/privacy rules, staged implementation, testing, Git workflow, and phase acceptance gates.
+This is the single practical working handbook for developing Resolve with **Claude Code as lead implementation agent** and **independent Claude reviews (owner's Claude Pro plan)** as the second check; Codex is no longer used. It combines developer responsibilities, existing repository state, product principles, confirmed functionality requirements, architecture, security/privacy rules, staged implementation, testing, Git workflow, and phase acceptance gates.
 
 It supplements, **does not replace**, these existing authoritative documents:
 
@@ -68,27 +68,48 @@ The repository declares pnpm `10.34.9` and Node `>=22.12.0`; use `.nvmrc` for th
 
 Claude owns architecture, requirement interpretation, implementation, integration, design decisions, code changes, and final sign-off. It reads the project documents and actual code first. **Claude does not delegate away overall responsibility.**
 
-Primary Claude tasks: select the smallest coherent implementation batch; develop approved features; decide file/module boundaries; integrate branding and shared contracts; review Codex findings; fix confirmed defects; assess release gates; commit/push only after checks.
+Primary Claude tasks: select the smallest coherent implementation batch; develop approved features; decide file/module boundaries; integrate branding and shared contracts; verify review findings; fix confirmed defects; assess release gates; commit/push only after checks.
 
-### 4.2 OpenAI Codex — SECONDARY independent support
+### 4.2 Independent review — Claude (owner's Claude Pro plan)
 
-Codex handles focused debugging, reproduction of errors, independent review, test creation or execution, TypeScript/lint errors, security/performance checks, copyright header checks, and low-risk refactoring when explicitly authorized. Delegate work that has a narrow input and clear expected output. By default **Codex should review without modifying files**; request patches only when useful, and ideally use a separate Git worktree.
+**Decision (2026-11-24, by the owner): Codex is no longer used.** Reviews, second opinions and
+debugging help come from Claude through the owner's Claude Pro plan. Do not run or suggest the
+Codex CLI or the `/codex` skill.
 
-**Do not claim that Codex ran unless its CLI/MCP integration actually ran.** Claude's ability to call Codex depends on installed tools, authentication, permissions and the current workspace. If unavailable, disclose that and run essential checks directly; never fabricate a second-agent review.
+The reviewer is a **separate Claude pass with fresh eyes**, never the same reasoning that wrote the
+code:
 
-### 4.3 Recommended handoff protocol
+- **Change reviews:** after each coherent batch (a slice, a phase step, a fix with risk), run
+  Claude's `/code-review` on the current diff (or on a path for a focused area). Use `--fix` only
+  when the owner asks for fixes to be applied automatically.
+- **Wider audits:** for a phase end or "check everything" requests, run a Claude reviewer agent per
+  area (API/services/infra, web dashboard, extension), each given the relevant MASTER_PLAN
+  sections and asked for findings only (no edits).
+- **Higher effort levels** (`max`/`ultra`) only when the owner asks for them; they cost much more of
+  the plan.
+
+**Do not claim a review ran unless it actually ran.** If the review tooling is unavailable or the
+plan's usage limit is reached, say so, run the essential checks directly, and record the pending
+review in PROGRESS.md.
+
+### 4.3 Recommended review protocol
 
 1. Claude reads the targeted requirement IDs, relevant files and current `git status`.
 2. Claude implements one small, verifiable vertical slice.
 3. Claude runs the fastest relevant tests to catch obvious errors.
-4. Claude delegates a **single concise review batch** to Codex: changed files, expected behavior, commands to run, negative/security tests, and requested findings format.
-5. Codex returns prioritized findings with filenames, line numbers, reproduction, confidence and suggested remedy. No lengthy rewritten documentation.
-6. Claude verifies the findings, corrects issues, and reruns affected checks. If needed, Codex independently validates the fix once.
-7. Claude summarizes only material changes, test outcomes, limitations and commit status.
+4. Claude runs the independent review (4.2) on that batch: changed files, expected behaviour,
+   negative/security cases, and the findings format in §9.
+5. Findings come back prioritised with file:line, reproduction, confidence and suggested remedy.
+6. Claude verifies each finding against the code (reviews can be wrong), fixes confirmed issues,
+   and reruns affected checks.
+7. Claude summarises only material changes, test outcomes, limitations and commit status.
 
-**Cost control:** avoid handoffs for trivial changes, repeated whole-repository scans, redundant parallel tests, verbose agent transcripts, speculative dependency upgrades, enormous context dumps, and duplicate docs. Use `git diff` and file paths rather than feeding the entire repository to both agents. Token savings are a target, not a reason to skip privacy or security testing.
+**Cost control:** avoid reviews for trivial changes, repeated whole-repository scans, redundant
+parallel tests, verbose transcripts, speculative dependency upgrades and duplicate docs. Review
+diffs and named paths rather than the whole repository. Token savings are a target, not a reason to
+skip privacy or security testing.
 
-### 4.4 Example Codex review instruction
+### 4.4 Example review instruction
 
 ```text
 Review only the current diff in Resolve. Read docs/MASTER_PLAN.md requirements relevant to this change and the copyright policy. Do not edit files. Focus on correctness, security, privacy, TypeScript, browser compatibility and regressions. Run appropriate local tests if available. Return only prioritized actionable findings with path:line, reproduction, impact, and minimal fix. If no material findings, say so explicitly. Do not generate documentation.
@@ -96,8 +117,8 @@ Review only the current diff in Resolve. Read docs/MASTER_PLAN.md requirements r
 
 ### 4.5 File/branch ownership
 
-- One write owner per file at a time; avoid concurrent Claude and Codex modifications in the same checkout.
-- Prefer Codex read-only review or a separate worktree/branch; Claude merges approved changes.
+- One write owner per file at a time; reviewers do not modify files in the working checkout.
+- Reviews are read-only; if a reviewer proposes patches, use a separate worktree/branch and Claude merges approved changes.
 - Never use force push or overwrite uncommitted user changes.
 - No API keys, environment secrets, user credentials or personal browsing data in agent prompts, console logs, commits, screenshots or third-party evaluation systems.
 - Check the privacy/data retention settings of any AI coding service before sharing sensitive code or data. Turning off training is not equivalent to zero processing or zero retention.
@@ -245,7 +266,7 @@ The existing roadmap may use a finer-grained ten-phase breakdown; use that for p
 
 ### 8.8 Finish criteria
 
-Phase 1 is done only after the **existing** scaffold builds and tests with no outstanding critical issue, branding is correctly connected, environment is reproducible, and any unresolved browser/platform gaps are explicitly recorded. If only some checks run, report them as partial. Do not invent Codex review results or claim launch-ready features.
+Phase 1 is done only after the **existing** scaffold builds and tests with no outstanding critical issue, branding is correctly connected, environment is reproducible, and any unresolved browser/platform gaps are explicitly recorded. If only some checks run, report them as partial. Do not invent review results or claim launch-ready features.
 
 ## 9. Recommended testing strategy
 
@@ -253,7 +274,7 @@ Phase 1 is done only after the **existing** scaffold builds and tests with no ou
 
 Use realistic **synthetic data**. Never ask agents to test with actual personal browsing history, explicit private media, real church member credentials or other sensitive user content.
 
-### Required review output from Codex
+### Required review output
 
 ```text
 Scope reviewed:
@@ -279,9 +300,9 @@ Unverified claims or blockers:
 ## 11. Agent startup instruction (paste into Claude Code)
 
 ```text
-You are the PRIMARY engineering agent for Resolve, repository https://github.com/jervilangelo/resolve. Open docs/DEVELOPMENT_HANDBOOK.md, docs/MASTER_PLAN.md, docs/DEVELOPMENT_ROADMAP.md, docs/BRAND_GUIDELINES.md, README.md, LICENSE and docs/COPYRIGHT_NOTICE.md, then inspect the actual working tree. Existing branding is COMPLETE and the Phase 1 monorepo has already been scaffolded; do not recreate either. Start with Phase 1 validation/repair of existing work. Own architecture and core coding. Delegate focused read-only reviews, debugging, tests and copyright-header audits to Codex CLI if actually available, in narrow batches; otherwise transparently proceed with essential checks and report that Codex was unavailable. Do not fabricate tests, review results, deployments or cost savings. Preserve all existing source and branding. No weeks/deadlines, no unnecessary docs, no unapproved AWS spend, no secrets, and no force pushes. Follow strict privacy and exactly two notification triggers. Make coherent changes, validate, then report only useful outcomes and verified commit status.
+You are the PRIMARY engineering agent for Resolve, repository https://github.com/jervilangelo/resolve. Open docs/DEVELOPMENT_HANDBOOK.md, docs/MASTER_PLAN.md, docs/DEVELOPMENT_ROADMAP.md, docs/BRAND_GUIDELINES.md, README.md, LICENSE and docs/COPYRIGHT_NOTICE.md, then inspect the actual working tree. Existing branding is COMPLETE and the Phase 1 monorepo has already been scaffolded; do not recreate either. Start with Phase 1 validation/repair of existing work. Own architecture and core coding. Get independent read-only reviews from Claude (owner's Claude Pro plan: `/code-review` on each batch, reviewer agents for wider audits); Codex is not used. If a review cannot run, transparently proceed with essential checks and report it. Do not fabricate tests, review results, deployments or cost savings. Preserve all existing source and branding. No weeks/deadlines, no unnecessary docs, no unapproved AWS spend, no secrets, and no force pushes. Follow strict privacy and exactly two notification triggers. Make coherent changes, validate, then report only useful outcomes and verified commit status.
 ```
 
 ## 12. Definition of success
 
-Resolve should offer reliable local media blurring and group domain policies, optional consent-based accountability, and private browser event handling while encouraging users toward **real local-church fellowship**. Every release should honor the person's agency, protect their device data, and candidly explain technical limitations. Claude remains accountable for engineering quality; Codex reduces routine review/debug workload when available. Branding and source ownership are respected, and no stage is deemed complete without test evidence.
+Resolve should offer reliable local media blurring and group domain policies, optional consent-based accountability, and private browser event handling while encouraging users toward **real local-church fellowship**. Every release should honor the person's agency, protect their device data, and candidly explain technical limitations. Claude remains accountable for engineering quality; independent Claude reviews catch what the author missed. Branding and source ownership are respected, and no stage is deemed complete without test evidence.
