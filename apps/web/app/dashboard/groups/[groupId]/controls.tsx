@@ -176,22 +176,22 @@ export function LeaveGroupButton({ groupId }: { groupId: string }) {
 export function RenameGroupForm({ groupId, name }: { groupId: string; name: string }) {
   const [state, action, pending] = useActionState(renameGroup.bind(null, groupId), {});
   return (
-    <form action={action} className="flex max-w-lg flex-col gap-3 sm:flex-row sm:items-end">
-      <div className="flex-1 space-y-2">
-        <Label htmlFor="group-name">Group name</Label>
-        <Input id="group-name" name="name" defaultValue={name} maxLength={60} required />
+    <form action={action} className="max-w-lg space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1 space-y-2">
+          <Label htmlFor="group-name">Group name</Label>
+          <Input id="group-name" name="name" defaultValue={name} maxLength={60} required />
+        </div>
+        <Button type="submit" variant="outline" disabled={pending}>
+          {pending ? 'Saving…' : 'Rename'}
+        </Button>
       </div>
-      <Button type="submit" variant="outline" disabled={pending}>
-        {pending ? 'Saving…' : 'Rename'}
-      </Button>
-      <div className="sm:basis-full">
-        <ErrorText message={state.error} />
-        {state.saved && (
-          <p role="status" className="text-primary text-sm">
-            Saved.
-          </p>
-        )}
-      </div>
+      <ErrorText message={state.error} />
+      {state.saved && (
+        <p role="status" className="text-primary text-sm">
+          Saved.
+        </p>
+      )}
     </form>
   );
 }

@@ -6,9 +6,9 @@
  */
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { DashboardNav } from '@/components/dashboard-nav';
 import { Button } from '@/components/ui/button';
 import { getSession } from '@/lib/auth';
 
@@ -21,14 +21,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-        <nav aria-label="Dashboard" className="flex gap-4 text-sm font-medium">
-          <Link href="/dashboard/groups" className="hover:underline">
-            Groups
-          </Link>
-          <Link href="/dashboard/profile" className="hover:underline">
-            Profile
-          </Link>
-        </nav>
+        <DashboardNav />
         <div className="flex items-center gap-3 text-sm">
           {session.email && <span className="text-muted-foreground">{session.email}</span>}
           <form action="/auth/logout" method="post">

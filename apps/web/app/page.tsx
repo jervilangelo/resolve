@@ -36,7 +36,7 @@ export default function HomePage() {
           supporting tool, never a replacement for the local church.
         </p>
         <p className="bg-secondary text-secondary-foreground mt-8 inline-block rounded-md px-3 py-1.5 text-sm font-medium">
-          In development. The features below are planned and not yet available.
+          In development and not yet publicly available. Early versions are being tested.
         </p>
       </section>
       <section aria-labelledby="planned" className="border-t">

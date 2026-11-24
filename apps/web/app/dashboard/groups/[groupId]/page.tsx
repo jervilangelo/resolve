@@ -81,11 +81,22 @@ export default async function GroupPage({ params }: { params: Promise<{ groupId:
         </h2>
         <ul className="bg-card divide-y rounded-lg border">
           {members.items.map((member) => {
-            const name = member.displayName ?? 'Unnamed member';
+            const self = member.userId === me.userId;
+            const name = member.displayName ?? (self ? 'You' : 'Unnamed member');
             return (
               <li key={member.userId} className="flex items-center justify-between gap-4 px-4 py-3">
                 <div>
-                  <p className="font-medium">{name}</p>
+                  <p className="font-medium">
+                    {name}
+                    {self && member.displayName && (
+                      <span className="text-muted-foreground font-normal"> (you)</span>
+                    )}
+                  </p>
+                  {self && !member.displayName && (
+                    <Link href="/dashboard/profile" className="text-xs underline">
+                      Add a display name so members can recognise you
+                    </Link>
+                  )}
                   <p className="text-muted-foreground text-xs">
                     {member.role === 'ADMIN' ? 'Admin' : 'Member'} · joined{' '}
                     {new Date(member.joinedAt).toLocaleDateString('en', dateFormat)}
