@@ -1,3 +1,5 @@
+<div align="center">
+
 # Resolve
 
 <picture>
@@ -5,7 +7,19 @@
   <img src="assets/branding/logo/horizontal-light.svg" alt="Resolve logo" width="420">
 </picture>
 
+<br>
+
 > **Take every thought captive.**
+
+<br>
+
+<img alt="Status: Planned" src="https://img.shields.io/badge/Status-Planning-64748b?style=flat-square">
+<img alt="Platform: Browser Extension" src="https://img.shields.io/badge/Platform-Browser%20Extension-334155?style=flat-square">
+<img alt="Privacy: Local AI" src="https://img.shields.io/badge/Privacy-Local%20AI-166534?style=flat-square">
+<img alt="Access: Free, planned" src="https://img.shields.io/badge/Access-Free%20(planned)-475569?style=flat-square">
+<img alt="License: Proprietary" src="https://img.shields.io/badge/License-Proprietary-7f1d1d?style=flat-square">
+
+</div>
 
 **Resolve** is a privacy-focused browser protection and accountability platform that empowers believers to establish healthier digital boundaries. It integrates **locally processed AI content detection**, **customizable website blocking**, and **consent-based group accountability**, all while keeping personal browsing activity private.
 
@@ -13,9 +27,37 @@
 **Status:** Product and technical planning; features below are **planned**, not claims of an existing implementation.  
 **Master specification:** [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md) — authoritative functional, security, API, data, and delivery blueprint.
 
+---
+
+<details open>
+<summary><strong>Explore Resolve · Table of Contents</strong></summary>
+
+- [Branding](#branding)
+- [Why Resolve?](#why-resolve)
+- [About Resolve](#about-resolve)
+- [Product overview](#product-overview)
+- [Core principles](#core-principles)
+- [System architecture](#system-architecture)
+- [Roles and permissions](#roles-and-permissions)
+- [Domain policy](#domain-policy)
+- [AI content protection](#ai-content-protection)
+- [Accountability and notifications](#accountability-and-notifications)
+- [Recommended monorepo layout](#recommended-monorepo-layout)
+- [Implementation roadmap](#implementation-roadmap)
+- [MVP acceptance checklist](#mvp-acceptance-checklist)
+- [Security and product limitations](#security-and-product-limitations)
+- [Documentation and project governance](#documentation-and-project-governance)
+- [Copyright and source code permissions](#copyright-and-source-code-permissions)
+
+</details>
+
+---
+
 ## Branding
 
-<img src="assets/branding/icon/app-icon.svg" alt="Resolve app icon" width="96" height="96">
+<p align="center">
+  <img src="assets/branding/icon/app-icon.svg" alt="Resolve app icon" width="112" height="112">
+</p>
 
 The logo and icon assets are available in [assets/branding](assets/branding):
 
@@ -23,9 +65,13 @@ The logo and icon assets are available in [assets/branding](assets/branding):
 - [App icons](assets/branding/icon), [browser extension icons](assets/branding/extension), and [web favicons](assets/branding/web).
 - [UI icons](assets/branding/ui/icons), [social images](assets/branding/social), [store artwork](assets/branding/store), and [email headers](assets/branding/email).
 
+---
+
 ## Why Resolve?
 
 The name draws inspiration from Jonathan Edwards's *Resolutions* (1722). The tagline references **2 Corinthians 10:5**: taking every thought captive to obey Christ. Resolve is a practical aid to accountability, **not** a substitute for spiritual formation, the work of the Holy Spirit, or trusted relationships.
+
+---
 
 ## About Resolve
 
@@ -64,6 +110,8 @@ A **voluntary donation option is planned**, potentially using a GCash payment li
 - **Honest limitations:** Protection can be bypassed and AI can make mistakes; the tool is support, not a guarantee of holiness or safety.
 - **Faithful stewardship:** Maintain security, transparency, and reliability as resources allow.
 
+---
+
 ## Product overview
 
 | Component | Planned technology | Responsibility |
@@ -78,6 +126,8 @@ A **voluntary donation option is planned**, potentially using a GCash payment li
 | Hosting & IaC | Amplify Hosting, Terraform | Dashboard deployment and reproducible infrastructure |
 | Tests | Vitest, Playwright, browser integration tests | Policy, privacy, workflow, and cross-browser validation |
 
+---
+
 ## Core principles
 
 1. **On-device content analysis:** images and supported video frames are classified locally; browsing media is not sent to AWS.
@@ -87,6 +137,8 @@ A **voluntary donation option is planned**, potentially using a GCash payment li
 5. **Exactly two v1 alert triggers:** qualifying user navigation to a non-negotiable domain, and group departure/removal. Additional blocked-domain hits do not alert by default.
 6. **No browsing details in alerts:** no visited domain, URL, page title, screenshot, or browsing history in notification payloads or minimal activity events.
 7. **Honest limitations:** user-controlled browser extensions are bypassable; local enforcement rules cannot be made perfectly secret from technically skilled users.
+
+---
 
 ## System architecture
 
@@ -126,6 +178,8 @@ flowchart TB
   NEXT <--> API
 ```
 
+---
+
 ## Roles and permissions
 
 | Action | Admin | Member |
@@ -142,6 +196,8 @@ flowchart TB
 
 A member's domain submission gets a generic acknowledgment; it must not reveal whether a domain already existed or which category it belongs to. The admin console is the only standard interface that enumerates domains.
 
+---
+
 ## Domain policy
 
 **Priority:** protected essential service exemption → admin non-negotiable block → additional group block → allow by group policy.
@@ -149,6 +205,8 @@ A member's domain submission gets a generic acknowledgment; it must not reveal w
 The initial protected-service registry should cover Facebook, Messenger, YouTube, Gmail, Outlook, Google authentication/Drive/Meet, Microsoft 365, and Teams, with tested host dependencies. These services are **exempt from group domain blocking**; the platform does not promise they are immune to unrelated browser, network, or security controls. Parent/wildcard restrictions that would indirectly block essential services must be rejected or compiled with safe exceptions.
 
 The extension enforces host/domain restrictions, **not system-wide DNS filtering**. DNS resolver addresses and arbitrary IP addresses are not accepted as domain block entries in v1. Use IDNA normalization, public-suffix validation, safe subdomain matching, versioned rules, and offline cached enforcement.
+
+---
 
 ## AI content protection
 
@@ -158,6 +216,8 @@ The extension enforces host/domain restrictions, **not system-wide DNS filtering
 - Use throttled inference, deduplication, lazy loading, and safe failure behavior.
 - Document cross-origin media/canvas restrictions, video limitations, false positives/negatives, and performance budgets.
 - Do **not** market the model as comprehensive protection against all explicit content, phishing, malware, or harmful sites.
+
+---
 
 ## Accountability and notifications
 
@@ -176,6 +236,8 @@ Sharing is independently configured per member; if A chooses B and B chooses A, 
 **Trigger B — group departure:** backend captures pre-departure sharing and recipient consent, atomically updates membership and records a notification outbox item, then asynchronously delivers eligible generic departure notices. This also covers admin-initiated removals. A private member produces no accountability alert.
 
 **Example notification:** “A member of your accountability group triggered a non-negotiable website restriction.” or “A member has left your accountability group.” The system may include the member's display name and group name, but never the restricted domain or URL.
+
+---
 
 ## Recommended monorepo layout
 
@@ -206,9 +268,15 @@ resolve/
 └── .github/workflows/
 ```
 
+---
+
 ## Implementation roadmap
 
 Development is organized into **ten milestone-based phases with no fixed weeks or deadlines**. See [DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md) for detailed tasks, deliverables, and completion criteria, beginning with branding and ending with production launch.
+
+**Post-launch roadmap:** Phase 11 proposes optional Focus Mode and Intentional Exit, without expanding the initial MVP. See [Phase 11 — Focus Mode & Intentional Exit](docs/DEVELOPMENT_ROADMAP.md#phase-11--focus-mode--intentional-exit-post-launch-v11).
+
+---
 
 ## MVP acceptance checklist
 
@@ -226,6 +294,8 @@ Development is organized into **ten milestone-based phases with no fixed weeks o
 - [ ] Retries, idempotency, TTL, and consent revocation tested
 - [ ] Chrome, Brave, Edge, Firefox builds verified
 
+---
+
 ## Security and product limitations
 
 - Browser extensions on personal devices are **not tamper-proof**; users can disable, remove, or inspect them.
@@ -235,9 +305,13 @@ Development is organized into **ten milestone-based phases with no fixed weeks o
 - No uninstall/heartbeat surveillance, device-wide DNS enforcement, doomscroll tracking, or general browsing history collection is planned for v1.
 - Avoid putting sensitive details in CloudWatch logs, analytics, traces, or error reporting.
 
+---
+
 ## Documentation and project governance
 
 [**MASTER_PLAN.md**](docs/MASTER_PLAN.md) is the authoritative planning artifact. It contains functional requirements, API contracts, schema design, trust boundaries, detailed workflows, edge cases, acceptance tests, decisions, open questions, and phased delivery tasks. Update it when scope or architectural decisions change; keep this README as the approachable repository entry point.
+
+---
 
 ## Copyright and source code permissions
 
