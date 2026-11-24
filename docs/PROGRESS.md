@@ -78,6 +78,13 @@ measurement pending (owner); Phase 7 (voluntary accountability) next
   Measured: 1.0–2.7% false positives on 300 general photos; ~35 ms per image warm, 3 s cold start.
   See [AI_FILTER_EVALUATION.md](AI_FILTER_EVALUATION.md).
   Reviewed by Claude.
+- **Whole-system review (2026-11-24, Claude reviewers per area):** no critical or high findings.
+  Fixed: media re-reads no longer hit the HTTP disk cache, fetch/classify timeouts and a streamed
+  size cap, late video verdicts can't unblur a new source, fair video sampling, rules removed at
+  once on an implicit sign-out; dissolve answers within a time budget after commit, member
+  submissions take the same path whatever the reason, reclassify retries conflicts, GSI1 IAM
+  scoped to `USER#`; web "Try again" really retries, invite page tells outages from invalid
+  links, "Copied" tracks the link, HSTS on HTTPS deployments.
 - **Checks:** `pnpm check`, `pnpm build`, `pnpm e2e`, `pnpm integration` all passing at pause.
 
 ## Next steps
@@ -89,7 +96,10 @@ measurement pending (owner); Phase 7 (voluntary accountability) next
    recipient consent, navigation-observation alerts for blocked top-level visits.
 3. Media filter follow-ups: memory profiling, open shadow DOM, "pages already open" refresh on
    toggle, Firefox adapter (no offscreen documents there).
-4. Carry-overs: per-user group quota, dashboard revoked-token handling, idempotency request
+4. Review leftovers (low): dissolve janitor (async sweep; leftovers are inert meanwhile), race
+   outcomes on leave/remove that answer 404 instead of 409, `returnTo` after an API 401 and a
+   loop guard, server-side dates in UTC, Cognito `error` on the callback shown as "expired".
+5. Carry-overs: per-user group quota, dashboard revoked-token handling, idempotency request
    fingerprint, group picture upload, dissolve janitor, branded block page, Firefox enforcement
    adapter (with Firefox sign-in).
 

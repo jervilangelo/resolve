@@ -24,7 +24,9 @@ import { getSession } from '@/lib/auth';
 export type PreviewResult =
   | { status: 'ok'; groupName: string; expiresAt: string }
   | { status: 'signin' }
-  | { status: 'invalid' };
+  | { status: 'invalid' }
+  /** The check itself failed (API down, rate limit): the link may still be fine. */
+  | { status: 'error' };
 
 export async function previewInvitation(token: unknown): Promise<PreviewResult> {
   const parsed = invitationTokenSchema.safeParse(token);
@@ -39,7 +41,7 @@ export async function previewInvitation(token: unknown): Promise<PreviewResult> 
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof ApiRequestError && error.status === 404) return { status: 'invalid' };
-    throw error;
+    return { status: 'error' };
   }
 }
 

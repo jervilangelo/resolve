@@ -62,6 +62,8 @@ export const keys = {
 const INVITE_TTL_GRACE_SECONDS = 24 * 60 * 60;
 /** A dissolved group's META marker expires on its own if the cleanup sweep cannot finish. */
 const DISSOLVED_MARKER_TTL_SECONDS = 30 * 24 * 60 * 60;
+/** Dissolve answers within the API Lambda's 10 s timeout even if the sweep is unfinished. */
+const DISSOLVE_SWEEP_BUDGET_MS = 5_000;
 /** Condition fragment: the group exists and has not been dissolved. */
 const LIVE_GROUP = 'attribute_exists(PK) AND attribute_not_exists(dissolvedAt)';
 
@@ -886,9 +888,10 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         throw error;
       }
       // The group is gone for everyone from here on: every read and write requires a live META.
-      // Remove what remains; anything a failed sweep leaves behind is inert, and the marker
-      // itself expires via TTL.
-      try {
+      // Remove what remains within a time budget, so the caller always learns the dissolve
+      // succeeded (a large group's sweep must not run into the Lambda timeout after commit).
+      // Anything an unfinished sweep leaves behind is inert; the marker expires via TTL.
+      const sweep = async () => {
         const items = await groupPartition(groupId);
         const pointers = items.flatMap((item) => {
           const hash = z.object({ tokenHash: z.string() }).safeParse(item);
@@ -898,6 +901,17 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         const rest = items.filter((item) => item.SK !== 'META');
         await batchDelete(rest.map((item) => ({ PK: item.PK, SK: item.SK })));
         await batchDelete([{ PK: keys.group(groupId), SK: 'META' }]);
+      };
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          sweep(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              reject(new Error('Dissolve sweep exceeded its time budget'));
+            }, DISSOLVE_SWEEP_BUDGET_MS);
+          }),
+        ]);
       } catch (error) {
         console.error(
           JSON.stringify({
@@ -906,6 +920,8 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
             errorName: error instanceof Error ? error.name : 'UnknownError',
           }),
         );
+      } finally {
+        clearTimeout(timer);
       }
       return 'dissolved';
     },
@@ -993,12 +1009,12 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         const codes = cancellationCodes(error);
         if (!codes) throw error;
         const failed = (i: number) => codes[i] === 'ConditionalCheckFailed';
+        // Always the same follow-up read, so a member cannot tell "already listed" from "list
+        // full" by how long the (uniform) answer takes.
+        const live = liveMetaSchema.safeParse(await getItem(groupKey, 'META'));
         if (failed(2)) return 'not_allowed';
         if (failed(0)) return 'exists';
-        if (failed(1)) {
-          const live = liveMetaSchema.safeParse(await getItem(groupKey, 'META'));
-          return live.success ? 'full' : 'not_allowed';
-        }
+        if (failed(1)) return live.success ? 'full' : 'not_allowed';
         throw error;
       }
     },
@@ -1074,44 +1090,40 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
       const groupKey = keys.group(groupId);
       const from = domainType === 'NON_NEGOTIABLE' ? 'ADDITIONAL' : 'NON_NEGOTIABLE';
       try {
-        await db.send(
-          new TransactWriteCommand({
-            TransactItems: [
-              adminCheck(groupId, actorId),
-              {
-                Update: {
-                  TableName: tableName,
-                  Key: { PK: groupKey, SK: keys.domain(domain) },
-                  UpdateExpression: 'SET domainType = :type',
-                  ConditionExpression: 'attribute_exists(PK) AND domainType = :from',
-                  ExpressionAttributeValues: { ':type': domainType, ':from': from },
-                  // Lets a failed condition report what the row actually held.
-                  ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
-                },
+        await transact([
+          adminCheck(groupId, actorId),
+          {
+            Update: {
+              TableName: tableName,
+              Key: { PK: groupKey, SK: keys.domain(domain) },
+              UpdateExpression: 'SET domainType = :type',
+              ConditionExpression: 'attribute_exists(PK) AND domainType = :from',
+              ExpressionAttributeValues: { ':type': domainType, ':from': from },
+              // Lets a failed condition report what the row actually held.
+              ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
+            },
+          },
+          {
+            Update: {
+              TableName: tableName,
+              Key: { PK: groupKey, SK: 'META' },
+              UpdateExpression:
+                'SET ruleVersion = if_not_exists(ruleVersion, :zero) + :one DELETE #from :d ADD #to :d',
+              ConditionExpression: LIVE_GROUP,
+              ExpressionAttributeNames: {
+                '#from': RULE_SET[from],
+                '#to': RULE_SET[domainType],
               },
-              {
-                Update: {
-                  TableName: tableName,
-                  Key: { PK: groupKey, SK: 'META' },
-                  UpdateExpression:
-                    'SET ruleVersion = if_not_exists(ruleVersion, :zero) + :one DELETE #from :d ADD #to :d',
-                  ConditionExpression: LIVE_GROUP,
-                  ExpressionAttributeNames: {
-                    '#from': RULE_SET[from],
-                    '#to': RULE_SET[domainType],
-                  },
-                  ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':d': new Set([domain]) },
-                },
-              },
-              auditPut(groupId, actorId, at, {
-                action: 'RECLASSIFIED',
-                domain,
-                from,
-                to: domainType,
-              }),
-            ],
+              ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':d': new Set([domain]) },
+            },
+          },
+          auditPut(groupId, actorId, at, {
+            action: 'RECLASSIFIED',
+            domain,
+            from,
+            to: domainType,
           }),
-        );
+        ]);
         return 'changed';
       } catch (error) {
         if (!(error instanceof TransactionCanceledException)) throw error;

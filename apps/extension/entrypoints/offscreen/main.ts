@@ -20,6 +20,8 @@ import {
  */
 const IDLE_CLOSE_MS = 60_000;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+/** A server that stalls the re-read must not hold a classifier slot. */
+const FETCH_TIMEOUT_MS = 10_000;
 /** The model's input size (lib/media/classifier.ts), duplicated to keep TensorFlow.js lazy. */
 const INPUT_SIZE = 224;
 
@@ -54,6 +56,23 @@ class Unreadable extends Error {
   }
 }
 
+/** Reads a body up to MAX_IMAGE_BYTES, stopping endless or oversized streams early. */
+async function readCapped(body: ReadableStream<Uint8Array>, type: string): Promise<Blob> {
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return new Blob(chunks as BlobPart[], { type });
+    total += value.byteLength;
+    if (total > MAX_IMAGE_BYTES) {
+      await reader.cancel();
+      throw new Unreadable('fetch');
+    }
+    chunks.push(value);
+  }
+}
+
 /** Decodes the image straight to the model's input size; the full-size image is never kept. */
 async function pixels(source: MediaSource): Promise<ImageBitmap> {
   let blob: Blob;
@@ -62,15 +81,18 @@ async function pixels(source: MediaSource): Promise<ImageBitmap> {
       // The page already displayed this image; re-reading it needs no cookies or referrer.
       credentials: 'omit',
       referrerPolicy: 'no-referrer',
-      cache: 'force-cache',
+      // Never written to the extension's HTTP cache: no media is persisted on disk.
+      cache: 'no-store',
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     const length = Number(response.headers.get('content-length') ?? 0);
-    if (!response.ok || length > MAX_IMAGE_BYTES) throw new Unreadable('fetch');
-    blob = await response.blob();
+    if (!response.ok || !response.body || length > MAX_IMAGE_BYTES) {
+      throw new Unreadable('fetch');
+    }
+    blob = await readCapped(response.body, response.headers.get('content-type') ?? '');
   } catch (error) {
     throw error instanceof Unreadable ? error : new Unreadable('fetch');
   }
-  if (blob.size > MAX_IMAGE_BYTES) throw new Unreadable('fetch');
   if (blob.type.includes('svg')) throw new Unreadable('vector');
   try {
     return await createImageBitmap(blob, {

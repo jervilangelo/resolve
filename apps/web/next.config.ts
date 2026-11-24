@@ -30,6 +30,10 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  // Browsers ignore HSTS over plain http, so only HTTPS deployments send it.
+  ...(process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https://')
+    ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' }]
+    : []),
 ];
 
 const config: NextConfig = {

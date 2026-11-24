@@ -76,6 +76,21 @@ async function ensureOffscreen(): Promise<void> {
   await creating;
 }
 
+/** Longest a classification may take end to end (fetch is capped at 10 s, inference is fast). */
+const CLASSIFY_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error('Classification timed out'));
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    clearTimeout(timer);
+  });
+}
+
 /** Waits between attempts while a new document starts up or a closed one is recreated. */
 const RETRY_DELAYS_MS = [0, 100, 300, 1000];
 
@@ -86,11 +101,10 @@ export async function classifyOffscreen(source: MediaSource): Promise<OffscreenR
     if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
     try {
       await ensureOffscreen();
-      const reply: unknown = await browser.runtime.sendMessage({
-        target: 'offscreen',
-        type: 'classify',
-        source,
-      });
+      const reply: unknown = await withTimeout(
+        browser.runtime.sendMessage({ target: 'offscreen', type: 'classify', source }),
+        CLASSIFY_TIMEOUT_MS,
+      );
       return offscreenResponseSchema.parse(reply);
     } catch (error) {
       lastError = error;

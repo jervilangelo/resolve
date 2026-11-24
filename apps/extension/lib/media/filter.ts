@@ -14,8 +14,9 @@ import type { ContentConfig, MediaSource, Verdict } from './protocol';
  * only to this extension's own classifier and verdicts stay in this page's memory.
  *
  * Not covered (documented limitations): CSS background images, <canvas>, closed and open shadow
- * DOM, and media whose pixels the browser withholds (cross-origin or DRM video); the latter
- * follow the user's "media that can't be checked" setting.
+ * DOM, frames of animated images after the first checked one, and media whose pixels the browser
+ * withholds (cross-origin or DRM video); the latter follow the user's "media that can't be
+ * checked" setting.
  */
 export const MEDIA_ATTR = 'data-resolve-media';
 const BLUR_CSS = `
@@ -52,6 +53,8 @@ interface VideoState {
   unreadable: boolean;
   blurredByModel: boolean;
   safeStreak: number;
+  /** Bumped whenever the content changes (new source, seek), so late verdicts are dropped. */
+  generation: number;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -221,6 +224,7 @@ export function startMediaFilter(doc: Document, deps: FilterDeps): { stop(): voi
       unreadable: false,
       blurredByModel: false,
       safeStreak: 0,
+      generation: 0,
     });
     videoVisibility.observe(video);
     videoTimer ??= setInterval(sampleVideos, VIDEO_TICK_MS);
@@ -229,26 +233,29 @@ export function startMediaFilter(doc: Document, deps: FilterDeps): { stop(): voi
   async function sampleVideo(video: HTMLVideoElement, state: VideoState): Promise<void> {
     state.sampling = true;
     state.sampledAt = Date.now();
+    const generation = state.generation;
+    const current = () => state.generation === generation;
     try {
       const source = readPixels(video);
       if (!source) {
         state.unreadable = true;
-        await mark(video, 'unverified');
+        await mark(video, 'unverified', current);
         return;
       }
       const verdict = await verdictFor(source);
+      if (!current()) return; // the video shows something else now
       if (verdict === 'blur') {
         state.blurredByModel = true;
         state.safeStreak = 0;
-        await mark(video, 'blur');
+        await mark(video, 'blur', current);
       } else if (verdict === 'show') {
         state.safeStreak += 1;
         if (!state.blurredByModel || state.safeStreak >= VIDEO_SAFE_STREAK) {
           state.blurredByModel = false;
-          await mark(video, 'show');
+          await mark(video, 'show', current);
         }
       } else if (video.getAttribute(MEDIA_ATTR) === null) {
-        await mark(video, 'unverified');
+        await mark(video, 'unverified', current);
       }
     } finally {
       state.sampling = false;
@@ -257,23 +264,23 @@ export function startMediaFilter(doc: Document, deps: FilterDeps): { stop(): voi
 
   function sampleVideos(): void {
     const now = Date.now();
-    let started = 0;
+    const due: [HTMLVideoElement, VideoState][] = [];
     for (const [video, state] of videos) {
       if (!video.isConnected) {
         videos.delete(video);
         videoVisibility.unobserve(video);
         continue;
       }
-      if (started >= VIDEOS_PER_TICK || state.sampling || state.unreadable || !state.visible)
-        continue;
+      if (state.sampling || state.unreadable || !state.visible) continue;
       // HAVE_CURRENT_DATA: a frame is available to read.
       if (video.readyState < 2) continue;
-      const due =
-        state.sampledAt === 0 || (!video.paused && now - state.sampledAt >= VIDEO_SAMPLE_MS);
-      if (!due) continue;
-      started += 1;
-      void sampleVideo(video, state);
+      if (state.sampledAt === 0 || (!video.paused && now - state.sampledAt >= VIDEO_SAMPLE_MS)) {
+        due.push([video, state]);
+      }
     }
+    // Least recently checked first, so with many playing videos none is starved of checks.
+    due.sort((a, b) => a[1].sampledAt - b[1].sampledAt);
+    for (const [video, state] of due.slice(0, VIDEOS_PER_TICK)) void sampleVideo(video, state);
     if (videos.size === 0) {
       clearInterval(videoTimer);
       videoTimer = undefined;
@@ -302,8 +309,10 @@ export function startMediaFilter(doc: Document, deps: FilterDeps): { stop(): voi
           considerImage(target);
         } else if (target instanceof HTMLVideoElement) {
           const state = videos.get(target);
-          if (state)
+          if (state) {
             Object.assign(state, { sampledAt: 0, unreadable: false, blurredByModel: false });
+            state.generation += 1;
+          }
           target.removeAttribute(MEDIA_ATTR);
         }
         continue;
@@ -329,7 +338,10 @@ export function startMediaFilter(doc: Document, deps: FilterDeps): { stop(): voi
     trackVideo(video);
     const state = videos.get(video);
     if (!state) return;
-    if (event.type === 'seeked') state.sampledAt = 0;
+    if (event.type === 'seeked') {
+      state.sampledAt = 0;
+      state.generation += 1;
+    }
     // A new source (src, <source> children or srcObject) starts loading: forget the old verdict.
     if (event.type === 'loadstart') {
       Object.assign(state, {
@@ -338,6 +350,7 @@ export function startMediaFilter(doc: Document, deps: FilterDeps): { stop(): voi
         blurredByModel: false,
         safeStreak: 0,
       });
+      state.generation += 1;
       video.removeAttribute(MEDIA_ATTR);
     }
   };

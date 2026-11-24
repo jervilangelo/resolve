@@ -69,6 +69,12 @@ data "aws_iam_policy_document" "table_access" {
     sid       = "QueryMembershipIndex"
     actions   = ["dynamodb:Query"]
     resources = ["${var.table_arn}/index/GSI1"]
+    # The index is only ever read for one user's memberships.
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["USER#*"]
+    }
   }
   statement {
     sid       = "PutUserGroupAndInvitationItems"

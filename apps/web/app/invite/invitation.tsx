@@ -32,7 +32,11 @@ function store(token: string | null) {
   }
 }
 
-type View = { kind: 'loading' } | { kind: 'invalid' } | (PreviewResult & { kind: 'ready' });
+type View =
+  | { kind: 'loading' }
+  | { kind: 'invalid' }
+  | { kind: 'error' }
+  | (PreviewResult & { kind: 'ready' });
 
 export function Invitation() {
   const [view, setView] = useState<View>({ kind: 'loading' });
@@ -63,9 +67,10 @@ export function Invitation() {
           return;
         }
         if (result.status === 'invalid') store(null);
-        setView(result.status === 'ok' ? { kind: 'ready', ...result } : { kind: 'invalid' });
+        if (result.status === 'error') setView({ kind: 'error' });
+        else setView(result.status === 'ok' ? { kind: 'ready', ...result } : { kind: 'invalid' });
       } catch {
-        setView({ kind: 'invalid' });
+        setView({ kind: 'error' });
       }
     }
     void load(token.current);
@@ -73,6 +78,25 @@ export function Invitation() {
 
   if (view.kind === 'loading') {
     return <p className="text-muted-foreground">Checking your invitation…</p>;
+  }
+
+  if (view.kind === 'error') {
+    return (
+      <div role="alert">
+        <h1 className="font-display text-3xl">We couldn’t check this invitation</h1>
+        <p className="text-muted-foreground mt-4">
+          This is usually temporary. Your link may still be valid, so try again in a moment.
+        </p>
+        <Button
+          className="mt-8"
+          onClick={() => {
+            window.location.reload();
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    );
   }
 
   if (view.kind === 'invalid' || view.status !== 'ok') {

@@ -36,7 +36,7 @@ function ErrorText({ message }: { message?: string }) {
 
 export function InvitePanel({ groupId }: { groupId: string }) {
   const [state, action, pending] = useActionState(createInvitation.bind(null, groupId), {});
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   return (
     <div className="space-y-4">
@@ -75,12 +75,19 @@ export function InvitePanel({ groupId }: { groupId: string }) {
               type="button"
               variant="outline"
               onClick={() => {
-                void navigator.clipboard.writeText(state.link ?? '').then(() => {
-                  setCopied(true);
-                });
+                const link = state.link ?? '';
+                navigator.clipboard.writeText(link).then(
+                  () => {
+                    setCopied(link);
+                  },
+                  () => {
+                    setCopied(null);
+                  },
+                );
               }}
             >
-              {copied ? 'Copied' : 'Copy'}
+              {/* Tracks which link was copied, so a newly created link never reads "Copied". */}
+              {copied === state.link ? 'Copied' : 'Copy'}
             </Button>
           </div>
           <p className="text-muted-foreground text-xs">

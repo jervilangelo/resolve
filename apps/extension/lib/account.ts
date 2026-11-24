@@ -108,7 +108,12 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
         ...(notice && { error: notice }),
       };
     } catch (caught) {
-      if (caught instanceof SignedOutError) return { state: 'signedOut' };
+      if (caught instanceof SignedOutError) {
+        // The session just ended (401 or refresh rejected): remove its rules now rather than at
+        // the next periodic sync. (Not from api() itself, which also runs inside a sync.)
+        await syncProtection();
+        return { state: 'signedOut' };
+      }
       return {
         ...base,
         groups: [],
@@ -195,7 +200,10 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
         if (await auth.setActiveGroup(session.sid, group.groupId)) await syncProtection();
         return await state();
       } catch (caught) {
-        if (caught instanceof SignedOutError) return { state: 'signedOut' };
+        if (caught instanceof SignedOutError) {
+          await syncProtection();
+          return { state: 'signedOut' };
+        }
         return state('Could not change the active group. Try again.');
       }
     },
