@@ -11,7 +11,7 @@
 // ships these files and loads them from its own origin: no model is ever fetched remotely.
 // The output is git-ignored and regenerated on every extension build.
 
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,8 +20,15 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const extension = path.join(root, 'apps/extension');
 const out = path.join(extension, 'public/models/nsfw');
 
-// nsfwjs does not export its package.json, so locate it through the workspace link.
-const pkgDir = realpathSync(path.join(extension, 'node_modules/nsfwjs'));
+// nsfwjs does not export its package.json: resolve its entry point from the extension (works with
+// isolated and hoisted node_modules alike) and walk up to the package root.
+const entry = createRequire(path.join(extension, 'package.json')).resolve('nsfwjs');
+let pkgDir = path.dirname(realpathSync(entry));
+while (!existsSync(path.join(pkgDir, 'package.json')) || path.basename(pkgDir) !== 'nsfwjs') {
+  const parent = path.dirname(pkgDir);
+  if (parent === pkgDir) throw new Error('nsfwjs package root not found');
+  pkgDir = parent;
+}
 const pkg = JSON.parse(readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
 const models = path.join(pkgDir, 'dist/models/mobilenet_v2_mid');
 const load = createRequire(path.join(models, 'loader.cjs'));

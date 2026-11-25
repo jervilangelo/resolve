@@ -39,11 +39,14 @@ resource "aws_amplify_app" "this" {
           phases:
             preBuild:
               commands:
-                - nvm install 22 && nvm use 22
-                - corepack enable
+                # Node 22 without the image's default global packages (they are not needed and
+                # their downloads can fail); pnpm pinned to the repository's packageManager.
+                - nvm install 22 --skip-default-packages && nvm use 22
+                - npm install -g pnpm@10.34.9
                 # Amplify's SSR runtime needs a hoisted node_modules for pnpm monorepos.
                 - echo "node-linker=hoisted" >> ../../.npmrc
-                - cd ../.. && pnpm install --frozen-lockfile && cd apps/web
+                # Only the dashboard and the workspace packages it uses.
+                - cd ../.. && pnpm install --frozen-lockfile --filter "@resolve/web..." && cd apps/web
             build:
               commands:
                 - env | grep -E '^(NEXT_PUBLIC_[A-Z_]+|RESOLVE_API_URL|COGNITO_DOMAIN|COGNITO_CLIENT_ID|SESSION_SECRET)=' > .env.production
