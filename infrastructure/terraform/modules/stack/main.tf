@@ -45,34 +45,36 @@ module "data" {
 }
 
 module "api" {
-  source             = "../api"
-  name_prefix        = local.name_prefix
-  stage              = var.stage
-  source_dir         = "${local.repo_root}/services/api/dist/api"
-  table_name         = module.data.table_name
-  table_arn          = module.data.table_arn
-  issuer             = module.identity.issuer
-  user_pool_id       = module.identity.user_pool_id
-  user_pool_arn      = module.identity.user_pool_arn
-  client_ids         = module.identity.api_client_ids
-  rules_client_ids   = module.identity.rules_client_ids
-  cors_allow_origins = local.web_origins
-  log_retention_days = var.log_retention_days
+  source               = "../api"
+  permissions_boundary = var.permissions_boundary
+  name_prefix          = local.name_prefix
+  stage                = var.stage
+  source_dir           = "${local.repo_root}/services/api/dist/api"
+  table_name           = module.data.table_name
+  table_arn            = module.data.table_arn
+  issuer               = module.identity.issuer
+  user_pool_id         = module.identity.user_pool_id
+  user_pool_arn        = module.identity.user_pool_arn
+  client_ids           = module.identity.api_client_ids
+  rules_client_ids     = module.identity.rules_client_ids
+  cors_allow_origins   = local.web_origins
+  log_retention_days   = var.log_retention_days
 }
 
 module "notifications" {
-  source             = "../notifications"
-  name_prefix        = local.name_prefix
-  table_stream_arn   = module.data.table_stream_arn
-  relay_source_dir   = "${local.repo_root}/services/notifications/dist/outbox-relay"
-  worker_source_dir  = "${local.repo_root}/services/notifications/dist/delivery-worker"
-  log_retention_days = var.log_retention_days
-  sender_email       = var.ses_sender_email
-  table_name         = module.data.table_name
-  table_arn          = module.data.table_arn
-  user_pool_id       = module.identity.user_pool_id
-  user_pool_arn      = module.identity.user_pool_arn
-  dashboard_url      = local.web_origins[0]
+  source               = "../notifications"
+  permissions_boundary = var.permissions_boundary
+  name_prefix          = local.name_prefix
+  table_stream_arn     = module.data.table_stream_arn
+  relay_source_dir     = "${local.repo_root}/services/notifications/dist/outbox-relay"
+  worker_source_dir    = "${local.repo_root}/services/notifications/dist/delivery-worker"
+  log_retention_days   = var.log_retention_days
+  sender_email         = var.ses_sender_email
+  table_name           = module.data.table_name
+  table_arn            = module.data.table_arn
+  user_pool_id         = module.identity.user_pool_id
+  user_pool_arn        = module.identity.user_pool_arn
+  dashboard_url        = local.web_origins[0]
 }
 
 module "observability" {

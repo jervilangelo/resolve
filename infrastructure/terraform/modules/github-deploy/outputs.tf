@@ -6,3 +6,8 @@
 output "role_arn" {
   value = aws_iam_role.deploy.arn
 }
+
+output "boundary_arn" {
+  description = "Permissions boundary every stack role must carry."
+  value       = aws_iam_policy.boundary.arn
+}

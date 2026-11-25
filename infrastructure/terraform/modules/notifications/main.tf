@@ -45,12 +45,13 @@ data "aws_iam_policy_document" "relay" {
 }
 
 module "relay" {
-  source             = "../lambda"
-  name               = "${var.name_prefix}-outbox-relay"
-  source_dir         = var.relay_source_dir
-  policy_json        = data.aws_iam_policy_document.relay.json
-  memory_size        = 256
-  log_retention_days = var.log_retention_days
+  source               = "../lambda"
+  permissions_boundary = var.permissions_boundary
+  name                 = "${var.name_prefix}-outbox-relay"
+  source_dir           = var.relay_source_dir
+  policy_json          = data.aws_iam_policy_document.relay.json
+  memory_size          = 256
+  log_retention_days   = var.log_retention_days
   environment = {
     QUEUE_URL = aws_sqs_queue.delivery.url
   }
@@ -156,14 +157,15 @@ data "aws_iam_policy_document" "worker" {
 }
 
 module "worker" {
-  count              = local.worker_enabled ? 1 : 0
-  source             = "../lambda"
-  name               = "${var.name_prefix}-notification-worker"
-  source_dir         = var.worker_source_dir
-  policy_json        = data.aws_iam_policy_document.worker.json
-  memory_size        = 256
-  timeout            = 120
-  log_retention_days = var.log_retention_days
+  count                = local.worker_enabled ? 1 : 0
+  source               = "../lambda"
+  permissions_boundary = var.permissions_boundary
+  name                 = "${var.name_prefix}-notification-worker"
+  source_dir           = var.worker_source_dir
+  policy_json          = data.aws_iam_policy_document.worker.json
+  memory_size          = 256
+  timeout              = 120
+  log_retention_days   = var.log_retention_days
   environment = {
     TABLE_NAME    = var.table_name
     USER_POOL_ID  = var.user_pool_id

@@ -35,3 +35,7 @@ output "contact_email" {
 output "dashboard_url" {
   value = module.resolve.dashboard_url
 }
+
+output "github_deploy_role_arn" {
+  value = module.github_deploy.role_arn
+}

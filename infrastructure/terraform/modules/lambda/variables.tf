@@ -36,3 +36,9 @@ variable "timeout" {
 variable "log_retention_days" {
   type = number
 }
+
+variable "permissions_boundary" {
+  description = "Permissions boundary policy ARN for the function's role."
+  type        = string
+  default     = null
+}

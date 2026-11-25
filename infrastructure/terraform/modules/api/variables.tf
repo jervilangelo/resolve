@@ -64,3 +64,9 @@ variable "user_pool_arn" {
   description = "Cognito user pool ARN (self-service account deletion)."
   type        = string
 }
+
+variable "permissions_boundary" {
+  description = "Permissions boundary for the function's role."
+  type        = string
+  default     = null
+}

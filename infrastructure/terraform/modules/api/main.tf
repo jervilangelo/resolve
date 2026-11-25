@@ -143,11 +143,12 @@ data "aws_iam_policy_document" "table_access" {
 }
 
 module "function" {
-  source             = "../lambda"
-  name               = "${var.name_prefix}-api"
-  source_dir         = var.source_dir
-  policy_json        = data.aws_iam_policy_document.table_access.json
-  log_retention_days = var.log_retention_days
+  source               = "../lambda"
+  permissions_boundary = var.permissions_boundary
+  name                 = "${var.name_prefix}-api"
+  source_dir           = var.source_dir
+  policy_json          = data.aws_iam_policy_document.table_access.json
+  log_retention_days   = var.log_retention_days
   environment = {
     STAGE              = var.stage
     LOG_LEVEL          = "info"

@@ -15,3 +15,9 @@ variable "github_subject_prefix" {
   EOT
   type        = string
 }
+
+variable "create_oidc_provider" {
+  description = "Create GitHub's OIDC identity provider in this account (once per account)."
+  type        = bool
+  default     = false
+}

@@ -6,12 +6,43 @@
 # Keyless deploys from GitHub Actions via OIDC. Only workflow jobs that run in this repository's
 # GitHub environment named after the stage can assume the role.
 #
-# The role can create IAM roles for this stack, so anyone able to run workflows in that GitHub
-# environment is effectively an administrator of the account. Keep environment protection rules on
-# and move Resolve to a dedicated AWS account (docs/MASTER_PLAN.md section 9) to contain this.
+# The role can create IAM roles for this stack, but only roles carrying the stack's permissions
+# boundary, which caps them at what Resolve's functions use. It cannot remove or change a
+# boundary, or edit the boundary policy, so it cannot grant itself or anything else wider access.
+
+resource "aws_iam_openid_connect_provider" "github" {
+  count          = var.create_oidc_provider ? 1 : 0
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+}
 
 data "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
+  url        = "https://token.actions.githubusercontent.com"
+  depends_on = [aws_iam_openid_connect_provider.github]
+}
+
+# The most any role created for this stack may ever do (the roles' own policies narrow it further).
+data "aws_iam_policy_document" "boundary" {
+  statement {
+    sid = "StackFunctions"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "dynamodb:*",
+      "sqs:*",
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+      "cognito-idp:ListUsers",
+      "cognito-idp:AdminDeleteUser",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "boundary" {
+  name        = "resolve-${var.stage}-boundary"
+  description = "Permissions boundary for every role the Resolve ${var.stage} stack creates."
+  policy      = data.aws_iam_policy_document.boundary.json
 }
 
 data "aws_caller_identity" "current" {}
@@ -47,27 +78,50 @@ resource "aws_iam_role_policy_attachment" "power_user" {
   policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"
 }
 
-# PowerUserAccess excludes IAM; allow managing only this stack's Lambda roles.
+# PowerUserAccess excludes IAM. Stack roles may be created and changed only with the boundary.
 data "aws_iam_policy_document" "stack_iam" {
+  statement {
+    sid = "CreateAndChangeBoundedStackRoles"
+    actions = [
+      "iam:CreateRole",
+      "iam:PutRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:UpdateAssumeRolePolicy",
+      "iam:PutRolePermissionsBoundary",
+    ]
+    resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/resolve-${var.stage}-*"]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PermissionsBoundary"
+      values   = [aws_iam_policy.boundary.arn]
+    }
+  }
   statement {
     sid = "ManageStackRoles"
     actions = [
-      "iam:CreateRole",
       "iam:DeleteRole",
       "iam:GetRole",
       "iam:UpdateRole",
-      "iam:UpdateAssumeRolePolicy",
       "iam:TagRole",
       "iam:UntagRole",
       "iam:ListRolePolicies",
       "iam:ListAttachedRolePolicies",
       "iam:ListInstanceProfilesForRole",
       "iam:GetRolePolicy",
-      "iam:PutRolePolicy",
-      "iam:DeleteRolePolicy",
       "iam:PassRole",
     ]
     resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/resolve-${var.stage}-*"]
+  }
+  statement {
+    sid       = "ReadBoundary"
+    actions   = ["iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListPolicyVersions"]
+    resources = [aws_iam_policy.boundary.arn]
+  }
+  statement {
+    sid       = "NeverLiftABoundary"
+    effect    = "Deny"
+    actions   = ["iam:DeleteRolePermissionsBoundary"]
+    resources = ["*"]
   }
   statement {
     sid       = "ReadOwnRoleAndOidcProvider"

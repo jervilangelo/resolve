@@ -58,3 +58,9 @@ variable "github_access_token" {
   default     = null
   sensitive   = true
 }
+
+variable "permissions_boundary" {
+  description = "Permissions boundary for every role the stack creates."
+  type        = string
+  default     = null
+}

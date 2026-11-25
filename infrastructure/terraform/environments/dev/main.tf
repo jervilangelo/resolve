@@ -17,11 +17,12 @@ provider "aws" {
 }
 
 module "resolve" {
-  source             = "../../modules/stack"
-  stage              = "dev"
-  web_origins        = ["http://localhost:3000"]
-  log_retention_days = 14
-  monthly_budget_usd = var.monthly_budget_usd
+  source               = "../../modules/stack"
+  permissions_boundary = module.github_deploy.boundary_arn
+  stage                = "dev"
+  web_origins          = ["http://localhost:3000"]
+  log_retention_days   = 14
+  monthly_budget_usd   = var.monthly_budget_usd
   # CI passes unset secrets as empty strings; treat them as "not configured".
   alert_email      = var.alert_email == "" ? null : var.alert_email
   ses_sender_email = var.ses_sender_email == "" ? null : var.ses_sender_email

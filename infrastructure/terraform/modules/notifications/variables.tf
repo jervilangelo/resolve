@@ -54,3 +54,9 @@ variable "dashboard_url" {
   description = "Dashboard origin linked from alert emails (e.g. https://app.example.com)."
   type        = string
 }
+
+variable "permissions_boundary" {
+  description = "Permissions boundary for the functions' roles."
+  type        = string
+  default     = null
+}
