@@ -78,6 +78,14 @@ member by writing `role = ADMIN` on `GROUP#<id>` / `MEMBER#<sub>` and incrementi
 4. Outbox and delivery records expire within 30 days; domain audit rows naming the user as actor
    expire within a year (they contain only a domain and an action).
 
+## Working with production
+
+Production is a separate AWS account (`514009713156`). From the management account's CLI session:
+`aws ... --profile resolve-prod`. Terraform cannot use that profile directly with `aws login`
+sessions, so export credentials first:
+`eval "$(aws configure export-credentials --profile resolve-prod --format env)"; unset AWS_PROFILE`.
+Routine deploys go through the "Deploy prod" workflow (manual, owner approval).
+
 ## Deploy failed or needs rollback
 
 Deploys run from `main` through "Deploy dev". To roll back, revert the offending commit on `main`

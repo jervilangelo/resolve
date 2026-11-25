@@ -13,8 +13,8 @@ findings are open. "Before beta" items block the Phase 10 release checklist.
 
 | # | Item | Why it matters |
 | --- | --- | --- |
-| 1 | SES production access, verified sender **domain** (SPF, DKIM, DMARC), bounce and complaint handling | Sandbox delivers only to verified addresses; reputation and deliverability |
-| 2 | Production stack (separate account recommended) and deploy-role permissions boundary | The dev deploy role can create roles within its prefix without a boundary |
+| 1 | SES production access (requested 2026-11-25; suppression list on); verified sender **domain** (SPF, DKIM, DMARC) once a domain is bought | Sandbox delivers only to verified addresses; deliverability |
+| 2 | ~~Production stack in a separate account; deploy-role permissions boundary~~ | Done 2026-11-25 |
 | 3 | ~~Public privacy policy and terms pages~~ | Done (Phase 10) |
 | 4 | ~~Self-service account deletion~~ | Done (Phase 10) |
 | 5 | Manual check in Google Chrome (stable) of install, sign-in, blocking, media filter, alerts | Not automated here |

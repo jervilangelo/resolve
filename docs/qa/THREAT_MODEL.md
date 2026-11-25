@@ -41,7 +41,7 @@ at the end.
 | Media or URLs leave the device | Classification in the offscreen document; only re-reads of images the page already loaded; strict event schema | Netlog E2E in 3 browsers; client review | — |
 | Telemetry logs URLs or personal data | Allowlisted logger fields; worker logs counts and error names; access logs without paths/IPs | `privacy.test.ts` | Operational discipline for future log lines |
 | Token theft from the dashboard | httpOnly `__Host-` cookies, A256GCM-encrypted, SameSite=Lax, PKCE + state, sign-out revokes | Web review | Device compromise is out of scope |
-| Over-privileged deploy role | Role limited to `resolve-dev-*` names and the repo's `dev` environment | Terraform | Can create roles within its prefix without a permissions boundary: **open decision** |
+| Over-privileged deploy role | Separate prod account; deploy roles limited to their stage's names and GitHub environment, and may only create roles carrying the stage's permissions boundary (stage resources only); prod deploys need owner approval | Terraform, live deploys | Anyone who can approve a prod deploy controls production |
 | Infrastructure misconfiguration | Checkov in CI; S3 private, TLS-only, encrypted; DynamoDB PITR; least-privilege Lambda roles by key prefix | `.checkov.yaml`, CI | Accepted exceptions documented there |
 | Vulnerable dependencies | Lockfile; Dependabot; `pnpm audit` gate in CI | CI | Zero-day exposure until patched |
 | Cost abuse | API Gateway throttles; per-user rate limits (domains 60/h, accountability 60/h); alert caps (10/recipient/h); SQS concurrency 2; budget alarm | Tests, Terraform | — |

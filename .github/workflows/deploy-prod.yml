@@ -1,0 +1,71 @@
+# Resolve — Take every thought captive.
+# Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+# Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
+# See LICENSE for terms and applicable exceptions.
+
+# Deploys production by hand only (Actions > "Deploy prod" > Run workflow, from main). The `prod`
+# GitHub environment holds its own settings and should require the owner's approval:
+#   variables AWS_DEPLOY_ROLE_ARN, AWS_ACCOUNT_ID, TF_STATE_BUCKET (production account);
+#   secrets ALERT_EMAIL and SES_SENDER_EMAIL.
+# The dashboard itself is rebuilt by Amplify on every push to main.
+
+name: Deploy prod
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: prod
+    env:
+      AWS_REGION: ap-southeast-1
+      TF_DIR: infrastructure/terraform/environments/prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @resolve/api --filter @resolve/notifications build
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=resolve/prod/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}"
+      - name: Terraform apply
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+          TF_VAR_ses_sender_email: ${{ secrets.SES_SENDER_EMAIL }}
+        run: >-
+          terraform apply -auto-approve -input=false
+          -var='allowed_account_ids=["${{ vars.AWS_ACCOUNT_ID }}"]'
+          -var='web_origins=[]'
+          -var='enable_hosting=true'
+      - name: Health check
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          endpoint="$(terraform output -raw api_endpoint)"
+          curl --fail --silent --show-error "${endpoint}/v1/health"

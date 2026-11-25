@@ -9,8 +9,8 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-25 · **Current:** Phase 10 in progress: code and documents done; production
-deployment waits on the owner (AWS login, GitHub token, store accounts)
+**Last updated:** 2026-11-25 · **Current:** Phase 10: production live (dashboard + API); waiting on
+SES production access (AWS review), the prod GitHub settings and store accounts
 
 ## Phase status
 
@@ -116,6 +116,15 @@ deployment waits on the owner (AWS login, GitHub token, store accounts)
   issues; 15 medium/low findings were fixed, notably stricter Trigger A qualification (no alerts
   for page-initiated redirects, pop-ups, restored/discarded tabs or reloads) and no retroactive or
   duplicate emails.
+- **Production (Phase 10, 2026-11-25):** dedicated AWS account `514009713156` (in the owner's
+  organization; CLI profile `resolve-prod`; Terraform via exported credentials:
+  `eval "$(aws configure export-credentials --profile resolve-prod --format env)"`). Dashboard:
+  https://main.dcwo6nhqxltjm.amplifyapp.com (Amplify, rebuilds on push to main). API:
+  https://z3s1ohuvs5.execute-api.ap-southeast-1.amazonaws.com. Verified: health, public pages,
+  security headers, sign-in -> create group -> self-service deletion. Stack roles in both
+  accounts carry a permissions boundary; deploy roles can only create bounded roles. SES:
+  sender verified, bounce/complaint suppression on, production access requested (pending).
+  Prod deploys: manual "Deploy prod" workflow with owner approval (`prod` GitHub environment).
 - **Beta release work (Phase 10, in progress):** public privacy, terms, support and
   getting-started pages (contact from Terraform `alert_email`, not the repo); self-service account
   deletion (`DELETE /v1/me`: leaves groups via the departure path, dissolves solo groups only if
@@ -135,22 +144,18 @@ deployment waits on the owner (AWS login, GitHub token, store accounts)
 
 ## Next steps
 
-1. Owner: `aws login`. Then: create the dedicated production AWS account (AWS Organizations),
-   bootstrap its Terraform state bucket and a prod GitHub deploy role (with a permissions
-   boundary), fill `environments/prod/terraform.tfvars`, apply production.
-2. Owner approves a GitHub token for Amplify (only needed when the app is created); deploy the
-   dashboard, check the Next.js 16 SSR build on Amplify, point `web:env prod` and the extension's
-   prod build at it.
-3. Request SES production access (sender: the verified alerts address until a domain is bought);
-   add bounce/complaint handling.
-4. Phase 9 leftovers needing AWS: signed-in dashboard accessibility audit; Trigger A real-browser
-   re-run with the stricter rules.
-5. Store: owner creates Chrome Web Store and Edge Partner Center accounts; create draft items to
-   get extension IDs, add them to prod `extension_ids`, build, zip, upload (docs/release), beta as
-   unlisted/testers; screenshots from the prod dashboard and extension.
-6. Run docs/qa/RELEASE_CHECKLIST.md; then the beta acceptance: a new user registers, joins a
-   group, enables protection, configures consent and exercises both alert triggers.
-7. Later: buy a domain (custom dashboard address, SES domain with SPF/DKIM/DMARC); Firefox.
+1. Owner: run the prod GitHub setup script (environment variables and secrets for "Deploy prod");
+   then run "Deploy prod" once to confirm the pipeline (it should change nothing).
+2. SES production access: wait for AWS's review (check `aws sesv2 get-account --profile
+   resolve-prod`); answer any follow-up questions from AWS.
+3. Store: owner creates Chrome Web Store and Edge Partner Center developer accounts; create draft
+   items to get their extension IDs; add them to prod `extension_ids` (creates the extension's
+   Cognito client); build the extension against prod (`pnpm extension:env prod`, build, zip);
+   upload as unlisted/testers with docs/release/STORE_LISTING.md; screenshots.
+4. Beta acceptance on production: a new user registers, joins a group, enables protection,
+   configures consent and triggers both alerts (after SES production access).
+5. docs/qa/RELEASE_CHECKLIST.md before inviting testers.
+6. Later: custom domain (Amplify domain + SES domain identity with SPF/DKIM/DMARC); Firefox.
 
 ## Decisions log
 
