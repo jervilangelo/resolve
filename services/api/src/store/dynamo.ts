@@ -89,6 +89,8 @@ const CONSENT_SENDER_PREFIX = 'from_';
 const INVITE_TTL_GRACE_SECONDS = 24 * 60 * 60;
 /** A dissolved group's META marker expires on its own if the cleanup sweep cannot finish. */
 const DISSOLVED_MARKER_TTL_SECONDS = 30 * 24 * 60 * 60;
+/** Longer than the longest access-token lifetime (60 minutes). */
+const DELETED_TOMBSTONE_SECONDS = 2 * 60 * 60;
 /** Dissolve answers within the API Lambda's 10 s timeout even if the sweep is unfinished. */
 const DISSOLVE_SWEEP_BUDGET_MS = 5_000;
 /** Condition fragment: the group exists and has not been dissolved. */
@@ -1013,7 +1015,7 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
       }
     },
 
-    async dissolveGroup(groupId, actorId) {
+    async dissolveGroup(groupId, actorId, options) {
       const now = Math.floor(Date.now() / 1000);
       try {
         await transact([
@@ -1023,11 +1025,15 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
               TableName: tableName,
               Key: { PK: keys.group(groupId), SK: 'META' },
               UpdateExpression: 'SET dissolvedAt = :now, #ttl = :ttl',
-              ConditionExpression: LIVE_GROUP,
+              // Account deletion only dissolves a group nobody else has joined in the meantime.
+              ConditionExpression: options?.onlyIfSolo
+                ? `${LIVE_GROUP} AND memberCount = :one`
+                : LIVE_GROUP,
               ExpressionAttributeNames: { '#ttl': 'ttl' },
               ExpressionAttributeValues: {
                 ':now': new Date(now * 1000).toISOString(),
                 ':ttl': now + DISSOLVED_MARKER_TTL_SECONDS,
+                ...(options?.onlyIfSolo && { ':one': 1 }),
               },
             },
           },
@@ -1382,6 +1388,23 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         start = page.LastEvaluatedKey;
       } while (start);
       await batchDelete(keysToDelete);
+      // Tokens issued before deletion stay valid for up to an hour; this marker makes the API
+      // refuse them so nothing is recreated for a deleted account.
+      await db.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            PK: keys.user(userId),
+            SK: 'DELETED',
+            type: 'Tombstone',
+            ttl: Math.floor(Date.now() / 1000) + DELETED_TOMBSTONE_SECONDS,
+          },
+        }),
+      );
+    },
+
+    async isDeleted(userId) {
+      return (await getItem(keys.user(userId), 'DELETED')) !== undefined;
     },
 
     async getAccountability(groupId) {

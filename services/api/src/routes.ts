@@ -245,7 +245,7 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
     return member;
   }
 
-  return {
+  const routes: Record<string, Route> = {
     'GET /v1/health': () => {
       const body: HealthResponse = { status: 'ok', service: 'resolve-api', stage: env.STAGE };
       return Promise.resolve({ status: 200, body });
@@ -272,33 +272,49 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
     'DELETE /v1/me': async (event) => {
       const { userId } = identity(event);
       if (!deps.deleteIdentity) throw new ApiError('INTERNAL');
-      const memberships: StoredMembership[] = [];
-      let cursor: string | undefined;
-      do {
-        const page = await store.listMemberships(userId, 100, cursor);
-        memberships.push(...page.items);
-        cursor = page.nextCursor ?? undefined;
-      } while (cursor);
+      const listAll = async () => {
+        const memberships: StoredMembership[] = [];
+        let cursor: string | undefined;
+        do {
+          const page = await store.listMemberships(userId, 100, cursor);
+          memberships.push(...page.items);
+          cursor = page.nextCursor ?? undefined;
+        } while (cursor);
+        return memberships;
+      };
 
       // Never leave a group without an admin: the only admin of a group with other members must
-      // hand over or dissolve it first.
-      const plan: { membership: StoredMembership; alone: boolean }[] = [];
-      for (const membership of memberships) {
-        const members = await allMembers(membership.groupId);
-        const others = members.filter((m) => m.userId !== userId);
-        const otherAdmins = others.filter((m) => m.role === 'ADMIN');
-        if (membership.role === 'ADMIN' && others.length > 0 && otherAdmins.length === 0) {
-          throw new ApiError('CONFLICT');
+      // hand over or dissolve it first. Checked for every group before anything changes.
+      const leaveAll = async (memberships: StoredMembership[]) => {
+        const plan: { membership: StoredMembership; alone: boolean }[] = [];
+        for (const membership of memberships) {
+          const members = await allMembers(membership.groupId);
+          const others = members.filter((m) => m.userId !== userId);
+          const otherAdmins = others.filter((m) => m.role === 'ADMIN');
+          if (membership.role === 'ADMIN' && others.length > 0 && otherAdmins.length === 0) {
+            throw new ApiError('CONFLICT');
+          }
+          plan.push({ membership, alone: others.length === 0 });
         }
-        plan.push({ membership, alone: others.length === 0 });
-      }
-      for (const { membership, alone } of plan) {
-        if (alone && membership.role === 'ADMIN') {
-          await store.dissolveGroup(membership.groupId, userId);
-          continue;
+        for (const { membership, alone } of plan) {
+          if (alone && membership.role === 'ADMIN') {
+            // Only if still alone when it commits; someone who just joined keeps the group.
+            const dissolved = await store.dissolveGroup(membership.groupId, userId, {
+              onlyIfSolo: true,
+            });
+            if (dissolved === 'dissolved') continue;
+          }
+          const result = await depart(membership.groupId, membership.groupName, userId, userId);
+          if (result === 'last_admin') throw new ApiError('CONFLICT');
         }
-        const result = await depart(membership.groupId, membership.groupName, userId, userId);
-        if (result === 'last_admin') throw new ApiError('CONFLICT');
+      };
+
+      // The membership index is eventually consistent: list again until nothing is left, so a
+      // group joined moments ago is not missed.
+      for (let pass = 0; pass < 3; pass++) {
+        const memberships = await listAll();
+        if (memberships.length === 0) break;
+        await leaveAll(memberships);
       }
       await store.deleteUserData(userId);
       await deps.deleteIdentity(userId);
@@ -762,6 +778,22 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
       return { status: 204, body: undefined };
     },
   };
+
+  // A deleted account's tokens can outlive it by up to an hour: refuse them everywhere, so nothing
+  // is recreated for an account that no longer exists.
+  return Object.fromEntries(
+    Object.entries(routes).map(([key, route]): [string, Route] => [
+      key,
+      key === 'GET /v1/health'
+        ? route
+        : async (event, context) => {
+            if (await store.isDeleted(identity(event).userId)) {
+              throw new ApiError('UNAUTHENTICATED');
+            }
+            return route(event, context);
+          },
+    ]),
+  );
 }
 
 /** Dispatch on API Gateway's route key; unknown routes are 404. */

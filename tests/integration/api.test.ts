@@ -12,6 +12,8 @@ import {
   AdminInitiateAuthCommand,
   AdminSetUserPasswordCommand,
   CognitoIdentityProviderClient,
+  UserNotFoundException,
+  AdminGetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import {
   GetItemCommand,
@@ -159,9 +161,17 @@ afterAll(async () => {
   } finally {
     await Promise.all(
       usernames.map((username) =>
-        cognito.send(
-          new AdminDeleteUserCommand({ UserPoolId: env.RESOLVE_USER_POOL_ID, Username: username }),
-        ),
+        cognito
+          .send(
+            new AdminDeleteUserCommand({
+              UserPoolId: env.RESOLVE_USER_POOL_ID,
+              Username: username,
+            }),
+          )
+          // Some tests delete their own account through the API.
+          .catch((error: unknown) => {
+            if (!(error instanceof UserNotFoundException)) throw error;
+          }),
       ),
     );
   }
@@ -551,4 +561,35 @@ describe(`deployed alert triggers (${env.RESOLVE_STAGE})`, () => {
     expect(await alertCount(outsiderId)).toBe(0);
     expect((await api('DELETE', `/v1/groups/${groupId}`, alice)).status).toBe(204);
   }, 300_000);
+});
+
+describe(`deployed account deletion (${env.RESOLVE_STAGE})`, () => {
+  it('deletes the account, its data and its sign-in, and refuses its remaining tokens', async () => {
+    const user = await createUser();
+    const userId = subjectOf(user);
+    expect((await api('PATCH', '/v1/me', user, { displayName: 'Leaving' })).status).toBe(200);
+    const solo = groupSummarySchema.parse(
+      (await api('POST', '/v1/groups', user, { name: 'Solo group' })).body,
+    );
+    trackGroup(solo.groupId, user);
+    fixtures.push({ PK: `USER#${userId}`, SK: 'DELETED' });
+
+    expect((await api('DELETE', '/v1/me', user)).status).toBe(204);
+    // The still-valid access token is refused (tombstone), the solo group is gone, the sign-in too.
+    expect((await api('GET', '/v1/me', user)).status).toBe(401);
+    const left = await dynamo.send(
+      new QueryCommand({
+        TableName: env.RESOLVE_TABLE_NAME,
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': { S: `GROUP#${solo.groupId}` } },
+        ConsistentRead: true,
+      }),
+    );
+    expect(left.Count).toBe(0);
+    await expect(
+      cognito.send(
+        new AdminGetUserCommand({ UserPoolId: env.RESOLVE_USER_POOL_ID, Username: userId }),
+      ),
+    ).rejects.toBeInstanceOf(UserNotFoundException);
+  });
 });

@@ -85,14 +85,15 @@ export async function deleteAccount(_state: FormState, formData: FormData): Prom
     if (error instanceof ApiRequestError && error.code === 'CONFLICT') {
       return {
         error:
-          'You are the only admin of a group that has other members. Make someone else an admin ' +
-          'or dissolve the group first, then try again.',
+          'Deletion stopped: you are the only admin of a group that has other members (or another ' +
+          'admin just left). Make someone else an admin or dissolve the group, then try again. ' +
+          'Groups you had already left stay left.',
       };
     }
     return { error: GENERIC_ERROR };
   }
   const { secure, names } = authConfig();
   clearCookies(await cookies(), secure, names.session, names.refresh);
-  // Also ends the Cognito session in the browser.
+  // The account no longer exists; the signed-out page completes the sign-out.
   redirect('/auth/signed-out');
 }

@@ -31,3 +31,7 @@ output "contact_email" {
   description = "Public privacy and support contact shown on the dashboard's legal pages."
   value       = var.alert_email
 }
+
+output "dashboard_url" {
+  value = module.resolve.dashboard_url
+}

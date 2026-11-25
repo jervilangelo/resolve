@@ -114,7 +114,8 @@ data "aws_iam_policy_document" "table_access" {
     }
   }
   statement {
-    # Self-service account deletion: the user's own partition, then their sign-in.
+    # Self-service account deletion: the user's own partition, then their sign-in. (BatchWrite
+    # also permits puts; the function already writes USER# items, so this adds no new reach.)
     sid       = "DeleteOwnUserData"
     actions   = ["dynamodb:Query", "dynamodb:BatchWriteItem"]
     resources = [var.table_arn]

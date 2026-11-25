@@ -39,3 +39,22 @@ variable "extension_ids" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_hosting" {
+  description = "Host the dashboard on AWS Amplify (needs github_access_token)."
+  type        = bool
+  default     = false
+}
+
+variable "repository" {
+  description = "GitHub repository Amplify builds the dashboard from."
+  type        = string
+  default     = "https://github.com/jervilangelo/resolve"
+}
+
+variable "github_access_token" {
+  description = "GitHub token for Amplify's repository connection (only when enable_hosting)."
+  type        = string
+  default     = null
+  sensitive   = true
+}

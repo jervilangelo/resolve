@@ -42,6 +42,7 @@ export function createMemoryStore(): Store & { outboxItems(): OutboxItem[] } {
   const outbox = new Map<string, OutboxItem>();
   const seenEvents = new Set<string>();
   const cooldowns = new Map<string, number>();
+  const deletedUsers = new Set<string>();
   const liveMember = (groupId: string, userId: string) =>
     groups.has(groupId) && memberships.has(memberKey(groupId, userId));
   const inGroup = <T>(map: Map<string, T>, groupId: string) =>
@@ -259,8 +260,10 @@ export function createMemoryStore(): Store & { outboxItems(): OutboxItem[] } {
       target.role = role;
       return Promise.resolve('changed' as const);
     },
-    dissolveGroup: (groupId, actorId) => {
-      if (!groups.has(groupId) || !isAdmin(groupId, actorId)) {
+    dissolveGroup: (groupId, actorId, options) => {
+      const group = groups.get(groupId);
+      if (!group || !isAdmin(groupId, actorId)) return Promise.resolve('not_allowed' as const);
+      if (options?.onlyIfSolo && group.memberCount !== 1) {
         return Promise.resolve('not_allowed' as const);
       }
       groups.delete(groupId);
@@ -378,7 +381,9 @@ export function createMemoryStore(): Store & { outboxItems(): OutboxItem[] } {
       outbox.set(item.outboxId, item);
       return Promise.resolve('recorded' as const);
     },
+    isDeleted: (userId) => Promise.resolve(deletedUsers.has(userId)),
     deleteUserData: (userId) => {
+      deletedUsers.add(userId);
       profiles.delete(userId);
       for (const key of [...rateCounters.keys()])
         if (key.startsWith(`${userId}#`)) rateCounters.delete(key);

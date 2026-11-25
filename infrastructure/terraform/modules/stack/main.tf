@@ -9,14 +9,28 @@ locals {
   name_prefix = "resolve-${var.stage}"
   repo_root   = "${path.root}/../../../.."
   is_prod     = var.stage == "prod"
+  # The hosted dashboard (when enabled) comes first: it is the address alert emails link to.
+  web_origins = concat(var.enable_hosting ? [module.hosting[0].origin] : [], var.web_origins)
+}
+
+module "hosting" {
+  count               = var.enable_hosting ? 1 : 0
+  source              = "../hosting"
+  name_prefix         = local.name_prefix
+  repository          = var.repository
+  github_access_token = var.github_access_token
+  api_url             = module.api.endpoint
+  cognito_domain      = module.identity.hosted_domain
+  web_client_id       = module.identity.web_client_id
+  contact_email       = var.alert_email
 }
 
 module "identity" {
   source                         = "../identity"
   name_prefix                    = local.name_prefix
   deletion_protection            = local.is_prod
-  web_callback_urls              = [for origin in var.web_origins : "${origin}/auth/callback"]
-  web_logout_urls                = var.web_origins
+  web_callback_urls              = [for origin in local.web_origins : "${origin}/auth/callback"]
+  web_logout_urls                = local.web_origins
   enable_integration_test_client = !local.is_prod
   extension_callback_urls        = [for id in var.extension_ids : "https://${id}.chromiumapp.org/"]
   logo_light_svg                 = "${local.repo_root}/assets/branding/logo/horizontal-light.svg"
@@ -42,7 +56,7 @@ module "api" {
   user_pool_arn      = module.identity.user_pool_arn
   client_ids         = module.identity.api_client_ids
   rules_client_ids   = module.identity.rules_client_ids
-  cors_allow_origins = var.web_origins
+  cors_allow_origins = local.web_origins
   log_retention_days = var.log_retention_days
 }
 
@@ -58,7 +72,7 @@ module "notifications" {
   table_arn          = module.data.table_arn
   user_pool_id       = module.identity.user_pool_id
   user_pool_arn      = module.identity.user_pool_arn
-  dashboard_url      = var.web_origins[0]
+  dashboard_url      = local.web_origins[0]
 }
 
 module "observability" {

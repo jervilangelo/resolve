@@ -38,3 +38,8 @@ output "hosted_domain" {
 output "extension_client_id" {
   value = module.identity.extension_client_id
 }
+
+output "dashboard_url" {
+  description = "Address alert emails link to (the hosted dashboard when enabled)."
+  value       = local.web_origins[0]
+}

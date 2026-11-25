@@ -107,7 +107,10 @@ export default function PrivacyPage() {
           <li>Leave a group; your choices in it are deleted.</li>
           <li>
             Delete your account from your <Link href="/dashboard/profile">profile</Link>. This
-            removes your account, memberships and choices.
+            removes your account, profile, memberships and accountability choices. A few records in
+            your former groups keep your account ID (never your email) until they expire: who added
+            a blocked website and change histories (up to one year), and alert records (up to 30
+            days).
           </li>
         </ul>
       </Section>

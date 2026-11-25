@@ -141,6 +141,32 @@ describe('account deletion', () => {
     expect(await t.store.getMembership(shared, ALICE)).toBeNull();
   });
 
+  it('refuses the deleted account\u2019s still-valid tokens afterwards', async () => {
+    const t = setup();
+    await t.call('PATCH /v1/me', BOB, {}, { displayName: 'Bob' });
+    expect((await t.call('DELETE /v1/me', BOB, {})).status).toBe(204);
+    expect((await t.call('PATCH /v1/me', BOB, {}, { displayName: 'Back' })).status).toBe(401);
+    expect(await t.store.getProfile(BOB)).toBeNull();
+  });
+
+  it('keeps a solo group someone else joined meanwhile', async () => {
+    const t = setup();
+    const solo = await t.group(BOB, 'Solo');
+    // Alice joins after Bob's deletion planned to dissolve (simulated: the group is no longer solo).
+    const store = t.store;
+    const original = store.dissolveGroup.bind(store);
+    store.dissolveGroup = async (groupId, actorId, options) => {
+      const inv = createdInvitationSchema.parse(
+        (await t.call('POST /v1/groups/{groupId}/invitations', BOB, { groupId }, {})).body,
+      );
+      await t.call('POST /v1/invitations/accept', ALICE, {}, { token: inv.token });
+      store.dissolveGroup = original;
+      return original(groupId, actorId, options);
+    };
+    expect((await t.call('DELETE /v1/me', BOB, {})).status).toBe(409);
+    expect(await t.store.getGroup(solo)).not.toBeNull();
+  });
+
   it('is unavailable where accounts cannot be deleted', async () => {
     const t = setup({ canDelete: false });
     expect((await t.call('DELETE /v1/me', BOB, {})).status).toBe(500);

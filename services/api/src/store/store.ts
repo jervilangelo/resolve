@@ -179,7 +179,11 @@ export interface Store {
    * Deletes the group: the META item first (atomically with an admin check), so the group is gone
    * for everyone at once, then every remaining item in its partition and its invitation tokens.
    */
-  dissolveGroup(groupId: string, actorId: string): Promise<'dissolved' | 'not_allowed'>;
+  dissolveGroup(
+    groupId: string,
+    actorId: string,
+    options?: { onlyIfSolo?: boolean },
+  ): Promise<'dissolved' | 'not_allowed'>;
 
   /**
    * Counts one action against the user's hourly budget; `bucket` names the action and hour, e.g.
@@ -218,6 +222,11 @@ export interface Store {
    * idempotency records). Memberships are removed beforehand through removeMember.
    */
   deleteUserData(userId: string): Promise<void>;
+  /**
+   * True while a deleted account's already-issued tokens may still be valid (a tombstone written
+   * by deleteUserData outlives the longest token lifetime).
+   */
+  isDeleted(userId: string): Promise<boolean>;
   /** Every member's sharing choice and consent in the group (absent = PRIVATE / none). */
   getAccountability(groupId: string): Promise<{
     sharing: Map<string, StoredSharing>;

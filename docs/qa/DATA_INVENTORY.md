@@ -59,5 +59,9 @@ Cognito (the worker looks them up at send time and does not keep them).
 - **Leave/removal** deletes the membership, the member's sharing and consent in that group.
 - **Dissolve** deletes the whole group partition (best effort within 5 s; leftovers are inert and
   expire or are swept later).
-- **Account deletion** is a manual runbook today (docs/qa/RUNBOOKS.md, "Data deletion request");
-  self-service deletion is in the backlog.
+- **Account deletion** is self-service (profile page, `DELETE /v1/me`): it leaves every group
+  through the normal departure path, dissolves groups where the user is the only member, deletes
+  the user's partition and the Cognito account, and writes a 2-hour tombstone so tokens issued
+  before deletion are refused. Kept until they expire: the user's ID as "added by" on blocked
+  domains and in domain/consent audits (1 year), in other members' sharing/consent lists (until
+  they change them), and their display name in outbox items (30 days).

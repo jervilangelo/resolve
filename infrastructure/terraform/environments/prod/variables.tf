@@ -41,3 +41,16 @@ variable "ses_sender_email" {
   type        = string
   default     = null
 }
+
+variable "enable_hosting" {
+  description = "Host the dashboard on AWS Amplify. Turning it off destroys the hosted app."
+  type        = bool
+  default     = true
+}
+
+variable "github_access_token" {
+  description = "GitHub token for Amplify (repo, admin:repo_hook); needed only when creating the app."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

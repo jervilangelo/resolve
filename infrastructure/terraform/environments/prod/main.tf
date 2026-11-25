@@ -25,4 +25,7 @@ module "resolve" {
   # CI passes unset secrets as empty strings; treat them as "not configured".
   alert_email      = var.alert_email == "" ? null : var.alert_email
   ses_sender_email = var.ses_sender_email == "" ? null : var.ses_sender_email
+  # Dashboard on Amplify Hosting. The token is needed only when the app is first created.
+  enable_hosting      = var.enable_hosting
+  github_access_token = var.github_access_token == "" ? null : var.github_access_token
 }
