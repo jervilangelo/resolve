@@ -76,6 +76,29 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
     return groups;
   }
 
+  /**
+   * Protects for the user's only group without asking, unless they chose "None selected".
+   * Returns the active group afterwards (also when another call selected it meanwhile). A failed
+   * check only skips this; it never hides the group list.
+   */
+  async function autoSelect(sid: string, groups: GroupOption[]): Promise<string | null> {
+    const current = await auth.session();
+    if (current?.sid !== sid) return null;
+    const only = groups.length === 1 ? groups[0] : undefined;
+    if (current.activeGroupId || current.noGroupChosen || !only) {
+      return current.activeGroupId ?? null;
+    }
+    // Strongly consistent membership check, as for a manual choice.
+    const group = await api(`/v1/groups/${only.groupId}`, groupSummarySchema).catch(
+      (caught: unknown) => {
+        if (caught instanceof SignedOutError) throw caught;
+        return null;
+      },
+    );
+    if (group && (await auth.autoSelectGroup(sid, group.groupId))) await syncProtection();
+    return (await auth.session())?.activeGroupId ?? null;
+  }
+
   async function state(notice?: string): Promise<AccountState> {
     await auth.flushRevocations();
     const session = await auth.session();
@@ -102,6 +125,7 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
           active = (await auth.session())?.activeGroupId ?? null;
         }
       }
+      active ??= await autoSelect(session.sid, groups);
       // Optional detail: a failure here must not hide the groups and protection state.
       const view = active
         ? await api(`/v1/groups/${active}/accountability`, accountabilityViewSchema).catch(
@@ -217,6 +241,15 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
 
     /** Re-syncs the active group's rules (alarm, startup, retry). */
     async syncActive(): Promise<void> {
+      // A first group joined on the dashboard is protected without opening the popup.
+      const session = await auth.session();
+      if (session && !session.activeGroupId && !session.noGroupChosen) {
+        try {
+          await autoSelect(session.sid, await allGroups());
+        } catch {
+          // Offline or signed out: the sync below handles both.
+        }
+      }
       await syncProtection();
     },
 
@@ -241,7 +274,7 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
       // slow revocation can never clear rules a later sign-in installed.
       const session = await auth.session();
       if (!session) return state();
-      await auth.setActiveGroup(session.sid, null);
+      await auth.setActiveGroup(session.sid, null, { byUser: false });
       await syncProtection();
       // Scoped to this sign-in: if another sign-in completed meanwhile, it is left untouched.
       await auth.signOut(session.sid);

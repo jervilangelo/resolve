@@ -199,6 +199,71 @@ describe('active group', () => {
     expect(await account.state()).toMatchObject({ activeGroupId: null, groups: [] });
   });
 
+  it('selects the only group automatically, but respects a choice of none', async () => {
+    const fake = fakePlatform();
+    const auth = createAuth(config, fake.platform);
+    const account = createAccount(config, auth, { fetch: fake.platform.fetch });
+    await auth.signIn();
+    expect(await account.state()).toMatchObject({ state: 'signedIn', activeGroupId: GROUP_A });
+
+    expect(await account.setActiveGroup(null)).toMatchObject({ activeGroupId: null });
+    expect(await account.state()).toMatchObject({ activeGroupId: null });
+
+    // With two groups the user picks; nothing is selected for them.
+    const two = fakePlatform();
+    const auth2 = createAuth(config, two.platform);
+    const account2 = createAccount(config, auth2, { fetch: two.platform.fetch });
+    two.setGroups([
+      { groupId: GROUP_A, name: 'A', role: 'ADMIN', createdAt: '2026-11-24T00:00:00.000Z' },
+      { groupId: GROUP_B, name: 'B', role: 'MEMBER', createdAt: '2026-11-24T00:00:00.000Z' },
+    ]);
+    await auth2.signIn();
+    expect(await account2.state()).toMatchObject({ activeGroupId: null });
+  });
+
+  it('auto-selects again after a manual choice, a removal or an interrupted sign-out', async () => {
+    const fake = fakePlatform();
+    const auth = createAuth(config, fake.platform);
+    const account = createAccount(config, auth, { fetch: fake.platform.fetch });
+    const session = await auth.signIn();
+    // None, then a group again: the "none" choice is forgotten.
+    await account.setActiveGroup(null);
+    await account.setActiveGroup(GROUP_A);
+    expect((await auth.session())?.noGroupChosen).toBe(false);
+
+    // Removed from A, still in B only: B is protected automatically.
+    fake.setGroups([
+      { groupId: GROUP_B, name: 'B', role: 'MEMBER', createdAt: '2026-11-24T00:00:00.000Z' },
+    ]);
+    expect(await account.state()).toMatchObject({ activeGroupId: GROUP_B });
+
+    // A sign-out that stopped after clearing the group does not count as choosing none.
+    await auth.setActiveGroup(session.sid, null, { byUser: false });
+    expect(await account.state()).toMatchObject({ activeGroupId: GROUP_B });
+  });
+
+  it('keeps the group list when the auto-select check fails, and selects from background sync', async () => {
+    const fake = fakePlatform();
+    const auth = createAuth(config, fake.platform);
+    let failCheck = true;
+    const fetch: typeof fake.platform.fetch = (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (failCheck && new URL(url).pathname === `/v1/groups/${GROUP_A}`) {
+        return Promise.resolve(new Response('{}', { status: 503 }));
+      }
+      return fake.platform.fetch(input, init);
+    };
+    const account = createAccount(config, auth, { fetch });
+    await auth.signIn();
+    const shown = await account.state();
+    expect(shown).toMatchObject({ groupsLoaded: true, activeGroupId: null });
+    expect(shown).not.toHaveProperty('error');
+
+    failCheck = false;
+    await account.syncActive();
+    expect((await auth.session())?.activeGroupId).toBe(GROUP_A);
+  });
+
   it('forgets the active group on sign-out', async () => {
     const fake = fakePlatform();
     const auth = createAuth(config, fake.platform);

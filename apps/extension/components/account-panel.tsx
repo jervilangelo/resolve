@@ -100,6 +100,7 @@ function SharingLine({ sharing }: { sharing: NonNullable<Sharing> }) {
 export function AccountPanel() {
   const [account, setAccount] = useState<AccountState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
 
   useEffect(() => {
     send({ type: 'account/get' }).then(setAccount, () => {
@@ -122,6 +123,8 @@ export function AccountPanel() {
       }
     } finally {
       setBusy(false);
+      // Any completed action (sign-out, or the session ending another way) closes the question.
+      setConfirmingSignOut(false);
     }
   }
 
@@ -180,7 +183,7 @@ export function AccountPanel() {
             id="active-group"
             className="border-input bg-background w-full rounded-md border px-2 py-1.5 text-sm"
             value={account.activeGroupId ?? ''}
-            disabled={busy}
+            disabled={busy || confirmingSignOut}
             onChange={(e) => {
               const groupId = e.target.value || null;
               void run(() => send({ type: 'group/setActive', groupId }));
@@ -207,24 +210,63 @@ export function AccountPanel() {
       )}
       {account.activeGroupId && account.sharing && <SharingLine sharing={account.sharing} />}
       {error}
-      <div className="flex gap-2">
-        <a
-          href={account.dashboardUrl}
-          target="_blank"
-          rel="noreferrer"
-          className={`${secondaryClass} text-center`}
+      {confirmingSignOut ? (
+        <div
+          role="alertdialog"
+          aria-labelledby="sign-out-question"
+          className="space-y-2 rounded-md border p-3"
         >
-          Dashboard
-        </a>
-        <button
-          type="button"
-          className={secondaryClass}
-          disabled={busy}
-          onClick={() => void run(() => send({ type: 'account/signOut' }))}
-        >
-          Sign out
-        </button>
-      </div>
+          <p id="sign-out-question" className="text-sm font-medium">
+            Are you sure you want to sign out?
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Websites stop being blocked in this browser until you sign in again.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={buttonClass}
+              disabled={busy}
+              onClick={() => {
+                void run(() => send({ type: 'account/signOut' }));
+              }}
+            >
+              {busy ? 'Signing out…' : 'Yes'}
+            </button>
+            <button
+              type="button"
+              className={secondaryClass}
+              disabled={busy}
+              onClick={() => {
+                setConfirmingSignOut(false);
+              }}
+            >
+              No
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <a
+            href={account.dashboardUrl}
+            target="_blank"
+            rel="noreferrer"
+            className={`${secondaryClass} text-center`}
+          >
+            Dashboard
+          </a>
+          <button
+            type="button"
+            className={secondaryClass}
+            disabled={busy}
+            onClick={() => {
+              setConfirmingSignOut(true);
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
     </div>
   );
 }

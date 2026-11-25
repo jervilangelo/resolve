@@ -32,6 +32,8 @@ const sessionSchema = z.object({
   expiresAt: z.number(),
   email: z.string().nullable(),
   activeGroupId: z.string().nullable().optional(),
+  /** The user chose "None selected": a single group is then not picked automatically. */
+  noGroupChosen: z.boolean().optional(),
 });
 export type ExtensionSession = z.infer<typeof sessionSchema>;
 
@@ -245,9 +247,34 @@ export function createAuth(config: ExtensionConfig, platform: AuthPlatform) {
     },
 
     /** Sets the active group only if `sid` is still the current sign-in. */
-    async setActiveGroup(sid: string, groupId: string | null): Promise<boolean> {
-      return (await updateIfSid(sid, (current) => ({ ...current, activeGroupId: groupId })))
-        .applied;
+    /** `byUser: false` (sign-out) clears without recording a choice of "None selected". */
+    async setActiveGroup(
+      sid: string,
+      groupId: string | null,
+      { byUser = true }: { byUser?: boolean } = {},
+    ): Promise<boolean> {
+      return (
+        await updateIfSid(sid, (current) => ({
+          ...current,
+          activeGroupId: groupId,
+          noGroupChosen: byUser && groupId === null,
+        }))
+      ).applied;
+    },
+
+    /**
+     * Selects `groupId` automatically (the user's only group), only if this sign-in has no group
+     * selected and the user has not deliberately chosen none.
+     */
+    async autoSelectGroup(sid: string, groupId: string): Promise<boolean> {
+      let selected = false;
+      await store.update(SESSION_KEY, (raw) => {
+        const current = parseSession(raw);
+        if (current?.sid !== sid || current.activeGroupId || current.noGroupChosen) return raw;
+        selected = true;
+        return { ...current, activeGroupId: groupId };
+      });
+      return selected;
     },
 
     /** Clears the active group only if this sign-in still has exactly `groupId` selected. */
@@ -257,7 +284,7 @@ export function createAuth(config: ExtensionConfig, platform: AuthPlatform) {
         const current = parseSession(raw);
         if (current?.sid !== sid || current.activeGroupId !== groupId) return raw;
         cleared = true;
-        return { ...current, activeGroupId: null };
+        return { ...current, activeGroupId: null, noGroupChosen: false };
       });
       return cleared;
     },
