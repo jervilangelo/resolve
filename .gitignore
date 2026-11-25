@@ -56,3 +56,6 @@ backend.hcl
 .DS_Store
 Thumbs.db
 *.log
+
+# Design skill working files
+.taste-skill/

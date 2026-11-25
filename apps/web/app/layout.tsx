@@ -8,6 +8,7 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { PublicOnly } from '@/components/public-only';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { publicEnv } from '@/lib/env';
@@ -51,11 +52,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           Skip to content
         </a>
-        <SiteHeader />
+        <PublicOnly>
+          <SiteHeader />
+        </PublicOnly>
         <main id="main" className="flex-1">
           {children}
         </main>
-        <SiteFooter />
+        <PublicOnly>
+          <SiteFooter />
+        </PublicOnly>
       </body>
     </html>
   );

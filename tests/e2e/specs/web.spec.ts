@@ -60,6 +60,7 @@ test.describe('accessibility (WCAG 2.1 A/AA, axe)', () => {
       '/terms',
       '/support',
       '/getting-started',
+      '/about',
     ]) {
       test(`${path} in ${scheme} mode has no violations`, async ({ page }) => {
         await page.emulateMedia({ colorScheme: scheme });
@@ -76,6 +77,7 @@ test.describe('accessibility (WCAG 2.1 A/AA, axe)', () => {
 test('public information pages render and are linked from every page', async ({ page }) => {
   await page.goto('/');
   for (const [label, heading] of [
+    ['About', 'About Resolve'],
     ['Getting started', 'Getting started'],
     ['Support', 'Support'],
     ['Privacy', 'Privacy policy'],

@@ -55,6 +55,34 @@ export function ProfileForm({ displayName }: { displayName: string | null }) {
   );
 }
 
+/** The first-run question: a display name, then the dashboard. */
+export function WelcomeForm() {
+  const [state, action, pending] = useActionState(updateProfile, {});
+  return (
+    <form action={action} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="welcome-name">Display name</Label>
+        <Input
+          id="welcome-name"
+          name="displayName"
+          maxLength={60}
+          required
+          autoComplete="name"
+          placeholder="For example, Sam or Sam R."
+          className="h-11 text-base"
+        />
+        <p className="text-muted-foreground text-sm">
+          1–60 characters. No links, web or email addresses.
+        </p>
+      </div>
+      <Status state={state} />
+      <Button type="submit" size="lg" disabled={pending}>
+        {pending ? 'Saving…' : 'Continue to my dashboard'}
+      </Button>
+    </form>
+  );
+}
+
 export function CreateGroupForm({ idempotencyKey }: { idempotencyKey: string }) {
   const [state, action, pending] = useActionState(createGroup, {});
   return (

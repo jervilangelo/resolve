@@ -77,6 +77,8 @@ resource "aws_amplify_branch" "this" {
   environment_variables = {
     NEXT_PUBLIC_SITE_URL      = local.origin
     NEXT_PUBLIC_CONTACT_EMAIL = coalesce(var.contact_email, "")
+    # The setup checklist asks these extensions whether media blurring is on (public IDs).
+    NEXT_PUBLIC_EXTENSION_IDS = join(",", var.extension_ids)
     RESOLVE_API_URL           = var.api_url
     COGNITO_DOMAIN            = var.cognito_domain
     COGNITO_CLIENT_ID         = var.web_client_id

@@ -29,7 +29,10 @@ import {
   type AlertsStatus,
   type FeatureId,
   type Request,
+  type DashboardStatus,
   type ResponseMap,
+  dashboardRequestSchema,
+  isDashboardOrigin,
   isExtensionPage,
   parseRequest,
 } from '@/lib/messages';
@@ -291,6 +294,23 @@ export default defineBackground(() => {
     };
     browser.permissions.onAdded.addListener(onAccessChange);
     browser.permissions.onRemoved.addListener(onAccessChange);
+  }
+
+  // The dashboard's setup checklist asks whether this browser is signed in and blurring media.
+  try {
+    browser.runtime.onMessageExternal.addListener((message: unknown, sender, sendResponse) => {
+      if (!isDashboardOrigin(sender.origin, config?.dashboardUrl)) return;
+      if (!dashboardRequestSchema.safeParse(message).success) return;
+      void (async (): Promise<DashboardStatus> => ({
+        signedIn: Boolean(await auth?.session()),
+        mediaBlur: (await filter.status()).status === 'on',
+      }))().then(sendResponse, () => {
+        sendResponse(undefined);
+      });
+      return true;
+    });
+  } catch {
+    // Not available in this browser: the dashboard shows the item as "not detected".
   }
 
   browser.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {

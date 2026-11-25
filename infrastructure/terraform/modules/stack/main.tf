@@ -27,6 +27,7 @@ module "hosting" {
   web_client_id       = module.identity.web_client_id
   contact_email       = var.alert_email
   custom_domain       = var.custom_domain
+  extension_ids       = var.extension_ids
 }
 
 module "identity" {

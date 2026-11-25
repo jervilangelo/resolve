@@ -9,33 +9,51 @@ import { groupListSchema } from '@resolve/contracts';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { randomBytes } from 'node:crypto';
+import { PageTitle, SettingsRow } from '@/components/settings-row';
 import { api } from '@/lib/api';
 import { CreateGroupForm } from '../forms';
 
 export const metadata: Metadata = { title: 'Groups' };
 
+const dateFormat = { day: 'numeric', month: 'short', year: 'numeric' } as const;
+
 export default async function GroupsPage() {
   const groups = await api('/v1/groups?limit=100', groupListSchema);
+  const admins = groups.items.filter((g) => g.role === 'ADMIN').length;
   return (
-    <div className="space-y-10">
-      <section aria-labelledby="your-groups">
-        <h1 id="your-groups" className="font-display text-2xl">
-          Your groups
-        </h1>
+    <div>
+      <PageTitle
+        title="Groups"
+        line={
+          groups.items.length === 0
+            ? 'You are not in a group yet.'
+            : `${String(groups.items.length)} ${groups.items.length === 1 ? 'group' : 'groups'} · admin of ${String(admins)}`
+        }
+      />
+      <SettingsRow
+        id="your-groups"
+        title="Your groups"
+        description="Each group has its own blocked websites and its own accountability choices. The extension protects for one group at a time."
+      >
         {groups.items.length === 0 ? (
-          <p className="text-muted-foreground mt-4">
-            You are not in any group yet. Create one below, or ask a group admin for an invitation.
+          <p className="bg-card rounded-xl border border-dashed px-4 py-3 text-sm">
+            Create a group below, or open an invitation link from a group admin.
           </p>
         ) : (
-          <ul className="mt-6 divide-y rounded-lg border">
+          <ul className="space-y-2">
             {groups.items.map((group) => (
               <li key={group.groupId}>
                 <Link
                   href={`/dashboard/groups/${group.groupId}`}
-                  className="hover:bg-muted flex items-center justify-between gap-4 px-4 py-3"
+                  className="bg-card hover:border-foreground/30 flex min-h-[63px] items-center justify-between gap-4 rounded-xl border px-4 py-2.5 transition-colors"
                 >
-                  <span className="font-medium">{group.name}</span>
-                  <span className="text-muted-foreground text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{group.name}</span>
+                    <span className="text-muted-foreground block text-xs">
+                      Created {new Date(group.createdAt).toLocaleDateString('en', dateFormat)}
+                    </span>
+                  </span>
+                  <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium">
                     {group.role === 'ADMIN' ? 'Admin' : 'Member'}
                   </span>
                 </Link>
@@ -43,13 +61,14 @@ export default async function GroupsPage() {
             ))}
           </ul>
         )}
-      </section>
-      <section aria-labelledby="create-group" className="space-y-4">
-        <h2 id="create-group" className="font-semibold">
-          Create a group
-        </h2>
+      </SettingsRow>
+      <SettingsRow
+        id="create-group"
+        title="Create a group"
+        description="You become its admin: you choose its blocked websites and invite members with a link."
+      >
         <CreateGroupForm idempotencyKey={randomBytes(18).toString('base64url')} />
-      </section>
+      </SettingsRow>
     </div>
   );
 }

@@ -6,7 +6,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { featureIdSchema, parseRequest, statusSchema } from './messages';
+import {
+  dashboardRequestSchema,
+  featureIdSchema,
+  isDashboardOrigin,
+  parseRequest,
+  statusSchema,
+} from './messages';
 import { buildStatus } from './status';
 
 describe('runtime messages', () => {
@@ -33,5 +39,25 @@ describe('runtime messages', () => {
       'domain-protection',
       'accountability',
     ]);
+  });
+});
+
+describe('dashboard checklist question', () => {
+  it('is answered for the configured dashboard origin only', () => {
+    const dashboard = 'https://getresolved.site/dashboard';
+    expect(isDashboardOrigin('https://getresolved.site', dashboard)).toBe(true);
+    expect(isDashboardOrigin('https://www.getresolved.site', dashboard)).toBe(false);
+    expect(isDashboardOrigin('https://getresolved.site.evil.example', dashboard)).toBe(false);
+    expect(isDashboardOrigin('http://getresolved.site', dashboard)).toBe(false);
+    expect(isDashboardOrigin(undefined, dashboard)).toBe(false);
+    expect(isDashboardOrigin('https://getresolved.site', undefined)).toBe(false);
+  });
+
+  it('accepts only the status question', () => {
+    expect(dashboardRequestSchema.safeParse({ type: 'dashboard/status' }).success).toBe(true);
+    expect(dashboardRequestSchema.safeParse({ type: 'account/get' }).success).toBe(false);
+    expect(dashboardRequestSchema.safeParse({ type: 'dashboard/status', extra: 1 }).success).toBe(
+      false,
+    );
   });
 });

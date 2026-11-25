@@ -10,8 +10,8 @@ Where development stopped and what comes next. Read this first when resuming; up
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
 **Last updated:** 2026-11-25 · **Current:** Phase 10 complete (limited beta live on production);
-owner revisions in progress: custom domain getresolved.site (DNS applied, awaiting delegation),
-then dashboard/extension revisions
+owner revisions: dashboard/extension revisions done; custom domain getresolved.site awaiting
+nameserver delegation; public landing page redesign next
 
 ## Phase status
 
@@ -159,11 +159,15 @@ then dashboard/extension revisions
      applied. Waiting for the owner's Namecheap nameserver change to propagate; then follow
      "Switching to the custom domain" in docs/qa/RUNBOOKS.md (`use_domain` default → true, apply, rebuild, new
      beta build with the new dashboard URL). Alerts then come from "Resolve <no-reply@getresolved.site>".
-   - Dashboard: loading screen + display-name prompt on first entry; Resolve checklist (media
-     blurring, joining a group, accountability sharing; 3/3 = strong); About page from the README;
-     bulk website entry (lines, CSV/XLSX, JSON); full UI refresh (design-taste skill), keeping all
-     functionality.
-   - Extension: sign-out confirmation (Yes/No); auto-select the active group when there is only one.
+   - Done (2026-11-25): dashboard redesign (design-taste skill, "Editorial greeting" app style,
+     slate palette kept): sidebar shell, home with greeting + Resolve checklist (media blurring
+     via the extension's checklist answer, group, sharing; 3/3 = strong), loading screen,
+     display-name welcome step, settings-style groups/group/profile screens, About page from the
+     README, bulk website entry (lines, CSV/TXT/XLSX, JSON; chunked, capped at one hour of
+     submissions). Extension: sign-out confirmation, single-group auto-select, and the
+     externally_connectable checklist answer (dashboard origin only).
+   - Next: redesign the public landing page (the design skill's page run), then rebuild and
+     send the beta extension (needed for the checklist answer and the new sign-out/auto-select).
    - Not possible: the Cognito sign-in placeholder (owner chose to keep Cognito's page).
 1. Owner, before inviting testers: check self sign-up with a real inbox and a manual run in Google
    Chrome stable (docs/release/BETA_RELEASE_RECORD.md); publish the draft GitHub release (beta zip)

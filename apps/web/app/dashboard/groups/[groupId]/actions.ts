@@ -24,6 +24,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect, unstable_rethrow } from 'next/navigation';
 import { z } from 'zod';
 import { ApiRequestError, api } from '@/lib/api';
+import { BULK_CHUNK } from '@/lib/bulk-domains';
 import { serverEnv } from '@/lib/server-env';
 
 export interface ActionState {
@@ -222,6 +223,79 @@ export async function addBlockedDomain(
     }
     return { error: GENERIC_ERROR };
   }
+}
+
+export interface BulkDomainResult {
+  error?: string;
+  /** Admins: newly blocked. Members: submissions received (the list itself stays hidden). */
+  added: number;
+  /** Admins only: already on the list. */
+  existing: number;
+  /** Not accepted as websites (malformed, or an essential service). */
+  rejected: string[];
+  /** Not sent: the hourly limit was reached, or the list is full. */
+  notSent: string[];
+  /** Essential services left reachable under websites that were blocked. */
+  exempted: string[];
+}
+
+const bulkInputSchema = z.object({
+  domains: z.array(z.string().min(1).max(253)).min(1).max(BULK_CHUNK),
+  type: domainTypeSchema.optional(),
+});
+
+/**
+ * Blocks a few websites (one chunk of a bulk entry; the browser sends the chunks) with the same
+ * API call as one, so each submission is charged and checked the same way and members learn
+ * nothing about the list. Stops at the hourly limit and reports what was not sent.
+ */
+export async function addBlockedDomains(
+  groupId: string,
+  input: { domains: string[]; type?: string },
+): Promise<BulkDomainResult> {
+  const result: BulkDomainResult = {
+    added: 0,
+    existing: 0,
+    rejected: [],
+    notSent: [],
+    exempted: [],
+  };
+  const id = parseId(groupIdSchema, groupId);
+  const parsed = bulkInputSchema.safeParse(input);
+  if (!id || !parsed.success) return { ...result, error: INVALID.error };
+  const { domains, type } = parsed.data;
+  for (const [index, domain] of domains.entries()) {
+    try {
+      const response = await api(`/v1/groups/${id}/domains`, z.unknown(), {
+        method: 'POST',
+        body: { domain, ...(type && { type }) },
+      });
+      result.added += 1;
+      const added = addedDomainSchema.safeParse(response);
+      if (added.success) result.exempted.push(...added.data.exempted);
+    } catch (error) {
+      unstable_rethrow(error);
+      if (!(error instanceof ApiRequestError)) {
+        result.notSent.push(...domains.slice(index));
+        result.error = GENERIC_ERROR;
+        break;
+      }
+      if (error.code === 'VALIDATION_FAILED') result.rejected.push(domain);
+      else if (error.code === 'CONFLICT') result.existing += 1;
+      else if (error.code === 'RATE_LIMITED') {
+        result.notSent.push(...domains.slice(index));
+        result.error = 'The hourly limit for adding websites was reached. Try the rest later.';
+        break;
+      } else {
+        result.notSent.push(...domains.slice(index));
+        result.error = error.code === 'FORBIDDEN' ? INVALID.error : GENERIC_ERROR;
+        break;
+      }
+    }
+  }
+  revalidatePath(`/dashboard/groups/${id}`);
+  result.exempted = [...new Set(result.exempted)];
+  return result;
 }
 
 export async function removeBlockedDomain(groupId: string, domain: string): Promise<ActionState> {

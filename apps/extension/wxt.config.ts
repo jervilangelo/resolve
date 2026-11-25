@@ -35,6 +35,20 @@ function loadSettings(mode: string): Record<string, string> {
   return settings;
 }
 
+/**
+ * The dashboard origin that may ask for the checklist status (externally_connectable). HTTPS, or
+ * localhost for development; anything else grants nothing.
+ */
+function dashboardMatches(settings: Record<string, string>): string[] {
+  try {
+    const url = new URL(settings.RESOLVE_DASHBOARD_URL ?? '');
+    const local = url.protocol === 'http:' && url.hostname === 'localhost';
+    return url.protocol === 'https:' || local ? [`${url.protocol}//${url.hostname}/*`] : [];
+  } catch {
+    return [];
+  }
+}
+
 /** Only HTTPS origins of the API and Cognito domain; anything else grants nothing. */
 function hostPermissions(settings: Record<string, string>): string[] {
   return [settings.RESOLVE_API_URL, settings.RESOLVE_COGNITO_DOMAIN].flatMap((value) => {
@@ -73,6 +87,11 @@ export default defineConfig({
       ...(browser === 'firefox' ? [] : ['scripting', 'offscreen']),
     ],
     host_permissions: hostPermissions(loadSettings(mode)),
+    // Only the dashboard may message the extension, and only to ask for the checklist status.
+    ...(browser !== 'firefox' &&
+      dashboardMatches(loadSettings(mode)).length > 0 && {
+        externally_connectable: { matches: dashboardMatches(loadSettings(mode)) },
+      }),
     ...(browser !== 'firefox' && {
       optional_host_permissions: ['<all_urls>'],
       // Requested only when the user turns on alerts for blocked visits (Trigger A).

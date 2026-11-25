@@ -27,6 +27,31 @@ export const requestSchema = z.discriminatedUnion('type', [
 ]);
 export type Request = z.infer<typeof requestSchema>;
 
+/**
+ * The one question the Resolve dashboard may ask (from its own origin only, via
+ * externally_connectable), for its setup checklist. The answer is two yes/no facts about this
+ * browser; nothing about browsing, groups or the account.
+ */
+export const dashboardRequestSchema = z.strictObject({ type: z.literal('dashboard/status') });
+export const dashboardStatusSchema = z.strictObject({
+  signedIn: z.boolean(),
+  mediaBlur: z.boolean(),
+});
+export type DashboardStatus = z.infer<typeof dashboardStatusSchema>;
+
+/** True only for the configured dashboard's exact origin. */
+export function isDashboardOrigin(
+  senderOrigin: string | undefined,
+  dashboardUrl: string | undefined,
+) {
+  if (!senderOrigin || !dashboardUrl) return false;
+  try {
+    return new URL(dashboardUrl).origin === senderOrigin;
+  } catch {
+    return false;
+  }
+}
+
 /** Protection features and whether this build ships them. */
 export const featureIdSchema = z.enum(['ai-filter', 'domain-protection', 'accountability']);
 export type FeatureId = z.infer<typeof featureIdSchema>;

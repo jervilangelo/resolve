@@ -13,9 +13,12 @@ const publicEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.url().default('http://localhost:3000'),
   /** Privacy and support contact shown on public pages (from Terraform, not the repository). */
   NEXT_PUBLIC_CONTACT_EMAIL: z.preprocess((v) => (v === '' ? undefined : v), z.email().optional()),
+  /** Comma-separated Resolve extension IDs the setup checklist may ask (public values). */
+  NEXT_PUBLIC_EXTENSION_IDS: z.string().optional(),
 });
 
 export const publicEnv = parseEnv('web', publicEnvSchema, {
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NEXT_PUBLIC_CONTACT_EMAIL: process.env.NEXT_PUBLIC_CONTACT_EMAIL,
+  NEXT_PUBLIC_EXTENSION_IDS: process.env.NEXT_PUBLIC_EXTENSION_IDS,
 });

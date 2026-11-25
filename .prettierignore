@@ -16,3 +16,4 @@ LICENSE
 docs
 README.md
 *.tf
+.taste-skill/

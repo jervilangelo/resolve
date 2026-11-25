@@ -51,3 +51,9 @@ variable "custom_domain" {
   type        = string
   default     = null
 }
+
+variable "extension_ids" {
+  description = "Chromium extension IDs the dashboard may ask for the setup checklist status."
+  type        = list(string)
+  default     = []
+}
