@@ -83,7 +83,14 @@ export function WelcomeForm() {
   );
 }
 
-export function CreateGroupForm({ idempotencyKey }: { idempotencyKey: string }) {
+export function CreateGroupForm({
+  idempotencyKey,
+  defaultName,
+}: {
+  idempotencyKey: string;
+  /** Prefilled from the landing page's closing sentence; nothing is created until Create. */
+  defaultName?: string;
+}) {
   const [state, action, pending] = useActionState(createGroup, {});
   return (
     <form action={action} className="max-w-lg space-y-3">
@@ -91,7 +98,7 @@ export function CreateGroupForm({ idempotencyKey }: { idempotencyKey: string }) 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1 space-y-2">
           <Label htmlFor="name">New group name</Label>
-          <Input id="name" name="name" maxLength={60} required />
+          <Input id="name" name="name" maxLength={60} required defaultValue={defaultName} />
         </div>
         <Button type="submit" disabled={pending}>
           {pending ? 'Creating…' : 'Create group'}

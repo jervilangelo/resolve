@@ -17,7 +17,17 @@ export const metadata: Metadata = { title: 'Groups' };
 
 const dateFormat = { day: 'numeric', month: 'short', year: 'numeric' } as const;
 
-export default async function GroupsPage() {
+export default async function GroupsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ name?: string | string[] }>;
+}) {
+  const requested = (await searchParams).name;
+  // A name typed on the landing page; trimmed and capped, and only ever a form's default value.
+  const defaultName =
+    typeof requested === 'string'
+      ? Array.from(requested.trim()).slice(0, 60).join('') || undefined
+      : undefined;
   const groups = await api('/v1/groups?limit=100', groupListSchema);
   const admins = groups.items.filter((g) => g.role === 'ADMIN').length;
   return (
@@ -67,7 +77,10 @@ export default async function GroupsPage() {
         title="Create a group"
         description="You become its admin: you choose its blocked websites and invite members with a link."
       >
-        <CreateGroupForm idempotencyKey={randomBytes(18).toString('base64url')} />
+        <CreateGroupForm
+          idempotencyKey={randomBytes(18).toString('base64url')}
+          defaultName={defaultName}
+        />
       </SettingsRow>
     </div>
   );

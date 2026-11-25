@@ -10,8 +10,8 @@ Where development stopped and what comes next. Read this first when resuming; up
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
 **Last updated:** 2026-11-25 · **Current:** Phase 10 complete (limited beta live on production);
-owner revisions: dashboard/extension revisions done; custom domain getresolved.site awaiting
-nameserver delegation; public landing page redesign next
+owner revisions done (dashboard, extension, landing page); custom domain getresolved.site
+waiting on the correct Namecheap nameservers; beta extension rebuild next
 
 ## Phase status
 
@@ -166,8 +166,14 @@ nameserver delegation; public landing page redesign next
      README, bulk website entry (lines, CSV/TXT/XLSX, JSON; chunked, capped at one hour of
      submissions). Extension: sign-out confirmation, single-group auto-select, and the
      externally_connectable checklist answer (dashboard origin only).
-   - Next: redesign the public landing page (the design skill's page run), then rebuild and
-     send the beta extension (needed for the checklist answer and the new sign-out/auto-select).
+   - Done (2026-11-25): public landing page redesign (design-taste page run, direction "The
+     product performs", seed 1145343750, hero redrawn to "Control that reads the page"): a live
+     sharing control with the real alert text, real product screenshots, the extension panel
+     with notes, the Edwards portrait (public domain, credited in the footer), product-rule
+     facts, FAQ, and a "Start a group called ___" sentence that prefills the create-group form.
+   - Next: rebuild and send the beta extension (checklist answer, sign-out confirmation,
+     single-group auto-select); fix the domain delegation (Namecheap points at an empty zone in
+     the main account, not the production zone; see "Open decisions").
    - Not possible: the Cognito sign-in placeholder (owner chose to keep Cognito's page).
 1. Owner, before inviting testers: check self sign-up with a real inbox and a manual run in Google
    Chrome stable (docs/release/BETA_RELEASE_RECORD.md); publish the draft GitHub release (beta zip)
@@ -218,6 +224,13 @@ nameserver delegation; public landing page redesign next
   recoloured; artwork shapes unchanged. See BRAND_GUIDELINES.md.
 
 ## Open decisions for the owner
+
+- **Domain nameservers (2026-11-25):** Namecheap currently lists ns-430.awsdns-53.com,
+  ns-1962.awsdns-53.co.uk, ns-1485.awsdns-57.org, ns-600.awsdns-11.net. Those belong to an empty
+  "Resolve production DNS" zone in the main (shared) AWS account, created outside Terraform. The
+  production zone (Terraform, account 514009713156) uses ns-1409.awsdns-48.org,
+  ns-1748.awsdns-26.co.uk, ns-53.awsdns-06.com, ns-841.awsdns-41.net. Set those at Namecheap; the
+  empty zone can then be deleted (with the owner's OK).
 
 - Phase order: roadmap (Phase 4 next) vs. handbook (on-device AI blur next). Currently following the
   roadmap.

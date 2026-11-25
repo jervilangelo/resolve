@@ -29,7 +29,8 @@ test('no horizontal overflow', async ({ page }) => {
 
 test('dark theme swaps to the dark logo artwork', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
-  await page.goto('/');
+  // The landing page has its own dark hero; the shared site header is on the other pages.
+  await page.goto('/privacy');
   await expect(page.locator('header img[src*="-dark.svg"]')).toBeVisible();
   await expect(page.locator('header img[src*="-light.svg"]')).toBeHidden();
 });
@@ -63,7 +64,8 @@ test.describe('accessibility (WCAG 2.1 A/AA, axe)', () => {
       '/about',
     ]) {
       test(`${path} in ${scheme} mode has no violations`, async ({ page }) => {
-        await page.emulateMedia({ colorScheme: scheme });
+        // Reduced motion: contrast is measured on the settled page, not mid-animation.
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
         await page.goto(path);
         const results = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
