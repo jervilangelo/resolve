@@ -169,18 +169,19 @@ function listenForBlockedVisits(): void {
   if (!browser.tabs.onRemoved.hasListener(onTabRemoved)) {
     browser.tabs.onRemoved.addListener(onTabRemoved);
   }
+  // Chromium does not support event filters on tabs.onUpdated (only Firefox does); passing one
+  // throws, which at start-up would stop the whole worker. Plain listener; it returns at once.
   if (!browser.tabs.onUpdated.hasListener(onTabUpdated)) {
-    // Filtered to discards only, so ordinary page loads do not wake the worker.
-    (
-      browser.tabs.onUpdated.addListener as (
-        callback: typeof onTabUpdated,
-        filter: { properties: string[] },
-      ) => void
-    )(onTabUpdated, { properties: ['discarded'] });
+    browser.tabs.onUpdated.addListener(onTabUpdated);
   }
 }
 // Registered synchronously at startup when already granted, so blocked visits wake the worker.
-listenForBlockedVisits();
+// Never allowed to fail the worker: every other feature (sign-in, rules, media) must keep working.
+try {
+  listenForBlockedVisits();
+} catch {
+  // Alerts stay inactive; the status reflects that.
+}
 // Restored tabs reload on their own after the browser starts; those are never reported.
 browser.runtime.onStartup.addListener(() => {
   reporter?.onBrowserStartup();
@@ -269,7 +270,12 @@ export default defineBackground(() => {
 
   // Blocked-visit alerts start as soon as the user grants the optional permission.
   browser.permissions.onAdded.addListener((change) => {
-    if (change.permissions?.includes('webNavigation')) listenForBlockedVisits();
+    if (!change.permissions?.includes('webNavigation')) return;
+    try {
+      listenForBlockedVisits();
+    } catch {
+      // Alerts stay inactive; the status reflects that.
+    }
   });
 
   // The filter's content script registration persists across sessions; keep it in step with the

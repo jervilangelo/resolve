@@ -21,7 +21,10 @@ export default defineConfig({
     { name: 'web', testMatch: 'web.spec.ts', use: { ...devices['Desktop Chrome'] } },
     { name: 'web-mobile', testMatch: 'web.spec.ts', use: { ...devices['Pixel 7'] } },
     // Extension pages need a persistent Chromium context; see fixtures/extension.ts.
-    { name: 'extension', testMatch: ['extension.spec.ts', 'media-filter.spec.ts'] },
+    {
+      name: 'extension',
+      testMatch: ['extension.spec.ts', 'extension-alerts.spec.ts', 'media-filter.spec.ts'],
+    },
   ],
   webServer: {
     command: `pnpm --filter @resolve/web exec next start --port ${String(PORT)}`,
