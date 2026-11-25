@@ -14,7 +14,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build:dev": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt build --mode development"
+    "build:dev": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt build --mode development",
+    "build:beta": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt build --mode beta",
+    "zip:beta": "node ../../scripts/sync-brand-assets.mjs extension && node ../../scripts/extract-nsfw-model.mjs && wxt zip --mode beta"
   },
   "dependencies": {
     "@resolve/contracts": "workspace:*",

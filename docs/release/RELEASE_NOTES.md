@@ -6,7 +6,7 @@ Proprietary source code. See LICENSE.
 
 # Release notes
 
-## 0.1.0 — beta (unreleased)
+## 0.1.0 — limited beta (2026-11-25)
 
 The first beta of Resolve: the dashboard and the browser extension for Chrome, Edge and Brave.
 
@@ -34,6 +34,9 @@ The first beta of Resolve: the dashboard and the browser extension for Chrome, E
   everyone); recipients decide whether to receive them. Admins cannot change either.
 - Two alerts only: a deliberate visit to a non-negotiable website (never naming the website), and a
   member leaving or being removed. Emails are generic and say an alert is not proof of intent.
+
+**Install:** the beta is installed from a zip (Load unpacked); see BETA_TESTERS.md. Store listings
+follow.
 
 **Known limitations**
 

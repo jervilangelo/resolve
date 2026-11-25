@@ -22,7 +22,9 @@ const icons = {
  * manifest's host permissions and the runtime (via `define`), so they can never diverge.
  */
 function loadSettings(mode: string): Record<string, string> {
-  const files = ['.env', '.env.local', `.env.${mode}`, `.env.${mode}.local`];
+  // The beta build talks to production, like store builds.
+  const stage = mode === 'beta' ? 'production' : mode;
+  const files = ['.env', '.env.local', `.env.${stage}`, `.env.${stage}.local`];
   const settings: Record<string, string> = {};
   for (const file of files.filter((f) => existsSync(f))) {
     for (const line of readFileSync(file, 'utf8').split('\n')) {
@@ -76,9 +78,11 @@ export default defineConfig({
       // Requested only when the user turns on alerts for blocked visits (Trigger A).
       optional_permissions: ['webNavigation'],
     }),
-    // Development builds use a fixed public key so the unpacked extension ID (and therefore its
-    // registered Cognito callback) is stable. Store builds get their ID from the store.
+    // Development and beta builds carry a fixed public key so their unpacked extension IDs (and
+    // therefore their registered Cognito callbacks) are stable. Store builds get their ID from
+    // the store and carry no key.
     ...(mode === 'development' && { key: readFileSync('dev-key.pub.txt', 'utf8').trim() }),
+    ...(mode === 'beta' && { key: readFileSync('beta-key.pub.txt', 'utf8').trim() }),
     // Firefox: sign-in stores account credentials and the account email locally; no browsing data
     // is collected. The built-in consent prompt requires Firefox 140+. (Firefox sign-in is
     // disabled until a Gecko ID and its callback are registered; see lib/config.ts.)

@@ -9,8 +9,8 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-25 · **Current:** Phase 10: production live (dashboard + API); waiting on
-SES production access (AWS review), the prod GitHub settings and store accounts
+**Last updated:** 2026-11-25 · **Current:** Phase 10 complete (limited beta live on production);
+store submission and Phase 11 (Focus Mode) next
 
 ## Phase status
 
@@ -25,8 +25,8 @@ SES production access (AWS review), the prod GitHub settings and store accounts
 | 7 — Voluntary accountability          | Done        | Sharing modes, recipient consent, server-side resolver; dashboard UI         |
 | 8 — Two notification triggers         | Done        | Blocked-visit + departure alerts: outbox → SQS → worker → SES, consent-checked |
 | 9 — QA, security, privacy             | Done        | Reports in docs/qa; 2 live checks pending an AWS session (see Next steps)    |
-| **10 — Beta and release**             | **In progress** | Pages, deletion, hosting module, store pack done; prod deploy pending owner |
-| 11                                    | Not started | Focus Mode                                                                   |
+| 10 — Beta and release                 | Done        | Production live; limited beta (unpacked build); acceptance passed on prod    |
+| **11 — Focus Mode**                   | **Next**    | Post-launch v1.1 (see roadmap)                                               |
 
 ## What exists and works (verified)
 
@@ -116,6 +116,14 @@ SES production access (AWS review), the prod GitHub settings and store accounts
   issues; 15 medium/low findings were fixed, notably stricter Trigger A qualification (no alerts
   for page-initiated redirects, pop-ups, restored/discarded tabs or reloads) and no retroactive or
   duplicate emails.
+- **Limited beta (Phase 10 complete, 2026-11-25):** SES production access granted. Beta extension
+  build (`pnpm --filter @resolve/extension build:beta` / `zip:beta`, fixed key
+  `apps/extension/beta-key.pub.txt`, ID `jlgcfgmonpplhjanafoghpebgjnplbkc`, registered in prod)
+  talks to production (`SITE_URL=<dashboard> pnpm extension:env prod` writes
+  `.env.production.local`). Acceptance passed on production: group setup, consent, extension
+  sign-in and protection, Trigger A and Trigger B emails, self-service deletion of all accounts.
+  Record: docs/release/BETA_RELEASE_RECORD.md; testers: docs/release/BETA_TESTERS.md; store
+  screenshots: docs/release/screenshots.
 - **Production (Phase 10, 2026-11-25):** dedicated AWS account `514009713156` (in the owner's
   organization; CLI profile `resolve-prod`; Terraform via exported credentials:
   `eval "$(aws configure export-credentials --profile resolve-prod --format env)"`). Dashboard:
@@ -144,18 +152,14 @@ SES production access (AWS review), the prod GitHub settings and store accounts
 
 ## Next steps
 
-1. Done 2026-11-25: prod GitHub environment configured; first "Deploy prod" run succeeded with
-   owner approval (updated the three Lambda bundles; health check passed).
-2. SES production access: wait for AWS's review (check `aws sesv2 get-account --profile
-   resolve-prod`); answer any follow-up questions from AWS.
-3. Store: owner creates Chrome Web Store and Edge Partner Center developer accounts; create draft
-   items to get their extension IDs; add them to prod `extension_ids` (creates the extension's
-   Cognito client); build the extension against prod (`pnpm extension:env prod`, build, zip);
-   upload as unlisted/testers with docs/release/STORE_LISTING.md; screenshots.
-4. Beta acceptance on production: a new user registers, joins a group, enables protection,
-   configures consent and triggers both alerts (after SES production access).
-5. docs/qa/RELEASE_CHECKLIST.md before inviting testers.
-6. Later: custom domain (Amplify domain + SES domain identity with SPF/DKIM/DMARC); Firefox.
+1. Owner, before inviting testers: check self sign-up with a real inbox and a manual run in Google
+   Chrome stable (docs/release/BETA_RELEASE_RECORD.md); publish the draft GitHub release (beta zip)
+   and send testers docs/release/BETA_TESTERS.md.
+2. Store release: owner creates Chrome Web Store and Edge Partner Center accounts; create the items
+   to get their IDs, set `store_extension_ids` in prod tfvars, apply, build and zip the store
+   version (`pnpm --filter @resolve/extension zip`), submit with docs/release/STORE_LISTING.md.
+3. Phase 11 — Focus Mode & Intentional Exit (roadmap; DNR rule IDs from 100000 are reserved).
+4. Later: custom domain (Amplify + SES domain with SPF/DKIM/DMARC); Firefox; docs/qa/BACKLOG.md.
 
 ## Decisions log
 

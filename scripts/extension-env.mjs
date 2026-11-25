@@ -5,8 +5,9 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-// Writes apps/extension/.env.local (git-ignored) from a deployed stage's Terraform outputs, e.g.
-// `pnpm extension:env dev`. Builds without it still work; sign-in is then reported unavailable.
+// Writes the extension's git-ignored settings from a deployed stage's Terraform outputs:
+// `pnpm extension:env dev` (.env.local) or `SITE_URL=<dashboard> pnpm extension:env prod`
+// (.env.production.local, used by store and beta builds). Builds without it still work; sign-in is then reported unavailable.
 
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -40,6 +41,12 @@ const lines = [
   `RESOLVE_COGNITO_CLIENT_ID=${outputs.extension_client_id.value}`,
   `RESOLVE_DASHBOARD_URL=${dashboardUrl}`,
 ];
-const target = path.join(root, 'apps/extension/.env.local');
+// Dev settings apply to development builds; any other stage's to production (store and beta)
+// builds, so both can live side by side.
+const target = path.join(
+  root,
+  'apps/extension',
+  stage === 'dev' ? '.env.local' : '.env.production.local',
+);
 writeFileSync(target, `${lines.join('\n')}\n`, { mode: 0o600 });
 console.error(`Wrote ${path.relative(root, target)} for stage ${stage}.`);

@@ -39,3 +39,7 @@ output "dashboard_url" {
 output "github_deploy_role_arn" {
   value = module.github_deploy.role_arn
 }
+
+output "extension_client_id" {
+  value = module.resolve.extension_client_id
+}

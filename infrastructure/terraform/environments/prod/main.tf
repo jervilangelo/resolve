@@ -27,7 +27,12 @@ module "resolve" {
   alert_email      = var.alert_email == "" ? null : var.alert_email
   ses_sender_email = var.ses_sender_email == "" ? null : var.ses_sender_email
   # Dashboard on Amplify Hosting. The token is needed only when the app is first created.
-  enable_hosting      = var.enable_hosting
+  enable_hosting = var.enable_hosting
+  # The beta build (fixed key, apps/extension/beta-key.pub.txt) plus store-assigned IDs.
+  extension_ids = concat(
+    [trimspace(file("${path.root}/../../../../apps/extension/beta-extension-id.txt"))],
+    var.store_extension_ids,
+  )
   github_access_token = var.github_access_token == "" ? null : var.github_access_token
 }
 

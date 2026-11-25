@@ -54,3 +54,9 @@ variable "github_access_token" {
   default     = ""
   sensitive   = true
 }
+
+variable "store_extension_ids" {
+  description = "Extension IDs assigned by the Chrome Web Store and Edge Add-ons (sign-in callbacks)."
+  type        = list(string)
+  default     = []
+}
