@@ -21,21 +21,51 @@ data "aws_iam_openid_connect_provider" "github" {
   depends_on = [aws_iam_openid_connect_provider.github]
 }
 
-# The most any role created for this stack may ever do (the roles' own policies narrow it further).
+# The most any role created for this stack may ever do (the roles' own policies narrow it further):
+# only this stage's tables, queues and log groups, sending email, and two user-pool actions.
+locals {
+  account = data.aws_caller_identity.current.account_id
+  prefix  = "resolve-${var.stage}"
+}
+
 data "aws_iam_policy_document" "boundary" {
   statement {
-    sid = "StackFunctions"
+    sid       = "OwnLogs"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["arn:aws:logs:*:${local.account}:log-group:/aws/lambda/${local.prefix}-*"]
+  }
+  statement {
+    sid = "OwnTable"
     actions = [
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-      "dynamodb:*",
-      "sqs:*",
-      "ses:SendEmail",
-      "ses:SendRawEmail",
-      "cognito-idp:ListUsers",
-      "cognito-idp:AdminDeleteUser",
+      "dynamodb:GetItem",
+      "dynamodb:BatchGetItem",
+      "dynamodb:Query",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:BatchWriteItem",
+      "dynamodb:ConditionCheckItem",
+      "dynamodb:DescribeStream",
+      "dynamodb:GetRecords",
+      "dynamodb:GetShardIterator",
+      "dynamodb:ListStreams",
     ]
-    resources = ["*"]
+    resources = ["arn:aws:dynamodb:*:${local.account}:table/${local.prefix}-*"]
+  }
+  statement {
+    sid       = "OwnQueues"
+    actions   = ["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"]
+    resources = ["arn:aws:sqs:*:${local.account}:${local.prefix}-*"]
+  }
+  statement {
+    sid       = "SendEmail"
+    actions   = ["ses:SendEmail", "ses:SendRawEmail"]
+    resources = ["arn:aws:ses:*:${local.account}:identity/*", "arn:aws:ses:*:${local.account}:configuration-set/*"]
+  }
+  statement {
+    sid       = "OwnUserPool"
+    actions   = ["cognito-idp:ListUsers", "cognito-idp:AdminDeleteUser"]
+    resources = ["arn:aws:cognito-idp:*:${local.account}:userpool/*"]
   }
 }
 
