@@ -115,12 +115,14 @@ const reporter =
 /** Alerts status for the popup and settings: "on" only when a report could actually be sent. */
 async function alertsStatus(): Promise<AlertsStatus> {
   const api = (browser as Partial<typeof browser>).webNavigation;
-  if (!browser.runtime.getManifest().optional_permissions?.includes('webNavigation') || !reporter) {
+  if (!browser.runtime.getManifest().optional_permissions?.includes('webNavigation')) {
     return { state: 'unsupported' };
   }
   if (!api || !(await browser.permissions.contains({ permissions: ['webNavigation'] }))) {
     return { state: 'off' };
   }
+  // A build without account settings cannot sign in, so it can never report.
+  if (!reporter) return { state: 'inactive', reason: 'signedOut' };
   const session = await auth.session();
   if (!session) return { state: 'inactive', reason: 'signedOut' };
   if (!session.activeGroupId) return { state: 'inactive', reason: 'noGroup' };
