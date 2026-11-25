@@ -53,7 +53,14 @@ test('security headers are set', async ({ request }) => {
 
 test.describe('accessibility (WCAG 2.1 A/AA, axe)', () => {
   for (const scheme of ['light', 'dark'] as const) {
-    for (const path of ['/', '/does-not-exist']) {
+    for (const path of [
+      '/',
+      '/does-not-exist',
+      '/privacy',
+      '/terms',
+      '/support',
+      '/getting-started',
+    ]) {
       test(`${path} in ${scheme} mode has no violations`, async ({ page }) => {
         await page.emulateMedia({ colorScheme: scheme });
         await page.goto(path);
@@ -64,4 +71,20 @@ test.describe('accessibility (WCAG 2.1 A/AA, axe)', () => {
       });
     }
   }
+});
+
+test('public information pages render and are linked from every page', async ({ page }) => {
+  await page.goto('/');
+  for (const [label, heading] of [
+    ['Getting started', 'Getting started'],
+    ['Support', 'Support'],
+    ['Privacy', 'Privacy policy'],
+    ['Terms', 'Terms of use'],
+  ] as const) {
+    await page.getByRole('navigation', { name: 'Site' }).getByRole('link', { name: label }).click();
+    await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+  }
+  // The privacy policy states the core guarantee plainly.
+  await page.goto('/privacy');
+  await expect(page.getByText('never uploaded to Resolve or anyone else')).toBeVisible();
 });

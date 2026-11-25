@@ -1362,6 +1362,28 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
       }
     },
 
+    async deleteUserData(userId) {
+      const keysToDelete: Record<string, unknown>[] = [];
+      let start: Record<string, unknown> | undefined;
+      do {
+        const page = await db.send(
+          new QueryCommand({
+            TableName: tableName,
+            KeyConditionExpression: 'PK = :pk',
+            ExpressionAttributeValues: { ':pk': keys.user(userId) },
+            ProjectionExpression: 'PK, SK',
+            ConsistentRead: true,
+            ExclusiveStartKey: start,
+          }),
+        );
+        keysToDelete.push(
+          ...(page.Items ?? []).map((item) => ({ PK: item.PK as unknown, SK: item.SK as unknown })),
+        );
+        start = page.LastEvaluatedKey;
+      } while (start);
+      await batchDelete(keysToDelete);
+    },
+
     async getAccountability(groupId) {
       const [sharingItems, consentItems] = await Promise.all([
         queryPrefix(groupId, 'SHARE#'),

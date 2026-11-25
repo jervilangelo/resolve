@@ -213,6 +213,11 @@ export interface Store {
   /** The group's current ruleVersion and blocklists, read consistently. */
   ruleState(groupId: string): Promise<RuleState | null>;
 
+  /**
+   * Deletes everything kept under the user's own partition (profile, rate counters, event markers,
+   * idempotency records). Memberships are removed beforehand through removeMember.
+   */
+  deleteUserData(userId: string): Promise<void>;
   /** Every member's sharing choice and consent in the group (absent = PRIVATE / none). */
   getAccountability(groupId: string): Promise<{
     sharing: Map<string, StoredSharing>;

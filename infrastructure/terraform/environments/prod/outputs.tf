@@ -26,3 +26,8 @@ output "table_name" {
 output "hosted_domain" {
   value = module.resolve.hosted_domain
 }
+
+output "contact_email" {
+  description = "Public privacy and support contact shown on the dashboard's legal pages."
+  value       = var.alert_email
+}

@@ -34,3 +34,8 @@ output "hosted_domain" {
 output "extension_client_id" {
   value = module.resolve.extension_client_id
 }
+
+output "contact_email" {
+  description = "Public privacy and support contact shown on the dashboard's legal pages."
+  value       = var.alert_email
+}

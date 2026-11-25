@@ -15,8 +15,12 @@ import {
   updateProfileRequestSchema,
 } from '@resolve/contracts';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { redirect, unstable_rethrow } from 'next/navigation';
+import { z } from 'zod';
 import { ApiRequestError, api } from '@/lib/api';
+import { authConfig } from '@/lib/auth';
+import { clearCookies } from '@/lib/session';
 
 export interface FormState {
   error?: string;
@@ -32,7 +36,11 @@ function errorMessage(error: unknown, invalid: string): string {
 
 export async function updateProfile(_state: FormState, formData: FormData): Promise<FormState> {
   const input = updateProfileRequestSchema.safeParse({ displayName: formData.get('displayName') });
-  if (!input.success) return { error: 'Enter a name of 1–60 characters without < or >.' };
+  if (!input.success) {
+    return {
+      error: 'Enter a name of 1–60 characters, without < or >, links, web or email addresses.',
+    };
+  }
   try {
     await api('/v1/me', profileSchema, { method: 'PATCH', body: input.data });
   } catch (error) {
@@ -62,4 +70,29 @@ export async function createGroup(_state: FormState, formData: FormData): Promis
   }
   revalidatePath('/dashboard/groups');
   redirect(`/dashboard/groups/${groupId}`);
+}
+
+/**
+ * Deletes the account: leaves every group (departure alerts follow the user's own sharing),
+ * dissolves groups only they belong to, deletes their data and sign-in, then signs out here.
+ */
+export async function deleteAccount(_state: FormState, formData: FormData): Promise<FormState> {
+  if (formData.get('confirm') !== 'DELETE') return { error: 'Type DELETE to confirm.' };
+  try {
+    await api('/v1/me', z.unknown(), { method: 'DELETE' });
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiRequestError && error.code === 'CONFLICT') {
+      return {
+        error:
+          'You are the only admin of a group that has other members. Make someone else an admin ' +
+          'or dissolve the group first, then try again.',
+      };
+    }
+    return { error: GENERIC_ERROR };
+  }
+  const { secure, names } = authConfig();
+  clearCookies(await cookies(), secure, names.session, names.refresh);
+  // Also ends the Cognito session in the browser.
+  redirect('/auth/signed-out');
 }

@@ -5,6 +5,11 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
+import {
+  AdminDeleteUserCommand,
+  CognitoIdentityProviderClient,
+  UserNotFoundException,
+} from '@aws-sdk/client-cognito-identity-provider';
 import { getEnv } from '../env';
 import { type Route, createHandler } from '../http';
 import { createRouter, createRoutes } from '../routes';
@@ -16,7 +21,24 @@ let router: Route | undefined;
 export const handler = createHandler('api', (event, context) => {
   if (!router) {
     const env = getEnv();
-    router = createRouter(createRoutes({ env, store: createDynamoStore(env.TABLE_NAME) }));
+    const pool = env.USER_POOL_ID;
+    const cognito = new CognitoIdentityProviderClient({});
+    router = createRouter(
+      createRoutes({
+        env,
+        store: createDynamoStore(env.TABLE_NAME),
+        // With email sign-in, the Cognito username is the user's sub.
+        deleteIdentity: pool
+          ? async (userId) => {
+              await cognito
+                .send(new AdminDeleteUserCommand({ UserPoolId: pool, Username: userId }))
+                .catch((error: unknown) => {
+                  if (!(error instanceof UserNotFoundException)) throw error;
+                });
+            }
+          : undefined,
+      }),
+    );
   }
   return router(event, context);
 });

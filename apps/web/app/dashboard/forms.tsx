@@ -11,7 +11,7 @@ import { useActionState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { type FormState, createGroup, updateProfile } from './actions';
+import { type FormState, createGroup, deleteAccount, updateProfile } from './actions';
 
 function Status({ state, savedText }: { state: FormState; savedText?: string }) {
   if (state.error) {
@@ -70,6 +70,22 @@ export function CreateGroupForm({ idempotencyKey }: { idempotencyKey: string }) 
         </Button>
       </div>
       <Status state={state} />
+    </form>
+  );
+}
+
+export function DeleteAccountForm() {
+  const [state, action, pending] = useActionState(deleteAccount, {});
+  return (
+    <form action={action} className="max-w-lg space-y-3">
+      <div className="space-y-2">
+        <Label htmlFor="confirm-delete">Type DELETE to confirm</Label>
+        <Input id="confirm-delete" name="confirm" autoComplete="off" required />
+      </div>
+      <Status state={state} />
+      <Button type="submit" variant="destructive" disabled={pending}>
+        {pending ? 'Deleting…' : 'Delete my account'}
+      </Button>
     </form>
   );
 }

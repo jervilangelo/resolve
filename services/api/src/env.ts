@@ -26,6 +26,8 @@ export const apiEnvSchema = z.object({
         .map((id) => id.trim())
         .filter(Boolean),
     ),
+  /** Cognito user pool, for self-service account deletion. */
+  USER_POOL_ID: z.string().min(1).optional(),
   /** App clients allowed to fetch enforcement rules (the extension; the test client in dev). */
   RULES_CLIENT_IDS: z
     .string()

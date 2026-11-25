@@ -38,6 +38,8 @@ module "api" {
   table_name         = module.data.table_name
   table_arn          = module.data.table_arn
   issuer             = module.identity.issuer
+  user_pool_id       = module.identity.user_pool_id
+  user_pool_arn      = module.identity.user_pool_arn
   client_ids         = module.identity.api_client_ids
   rules_client_ids   = module.identity.rules_client_ids
   cors_allow_origins = var.web_origins

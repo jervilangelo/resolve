@@ -54,3 +54,13 @@ variable "throttle_rate" {
 variable "log_retention_days" {
   type = number
 }
+
+variable "user_pool_id" {
+  description = "Cognito user pool (self-service account deletion)."
+  type        = string
+}
+
+variable "user_pool_arn" {
+  description = "Cognito user pool ARN (self-service account deletion)."
+  type        = string
+}

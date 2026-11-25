@@ -73,6 +73,8 @@ import {
 export interface RouteDeps {
   env: ApiEnv;
   store: Store;
+  /** Deletes the sign-in account itself (Cognito); absent where accounts cannot be deleted. */
+  deleteIdentity?: (userId: string) => Promise<void>;
   now?: () => Date;
   newGroupId?: () => string;
 }
@@ -262,6 +264,45 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
       await store.putProfile(userId, { displayName: input.displayName });
       const body: Profile = { userId, displayName: input.displayName };
       return { status: 200, body };
+    },
+
+    // Self-service account deletion (privacy policy; MASTER_PLAN §13). Leaves every group through
+    // the normal departure path (so departure alerts follow the member's own sharing), dissolves
+    // groups where they are the only member, then deletes their data and their sign-in.
+    'DELETE /v1/me': async (event) => {
+      const { userId } = identity(event);
+      if (!deps.deleteIdentity) throw new ApiError('INTERNAL');
+      const memberships: StoredMembership[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await store.listMemberships(userId, 100, cursor);
+        memberships.push(...page.items);
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor);
+
+      // Never leave a group without an admin: the only admin of a group with other members must
+      // hand over or dissolve it first.
+      const plan: { membership: StoredMembership; alone: boolean }[] = [];
+      for (const membership of memberships) {
+        const members = await allMembers(membership.groupId);
+        const others = members.filter((m) => m.userId !== userId);
+        const otherAdmins = others.filter((m) => m.role === 'ADMIN');
+        if (membership.role === 'ADMIN' && others.length > 0 && otherAdmins.length === 0) {
+          throw new ApiError('CONFLICT');
+        }
+        plan.push({ membership, alone: others.length === 0 });
+      }
+      for (const { membership, alone } of plan) {
+        if (alone && membership.role === 'ADMIN') {
+          await store.dissolveGroup(membership.groupId, userId);
+          continue;
+        }
+        const result = await depart(membership.groupId, membership.groupName, userId, userId);
+        if (result === 'last_admin') throw new ApiError('CONFLICT');
+      }
+      await store.deleteUserData(userId);
+      await deps.deleteIdentity(userId);
+      return { status: 204, body: undefined };
     },
 
     'POST /v1/groups': async (event) => {

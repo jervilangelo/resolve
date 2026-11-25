@@ -8,6 +8,7 @@ locals {
   routes = {
     "GET /v1/health"                                              = false
     "GET /v1/me"                                                  = true
+    "DELETE /v1/me"                                               = true
     "PATCH /v1/me"                                                = true
     "POST /v1/groups"                                             = true
     "GET /v1/groups"                                              = true
@@ -113,6 +114,22 @@ data "aws_iam_policy_document" "table_access" {
     }
   }
   statement {
+    # Self-service account deletion: the user's own partition, then their sign-in.
+    sid       = "DeleteOwnUserData"
+    actions   = ["dynamodb:Query", "dynamodb:BatchWriteItem"]
+    resources = [var.table_arn]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["USER#*"]
+    }
+  }
+  statement {
+    sid       = "DeleteOwnAccount"
+    actions   = ["cognito-idp:AdminDeleteUser"]
+    resources = [var.user_pool_arn]
+  }
+  statement {
     sid       = "CountUserSubmissions"
     actions   = ["dynamodb:UpdateItem"]
     resources = [var.table_arn]
@@ -136,6 +153,7 @@ module "function" {
     TABLE_NAME         = var.table_name
     ALLOWED_CLIENT_IDS = join(",", var.client_ids)
     RULES_CLIENT_IDS   = join(",", var.rules_client_ids)
+    USER_POOL_ID       = var.user_pool_id
   }
 }
 

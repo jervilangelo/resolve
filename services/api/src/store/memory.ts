@@ -378,6 +378,13 @@ export function createMemoryStore(): Store & { outboxItems(): OutboxItem[] } {
       outbox.set(item.outboxId, item);
       return Promise.resolve('recorded' as const);
     },
+    deleteUserData: (userId) => {
+      profiles.delete(userId);
+      for (const key of [...rateCounters.keys()])
+        if (key.startsWith(`${userId}#`)) rateCounters.delete(key);
+      for (const key of [...seenEvents]) if (key.startsWith(`${userId}#`)) seenEvents.delete(key);
+      return Promise.resolve();
+    },
     getAccountability: (groupId) =>
       Promise.resolve({ sharing: inGroup(sharing, groupId), consents: inGroup(consents, groupId) }),
     setSharing: (groupId, userId, mode, recipientIds, at) => {
