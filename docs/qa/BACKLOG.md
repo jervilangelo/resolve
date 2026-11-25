@@ -15,8 +15,8 @@ findings are open. "Before beta" items block the Phase 10 release checklist.
 | --- | --- | --- |
 | 1 | SES production access, verified sender **domain** (SPF, DKIM, DMARC), bounce and complaint handling | Sandbox delivers only to verified addresses; reputation and deliverability |
 | 2 | Production stack (separate account recommended) and deploy-role permissions boundary | The dev deploy role can create roles within its prefix without a boundary |
-| 3 | Public privacy policy and terms pages (MASTER_PLAN §8.3) based on DATA_INVENTORY.md | Store listings and users need them |
-| 4 | Self-service account deletion | Today a manual runbook |
+| 3 | ~~Public privacy policy and terms pages~~ | Done (Phase 10) |
+| 4 | ~~Self-service account deletion~~ | Done (Phase 10) |
 | 5 | Manual check in Google Chrome (stable) of install, sign-in, blocking, media filter, alerts | Not automated here |
 | 6 | Signed-in dashboard accessibility audit and Trigger A real-browser re-run (stricter rules) | Pending an AWS CLI session; scripts ready |
 | 7 | Media filter false-negative measurement on a labelled dataset | Accuracy claims need it |

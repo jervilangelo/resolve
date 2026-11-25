@@ -9,8 +9,8 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-24 · **Current:** Phase 9 complete except two checks that need an AWS
-session; Phase 10 (beta and release) next
+**Last updated:** 2026-11-25 · **Current:** Phase 10 in progress: code and documents done; production
+deployment waits on the owner (AWS login, GitHub token, store accounts)
 
 ## Phase status
 
@@ -25,7 +25,7 @@ session; Phase 10 (beta and release) next
 | 7 — Voluntary accountability          | Done        | Sharing modes, recipient consent, server-side resolver; dashboard UI         |
 | 8 — Two notification triggers         | Done        | Blocked-visit + departure alerts: outbox → SQS → worker → SES, consent-checked |
 | 9 — QA, security, privacy             | Done        | Reports in docs/qa; 2 live checks pending an AWS session (see Next steps)    |
-| **10 — Beta and release**             | **Next**    | SES production, prod stack, privacy pages, store packaging                   |
+| **10 — Beta and release**             | **In progress** | Pages, deletion, hosting module, store pack done; prod deploy pending owner |
 | 11                                    | Not started | Focus Mode                                                                   |
 
 ## What exists and works (verified)
@@ -116,6 +116,14 @@ session; Phase 10 (beta and release) next
   issues; 15 medium/low findings were fixed, notably stricter Trigger A qualification (no alerts
   for page-initiated redirects, pop-ups, restored/discarded tabs or reloads) and no retroactive or
   duplicate emails.
+- **Beta release work (Phase 10, in progress):** public privacy, terms, support and
+  getting-started pages (contact from Terraform `alert_email`, not the repo); self-service account
+  deletion (`DELETE /v1/me`: leaves groups via the departure path, dissolves solo groups only if
+  still solo, refuses for the sole admin of a populated group, deletes the user's data and Cognito
+  account, 2-hour tombstone refuses leftover tokens; verified live); Amplify hosting module
+  (`modules/hosting`, enabled per stage, token needed only at creation); store listing pack and
+  release notes in docs/release. Owner's Windows desktop proposal recorded as post-launch
+  (docs/HYBRID_DESKTOP_ARCHITECTURE_PROPOSAL.md).
 - **Whole-system review (2026-11-24, Claude reviewers per area):** no critical or high findings.
   Fixed: media re-reads no longer hit the HTTP disk cache, fetch/classify timeouts and a streamed
   size cap, late video verdicts can't unblur a new source, fair video sampling, rules removed at
@@ -127,16 +135,29 @@ session; Phase 10 (beta and release) next
 
 ## Next steps
 
-1. Needs `aws login` first: run the signed-in dashboard accessibility audit and re-run the Trigger A
-   real-browser flow against the stricter rules (scripts in the session scratchpad; see
-   docs/qa/TEST_REPORT.md "Open items"), then record the results in TEST_REPORT.md.
-2. Phase 10 — beta and release (roadmap): "Before beta" items in docs/qa/BACKLOG.md (SES production
-   access and domain, production stack with a deploy-role boundary, privacy/terms pages,
-   self-service deletion, manual Chrome check), then docs/qa/RELEASE_CHECKLIST.md.
-3. Owner: media filter false-negative measurement on a private labelled dataset.
-4. Remaining gaps and polish: docs/qa/BACKLOG.md.
+1. Owner: `aws login`. Then: create the dedicated production AWS account (AWS Organizations),
+   bootstrap its Terraform state bucket and a prod GitHub deploy role (with a permissions
+   boundary), fill `environments/prod/terraform.tfvars`, apply production.
+2. Owner approves a GitHub token for Amplify (only needed when the app is created); deploy the
+   dashboard, check the Next.js 16 SSR build on Amplify, point `web:env prod` and the extension's
+   prod build at it.
+3. Request SES production access (sender: the verified alerts address until a domain is bought);
+   add bounce/complaint handling.
+4. Phase 9 leftovers needing AWS: signed-in dashboard accessibility audit; Trigger A real-browser
+   re-run with the stricter rules.
+5. Store: owner creates Chrome Web Store and Edge Partner Center accounts; create draft items to
+   get extension IDs, add them to prod `extension_ids`, build, zip, upload (docs/release), beta as
+   unlisted/testers; screenshots from the prod dashboard and extension.
+6. Run docs/qa/RELEASE_CHECKLIST.md; then the beta acceptance: a new user registers, joins a
+   group, enables protection, configures consent and exercises both alert triggers.
+7. Later: buy a domain (custom dashboard address, SES domain with SPF/DKIM/DMARC); Firefox.
 
 ## Decisions log
+
+- 2026-11-25: Release choices: production in a new dedicated AWS account; dashboard on AWS Amplify
+  (GitHub Pages cannot host the server-rendered dashboard); no custom domain until the project is
+  built (Amplify address and the verified alerts address meanwhile); the owner is named operator
+  with the alerts email as contact.
 
 - 2026-11-24: Trigger A favours missing an alert over a false one: no report for navigations a
   page starts within 5 s of loading, pop-ups, restored/discarded tabs or block-page reloads, and
