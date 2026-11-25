@@ -11,7 +11,7 @@ computer (not phones). Firefox is not supported yet.
 
 ## 1. Create your account
 
-Open **https://main.dcwo6nhqxltjm.amplifyapp.com**, choose **Sign in**, then **Create an
+Open **https://getresolved.site**, choose **Sign in**, then **Create an
 account**. Add a display name on your profile so your group recognises you. If someone invited
 you, open their invitation link after signing in.
 

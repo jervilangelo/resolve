@@ -10,8 +10,8 @@ Where development stopped and what comes next. Read this first when resuming; up
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
 **Last updated:** 2026-11-25 · **Current:** Phase 10 complete (limited beta live on production);
-owner revisions done (dashboard, extension, landing page); custom domain getresolved.site
-waiting on the correct Namecheap nameservers; beta extension rebuild next
+owner revisions done; production on https://getresolved.site with alerts from
+"Resolve" <no-reply@getresolved.site>; store submission and Phase 11 (Focus Mode) next
 
 ## Phase status
 
@@ -128,7 +128,7 @@ waiting on the correct Namecheap nameservers; beta extension rebuild next
 - **Production (Phase 10, 2026-11-25):** dedicated AWS account `514009713156` (in the owner's
   organization; CLI profile `resolve-prod`; Terraform via exported credentials:
   `eval "$(aws configure export-credentials --profile resolve-prod --format env)"`). Dashboard:
-  https://main.dcwo6nhqxltjm.amplifyapp.com (Amplify, rebuilds on push to main). API:
+  https://getresolved.site (Amplify custom domain; the amplifyapp address redirects). API:
   https://z3s1ohuvs5.execute-api.ap-southeast-1.amazonaws.com. Verified: health, public pages,
   security headers, sign-in -> create group -> self-service deletion. Stack roles in both
   accounts carry a permissions boundary; deploy roles can only create bounded roles. SES:
@@ -154,11 +154,10 @@ waiting on the correct Namecheap nameservers; beta extension rebuild next
 ## Next steps
 
 0. **Owner revisions (2026-11-25)**, in order:
-   - Custom domain `getresolved.site` (bought at Namecheap): Route 53 zone, SES domain identity
-     (DKIM 2048, MAIL FROM `mail.`, SPF, DMARC quarantine) and the Amplify domain (apex + www) are
-     applied. Waiting for the owner's Namecheap nameserver change to propagate; then follow
-     "Switching to the custom domain" in docs/qa/RUNBOOKS.md (`use_domain` default → true, apply, rebuild, new
-     beta build with the new dashboard URL). Alerts then come from "Resolve <no-reply@getresolved.site>".
+   - Done (2026-11-25): custom domain `getresolved.site` live: Route 53 zone (production
+     account), SES domain identity verified (DKIM 2048, MAIL FROM `mail.`, SPF, DMARC
+     quarantine), Amplify apex + www with HTTPS; `use_domain = true`; alerts from
+     "Resolve" <no-reply@getresolved.site>; the old Gmail sender identity removed.
    - Done (2026-11-25): dashboard redesign (design-taste skill, "Editorial greeting" app style,
      slate palette kept): sidebar shell, home with greeting + Resolve checklist (media blurring
      via the extension's checklist answer, group, sharing; 3/3 = strong), loading screen,
@@ -171,9 +170,7 @@ waiting on the correct Namecheap nameservers; beta extension rebuild next
      sharing control with the real alert text, real product screenshots, the extension panel
      with notes, the Edwards portrait (public domain, credited in the footer), product-rule
      facts, FAQ, and a "Start a group called ___" sentence that prefills the create-group form.
-   - Next: rebuild and send the beta extension (checklist answer, sign-out confirmation,
-     single-group auto-select); fix the domain delegation (Namecheap points at an empty zone in
-     the main account, not the production zone; see "Open decisions").
+   - Done: beta extension rebuilt for https://getresolved.site (zip on the draft release).
    - Not possible: the Cognito sign-in placeholder (owner chose to keep Cognito's page).
 1. Owner, before inviting testers: check self sign-up with a real inbox and a manual run in Google
    Chrome stable (docs/release/BETA_RELEASE_RECORD.md); publish the draft GitHub release (beta zip)
@@ -225,12 +222,8 @@ waiting on the correct Namecheap nameservers; beta extension rebuild next
 
 ## Open decisions for the owner
 
-- **Domain nameservers (2026-11-25):** Namecheap currently lists ns-430.awsdns-53.com,
-  ns-1962.awsdns-53.co.uk, ns-1485.awsdns-57.org, ns-600.awsdns-11.net. Those belong to an empty
-  "Resolve production DNS" zone in the main (shared) AWS account, created outside Terraform. The
-  production zone (Terraform, account 514009713156) uses ns-1409.awsdns-48.org,
-  ns-1748.awsdns-26.co.uk, ns-53.awsdns-06.com, ns-841.awsdns-41.net. Set those at Namecheap; the
-  empty zone can then be deleted (with the owner's OK).
+- An empty Route 53 zone "Resolve production DNS" (Z0372274Y8ALNQPNUJ46) exists in the main
+  (shared) AWS account, created outside Terraform and unused since 2026-11-25. Delete it?
 
 - Phase order: roadmap (Phase 4 next) vs. handbook (on-device AI blur next). Currently following the
   roadmap.

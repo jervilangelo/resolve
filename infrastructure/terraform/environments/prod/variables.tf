@@ -70,5 +70,6 @@ variable "domain" {
 variable "use_domain" {
   description = "Serve the dashboard and send alerts from var.domain (after it is delegated and verified)."
   type        = bool
-  default     = false
+  # Switched on 2026-11-25: getresolved.site delegated; SES DKIM/MAIL FROM and Amplify verified.
+  default = true
 }

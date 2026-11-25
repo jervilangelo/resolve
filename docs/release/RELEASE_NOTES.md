@@ -44,4 +44,3 @@ follow.
 - The extension can be turned off or removed; other browsers and devices are not covered.
 - The media filter makes mistakes in both directions; its miss rate has not been measured yet.
 - Not every blocked visit produces an alert (for example ones a page or ad caused).
-- During the beta, alert emails may land in spam until a custom sending domain is set up.

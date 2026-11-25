@@ -14,9 +14,9 @@ to the store release.
 | Item | Value |
 | --- | --- |
 | AWS account | `514009713156` (dedicated, in the owner's organization), ap-southeast-1 |
-| Dashboard | https://main.dcwo6nhqxltjm.amplifyapp.com (Amplify, rebuilds on push to main) |
+| Dashboard | https://getresolved.site (Amplify custom domain; www and the amplifyapp address redirect; rebuilds on push to main) |
 | API | https://z3s1ohuvs5.execute-api.ap-southeast-1.amazonaws.com |
-| Email | SES production access granted; sender = the owner's verified alerts address; bounce and complaint suppression on |
+| Email | SES production access granted; sender "Resolve" <no-reply@getresolved.site> (domain identity, DKIM 2048, MAIL FROM mail.getresolved.site, SPF, DMARC quarantine); bounce and complaint suppression on |
 | Extension | Beta build, fixed key, ID `jlgcfgmonpplhjanafoghpebgjnplbkc` (registered as a production sign-in callback) |
 | Deploys | "Deploy prod" workflow, manual, owner approval |
 
