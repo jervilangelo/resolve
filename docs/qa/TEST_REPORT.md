@@ -20,11 +20,10 @@ and what is not covered. Run everything yourself with the commands at the end.
 | Real-browser flows against dev        | Sign-in, invites, ownership, domains, enforcement, accountability, Trigger A end to end    |
 | Dependency vulnerabilities            | 0 known (pnpm audit); CI fails on high/critical                                           |
 | Infrastructure scan (Checkov)         | 0 failing; accepted exceptions documented in `infrastructure/terraform/.checkov.yaml`     |
-| Accessibility (axe, WCAG 2.1 A/AA)    | 0 violations on public pages and extension pages; signed-in dashboard audit pending (†)   |
+| Accessibility (axe, WCAG 2.1 A/AA)    | 0 violations on public, extension and signed-in dashboard pages (admin and member, light and dark)   |
 | Security reviews (Claude, adversarial) | 0 critical/high; 15 medium/low findings fixed in `e553d10` (see THREAT_MODEL.md)        |
 | Firefox                               | **Not supported yet** (owner decision: on hold)                                           |
 
-† Needs an AWS session for test accounts; see "Open items".
 
 ## Requirement traceability (MASTER_PLAN §2)
 
@@ -83,8 +82,9 @@ and what is not covered. Run everything yourself with the commands at the end.
 
 ## Open items
 
-- Signed-in dashboard accessibility audit and a re-run of the Trigger A real-browser flow with the
-  stricter qualification rules: both need an AWS CLI session (`aws login`); scripts are ready.
+- Done 2026-11-25: signed-in dashboard accessibility audit (found and fixed a dark-mode contrast
+  failure on danger buttons) and the Trigger A real-browser re-run (a script redirect into a
+  blocked site is blocked without an alert; a deliberate visit sends exactly one).
 - Media filter false-negative rate needs the owner's private labelled dataset.
 - Everything else open is in BACKLOG.md.
 
