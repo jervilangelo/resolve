@@ -16,7 +16,8 @@ test('popup reports live feature status from the background worker', async ({
   await expect(page.getByRole('img', { name: 'Resolve' })).toBeVisible();
   const features = page.getByRole('list', { name: 'Protection features' });
   await expect(features.getByRole('listitem')).toHaveCount(3);
-  await expect(features).not.toContainText('Not yet available');
+  await expect(features).not.toContainText('Not supported in this browser');
+  await expect(features).not.toContainText('Not available in this build');
 });
 
 test('options page renders', async ({ page, extensionId }) => {

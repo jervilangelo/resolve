@@ -49,14 +49,14 @@ const INACTIVE_REASON: Record<Extract<AlertsStatus, { state: 'inactive' }>['reas
   noRestrictions: 'your group has no non-negotiable websites',
 };
 
-function describe(status: AlertsStatus): string {
+export function describe(status: AlertsStatus): string {
   if (status.state === 'inactive') return `on, but inactive (${INACTIVE_REASON[status.reason]})`;
   if (status.state === 'on') return 'on (sent only if your sharing is not Private)';
   return status.state === 'off' ? 'off' : 'not supported in this browser';
 }
 
 /** The background's view of whether a report could actually be sent right now. */
-function useAlertsStatus(granted: boolean | null): AlertsStatus | null {
+export function useAlertsStatus(granted: boolean | null): AlertsStatus | null {
   const [status, setStatus] = useState<AlertsStatus | null>(null);
   useEffect(() => {
     send({ type: 'alerts/get' }).then(setStatus, () => {
@@ -102,7 +102,7 @@ export function AlertsPanel() {
 
   return (
     <div className="space-y-3 text-sm">
-      <div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
+      <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2.5">
         <label htmlFor="alerts-enabled" className="font-medium">
           Alert my accountability partners about blocked visits
         </label>
@@ -124,20 +124,27 @@ export function AlertsPanel() {
           {error}
         </p>
       )}
-      <div className="text-muted-foreground space-y-2 text-xs">
-        <p>
-          When you deliberately open a page your group lists as non-negotiable and Resolve blocks
-          it, the members you chose under Accountability in the dashboard (and who agreed) receive a
-          short alert that never says which website it was. Nothing is sent while your sharing is
-          Private. Not every block produces an alert: to avoid false alerts, Resolve skips blocks a
-          page or ad caused, restored and reloaded tabs, and repeats within ten minutes.
-        </p>
-        <p>
-          The browser describes this permission as reading your browsing history. Resolve sees each
-          page address briefly, on this device only, to recognise blocked visits; it stores and
-          sends none of them. An alert is reported by this extension and is not proof of intent.
-        </p>
-      </div>
+      <p className="text-muted-foreground text-xs">
+        Sends a short alert, never naming the website, to the people you chose in the dashboard who
+        agreed. Nothing is sent while your sharing is Private.
+      </p>
+      <details className="text-muted-foreground text-xs">
+        <summary className="text-foreground cursor-pointer font-medium">
+          What Resolve sees, and when alerts are skipped
+        </summary>
+        <div className="mt-2 space-y-2">
+          <p>
+            The browser describes this permission as reading your browsing history. Resolve sees
+            each page address briefly, on this device only, to recognise blocked visits; it stores
+            and sends none of them. An alert is reported by this extension and is not proof of
+            intent.
+          </p>
+          <p>
+            To avoid false alerts, Resolve skips blocks a page or ad caused, restored and reloaded
+            tabs, and repeats within ten minutes.
+          </p>
+        </div>
+      </details>
     </div>
   );
 }

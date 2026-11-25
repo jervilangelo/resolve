@@ -11,9 +11,9 @@ import type { AccountState } from '@/lib/messages';
 import { useAlertsGranted } from './alerts-panel';
 
 const buttonClass =
-  'w-full rounded-md px-3 py-2 text-sm font-medium disabled:opacity-60 bg-primary text-primary-foreground hover:bg-primary-pressed';
+  'w-full rounded-full px-3 py-2 text-sm font-medium disabled:opacity-60 bg-primary text-primary-foreground hover:bg-primary-pressed transition-[background-color,transform] active:scale-[0.98]';
 const secondaryClass =
-  'w-full rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-60 hover:bg-muted';
+  'w-full rounded-full border px-3 py-2 text-sm font-medium disabled:opacity-60 hover:bg-muted transition-[background-color,transform] active:scale-[0.98]';
 
 function ago(timestamp: number): string {
   const minutes = Math.max(0, Math.round((Date.now() - timestamp) / 60_000));
@@ -37,12 +37,12 @@ function ProtectionLine({
 }) {
   if (protection.state === 'off') return null;
   if (protection.state === 'starting') {
-    return <p className="text-muted-foreground text-xs">Domain protection: turning on…</p>;
+    return <p className="text-muted-foreground text-xs">Website blocking: turning on…</p>;
   }
   if (protection.state === 'error') {
     return (
       <div role="alert" className="text-destructive space-y-1 text-xs">
-        <p>Domain protection could not be turned on. Websites are not being blocked.</p>
+        <p>Website blocking could not be turned on. Websites are not being blocked.</p>
         <button type="button" className="underline" disabled={busy} onClick={onRetry}>
           Try again
         </button>
@@ -53,17 +53,17 @@ function ProtectionLine({
   if (protection.state === 'idle') {
     return (
       <p className="text-muted-foreground text-xs">
-        Domain protection: no websites blocked yet. It starts automatically when your group adds
-        some{when}.
+        Website blocking: no websites on your group’s list yet. It starts when your group adds some
+        {when}.
       </p>
     );
   }
   return protection.state === 'stale' ? (
     <p role="status" className="text-destructive text-xs">
-      Domain protection: on, but rules could not be updated recently{when}. Check your connection.
+      Website blocking: on, but the list could not be updated recently{when}. Check your connection.
     </p>
   ) : (
-    <p className="text-muted-foreground text-xs">Domain protection: on{when}</p>
+    <p className="text-muted-foreground text-xs">Website blocking: on{when}</p>
   );
 }
 
@@ -181,7 +181,7 @@ export function AccountPanel() {
           </label>
           <select
             id="active-group"
-            className="border-input bg-background w-full rounded-md border px-2 py-1.5 text-sm"
+            className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
             value={account.activeGroupId ?? ''}
             disabled={busy || confirmingSignOut}
             onChange={(e) => {
@@ -196,9 +196,6 @@ export function AccountPanel() {
               </option>
             ))}
           </select>
-          <p className="text-muted-foreground text-xs">
-            This browser follows one group&apos;s protection settings at a time.
-          </p>
         </div>
       )}
       {account.activeGroupId && (

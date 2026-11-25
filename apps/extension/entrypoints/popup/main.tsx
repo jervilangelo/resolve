@@ -7,10 +7,8 @@
 
 import { browser } from 'wxt/browser';
 import { AccountPanel } from '@/components/account-panel';
-import { AlertsLine } from '@/components/alerts-panel';
 import { BrandHeader } from '@/components/brand-header';
 import { FeatureStatus } from '@/components/feature-status';
-import { MediaFilterLine } from '@/components/media-filter-panel';
 import { mount } from '@/lib/mount';
 
 function Popup() {
@@ -19,12 +17,15 @@ function Popup() {
       <BrandHeader />
       <main className="space-y-4 p-4">
         <AccountPanel />
-        <MediaFilterLine />
-        <AlertsLine />
-        <FeatureStatus />
+        <section aria-labelledby="popup-protection" className="space-y-2">
+          <h2 id="popup-protection" className="text-sm font-semibold">
+            Protection
+          </h2>
+          <FeatureStatus />
+        </section>
         <button
           type="button"
-          className="bg-primary text-primary-foreground hover:bg-primary-pressed w-full rounded-md px-3 py-2 text-sm font-medium"
+          className="bg-primary text-primary-foreground hover:bg-primary-pressed w-full rounded-full px-3 py-2 text-sm font-medium transition-[background-color,transform] active:scale-[0.98]"
           onClick={() => void browser.runtime.openOptionsPage()}
         >
           Settings

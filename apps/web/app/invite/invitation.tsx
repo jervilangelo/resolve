@@ -10,6 +10,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { type PreviewResult, acceptInvitation, previewInvitation } from './actions';
 
 /** Survives the sign-in round trip in this tab only; cleared once used. */
@@ -77,7 +78,12 @@ export function Invitation() {
   }, []);
 
   if (view.kind === 'loading') {
-    return <p className="text-muted-foreground">Checking your invitation…</p>;
+    return (
+      <div role="status" className="text-muted-foreground flex items-center gap-3">
+        <Spinner />
+        Checking your invitation…
+      </div>
+    );
   }
 
   if (view.kind === 'error') {
@@ -116,16 +122,16 @@ export function Invitation() {
 
   return (
     <div>
-      <p className="text-muted-foreground text-sm">You have been invited to join</p>
-      <h1 className="font-display mt-2 text-3xl">{view.groupName}</h1>
-      <p className="text-muted-foreground mt-6 text-sm">
-        Joining does not share anything about you with the group. Your accountability sharing stays
-        private until you choose otherwise.
+      <h1 className="font-display text-3xl leading-tight">Join {view.groupName}</h1>
+      <p className="text-muted-foreground mt-4">
+        You’ve been invited to this Resolve group. Joining shares nothing about you; your alerts
+        stay private until you choose otherwise.
       </p>
       <div className="mt-8 space-y-3">
         <Button
           type="button"
-          disabled={pending}
+          size="lg"
+          loading={pending}
           onClick={() => {
             const current = token.current;
             store(null);
@@ -136,7 +142,7 @@ export function Invitation() {
             });
           }}
         >
-          {pending ? 'Joining…' : 'Join group'}
+          Join group
         </Button>
         {error && (
           <p role="alert" className="text-destructive text-sm">

@@ -10,6 +10,8 @@
 import type { AccountabilityView, SharingMode } from '@resolve/contracts';
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toaster';
+import { cn } from '@/lib/utils';
 import { saveSharing, setAcceptAll, setSenderConsent } from './actions';
 
 interface Person {
@@ -21,17 +23,17 @@ const MODES: { value: SharingMode; label: string; detail: string }[] = [
   {
     value: 'PRIVATE',
     label: 'Private',
-    detail: 'Nobody receives alerts about you. This is the default.',
+    detail: 'No one gets alerts about you.',
   },
   {
     value: 'SELECTED',
     label: 'Selected members',
-    detail: 'Only the members you choose, and only once they agree.',
+    detail: 'Only people you choose, once they agree.',
   },
   {
     value: 'EVERYONE',
-    label: 'Everyone in this group',
-    detail: 'Every other member who agrees to receive your alerts.',
+    label: 'Everyone',
+    detail: 'Every member who agrees.',
   },
 ];
 
@@ -60,7 +62,7 @@ function SharingForm({
   const selected = chosen.filter((id) => others.some((person) => person.userId === id));
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const toast = useToast();
   const dirty =
     mode !== view.sharing.mode ||
     (mode === 'SELECTED' &&
@@ -68,43 +70,49 @@ function SharingForm({
 
   function save() {
     setError(null);
-    setSaved(false);
     start(async () => {
       const result = await saveSharing(groupId, mode, mode === 'SELECTED' ? selected : []);
       if (result.error) setError(result.error);
-      else setSaved(true);
+      else toast('Sharing saved.');
     });
   }
 
   return (
     <div className="space-y-4">
-      <fieldset className="space-y-2" disabled={pending}>
-        <legend className="mb-2 font-medium">Who may receive alerts about you</legend>
-        {MODES.map((option) => (
-          <label key={option.value} className="flex gap-2 text-sm">
-            <input
-              type="radio"
-              name="sharing-mode"
-              className="mt-1"
-              checked={mode === option.value}
-              onChange={() => {
-                setMode(option.value);
-                setSaved(false);
-              }}
-            />
-            <span className="font-medium">
-              {option.label}
-              <span className="text-muted-foreground block text-xs font-normal">
-                {option.detail}
-              </span>
-            </span>
-          </label>
-        ))}
+      <fieldset disabled={pending}>
+        <legend className="mb-3 text-sm font-medium">Who may get alerts about you</legend>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {MODES.map((option) => (
+            <label
+              key={option.value}
+              className={cn(
+                'bg-card relative flex cursor-pointer flex-col gap-0.5 rounded-xl border p-3.5 transition-[border-color,box-shadow]',
+                'has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-[3px]',
+                mode === option.value
+                  ? 'border-foreground ring-foreground ring-1'
+                  : 'hover:border-foreground/30',
+              )}
+            >
+              <input
+                type="radio"
+                name="sharing-mode"
+                className="sr-only"
+                checked={mode === option.value}
+                onChange={() => {
+                  setMode(option.value);
+                }}
+              />
+              <span className="text-sm font-semibold">{option.label}</span>
+              <span className="text-muted-foreground text-xs">{option.detail}</span>
+            </label>
+          ))}
+        </div>
       </fieldset>
 
       {mode === 'SELECTED' && (
-        <fieldset className="space-y-2 pl-6" disabled={pending}>
-          <legend className="text-muted-foreground mb-1 text-sm">Choose members</legend>
+        <fieldset className="bg-card space-y-2 rounded-xl border p-3.5" disabled={pending}>
+          <legend className="sr-only">Choose members</legend>
+          <p className="text-sm font-medium">Choose members</p>
           {others.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               Nobody else is in this group yet. Invite someone first.
@@ -116,7 +124,6 @@ function SharingForm({
                   type="checkbox"
                   checked={selected.includes(person.userId)}
                   onChange={(event) => {
-                    setSaved(false);
                     setSelected((current) =>
                       event.target.checked
                         ? [...current, person.userId]
@@ -132,35 +139,34 @@ function SharingForm({
       )}
 
       <div className="flex items-center gap-3">
-        <Button type="button" disabled={pending || !dirty} onClick={save}>
-          {pending ? 'Saving…' : 'Save sharing'}
+        <Button type="button" loading={pending} disabled={pending || !dirty} onClick={save}>
+          Save sharing
         </Button>
-        {saved && !dirty && (
-          <p role="status" className="text-primary text-sm">
-            Saved.
-          </p>
-        )}
+        {!dirty && <p className="text-muted-foreground text-sm">No changes</p>}
       </div>
       <ProblemText message={error} />
 
       {view.recipients.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium">Your alerts would reach</h4>
-          <ul className="divide-y rounded-md border text-sm">
+          <h4 className="text-sm font-medium">Who would get them</h4>
+          <ul className="bg-card divide-y rounded-xl border text-sm">
             {view.recipients.map((r) => (
               <li key={r.userId} className="flex items-center justify-between gap-4 px-3 py-2">
                 <span>{r.displayName ?? 'Unnamed member'}</span>
                 <span
-                  className={r.status === 'receiving' ? 'text-primary' : 'text-muted-foreground'}
+                  className={cn(
+                    'rounded-full px-2.5 py-0.5 text-xs font-medium',
+                    r.status === 'receiving'
+                      ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200'
+                      : 'bg-muted text-muted-foreground',
+                  )}
                 >
-                  {r.status === 'receiving' ? 'Agreed to receive' : 'Hasn’t agreed yet'}
+                  {r.status === 'receiving' ? 'Agreed' : 'Not yet agreed'}
                 </span>
               </li>
             ))}
           </ul>
-          <p className="text-muted-foreground text-xs">
-            Members who haven’t agreed receive nothing. Each person decides for themselves.
-          </p>
+          <p className="text-muted-foreground text-xs">People who haven’t agreed get nothing.</p>
         </div>
       )}
     </div>
@@ -171,9 +177,11 @@ function SharingForm({
 function ReceivingForm({ groupId, view }: { groupId: string; view: AccountabilityView }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  function run(action: () => Promise<{ error?: string }>) {
+  function run(action: () => Promise<{ error?: string }>, id: string | null = null) {
     setError(null);
+    setBusyId(id);
     start(async () => {
       const result = await action();
       if (result.error) setError(result.error);
@@ -182,10 +190,10 @@ function ReceivingForm({ groupId, view }: { groupId: string; view: Accountabilit
 
   return (
     <div className="space-y-4">
-      <label className="flex gap-2 text-sm">
+      <label className="bg-card flex cursor-pointer gap-3 rounded-xl border p-3.5 text-sm">
         <input
           type="checkbox"
-          className="mt-1"
+          className="accent-foreground mt-0.5 size-4"
           checked={view.receiving.acceptAll}
           disabled={pending}
           onChange={(event) => {
@@ -194,19 +202,19 @@ function ReceivingForm({ groupId, view }: { groupId: string; view: Accountabilit
           }}
         />
         <span className="font-medium">
-          Accept alerts from anyone in this group who shares with me
+          Accept alerts from anyone here who shares with me
           <span className="text-muted-foreground block text-xs font-normal">
-            Otherwise you agree person by person below.
+            Or agree person by person below.
           </span>
         </span>
       </label>
 
       {view.senders.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          Nobody in this group shares alerts with you.
+        <p className="text-muted-foreground rounded-xl border border-dashed px-3.5 py-3 text-sm">
+          No one here shares their alerts with you yet.
         </p>
       ) : (
-        <ul className="divide-y rounded-md border text-sm">
+        <ul className="bg-card divide-y rounded-xl border text-sm">
           {view.senders.map((s) => {
             const name = s.displayName ?? 'Unnamed member';
             const individually = s.status === 'receiving' && !view.receiving.acceptAll;
@@ -219,16 +227,17 @@ function ReceivingForm({ groupId, view }: { groupId: string; view: Accountabilit
                   <span className="font-medium">{name}</span>{' '}
                   <span className="text-muted-foreground">
                     {s.status === 'receiving'
-                      ? 'shares alerts with you'
-                      : 'would like you to receive their alerts'}
+                      ? 'shares with you'
+                      : 'asks you to receive their alerts'}
                   </span>
                 </span>
                 {s.status === 'needs_consent' ? (
                   <Button
                     size="sm"
+                    loading={pending && busyId === s.userId}
                     disabled={pending}
                     onClick={() => {
-                      run(() => setSenderConsent(groupId, s.userId, true));
+                      run(() => setSenderConsent(groupId, s.userId, true), s.userId);
                     }}
                   >
                     Agree to receive
@@ -245,7 +254,7 @@ function ReceivingForm({ groupId, view }: { groupId: string; view: Accountabilit
                     Stop receiving
                   </Button>
                 ) : (
-                  <span className="text-muted-foreground text-xs">Accepted via “anyone”</span>
+                  <span className="text-muted-foreground text-xs">Accepted (anyone)</span>
                 )}
               </li>
             );
@@ -268,21 +277,12 @@ export function AccountabilityPanel({
 }) {
   return (
     <div className="space-y-8">
-      <p className="text-muted-foreground text-sm">
-        Accountability is voluntary and personal. Admins cannot see or change these choices. Alerts
-        never include the website, and nothing that happened before someone agreed is ever shared.
-      </p>
-      <p className="text-muted-foreground text-sm">
-        Only two things send an email: a blocked visit to a non-negotiable website (reported by the
-        Resolve extension once you turn on alerts in its settings), and someone leaving or being
-        removed from the group. An extension report is not proof of intent.
-      </p>
       <div className="space-y-3">
-        <h3 className="font-semibold">Sharing your alerts</h3>
+        <h3 className="font-semibold">Your alerts</h3>
         <SharingForm groupId={groupId} view={view} others={others} />
       </div>
       <div className="space-y-3">
-        <h3 className="font-semibold">Receiving others’ alerts</h3>
+        <h3 className="font-semibold">Alerts from others</h3>
         <ReceivingForm groupId={groupId} view={view} />
       </div>
     </div>

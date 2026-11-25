@@ -29,7 +29,7 @@ export function buildStatus(version: string, unsupported: readonly FeatureId[] =
 }
 
 export const FEATURE_LABELS: Readonly<Record<FeatureId, string>> = {
-  'ai-filter': 'AI media blurring',
-  'domain-protection': 'Domain protection',
-  accountability: 'Accountability sharing',
+  'ai-filter': 'Media blurring',
+  'domain-protection': 'Website blocking',
+  accountability: 'Blocked-visit alerts',
 };

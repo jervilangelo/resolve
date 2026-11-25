@@ -8,7 +8,9 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { BOOT_SCRIPT, BootScreen } from '@/components/boot-screen';
 import { PublicOnly } from '@/components/public-only';
+import { Toaster } from '@/components/ui/toaster';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { publicEnv } from '@/lib/env';
@@ -44,23 +46,29 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
+      </head>
       <body className="flex min-h-dvh flex-col antialiased">
+        <BootScreen />
         <a
           href="#main"
           className="bg-primary text-primary-foreground sr-only rounded-md px-4 py-2 focus:not-sr-only focus:absolute focus:top-3 focus:left-3"
         >
           Skip to content
         </a>
-        <PublicOnly>
-          <SiteHeader />
-        </PublicOnly>
-        <main id="main" className="flex-1">
-          {children}
-        </main>
-        <PublicOnly>
-          <SiteFooter />
-        </PublicOnly>
+        <Toaster>
+          <PublicOnly>
+            <SiteHeader />
+          </PublicOnly>
+          <main id="main" className="flex-1">
+            {children}
+          </main>
+          <PublicOnly>
+            <SiteFooter />
+          </PublicOnly>
+        </Toaster>
       </body>
     </html>
   );

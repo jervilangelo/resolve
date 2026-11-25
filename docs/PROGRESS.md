@@ -171,6 +171,13 @@ owner revisions done; production on https://getresolved.site with alerts from
      with notes, the Edwards portrait (public domain, credited in the footer), product-rule
      facts, FAQ, and a "Start a group called ___" sentence that prefills the create-group form.
    - Done: beta extension rebuilt for https://getresolved.site (zip on the draft release).
+   - Done (2026-11-25): UI/UX refinement pass: once-per-session branded boot screen (3 s
+     fail-safe), page entrance and link-pending indicators, per-screen skeletons, confirm
+     dialogs and toasts (Radix, already a dependency) instead of browser prompts, loading
+     buttons, group page split into Websites / Accountability / Members / Settings tabs,
+     accountability as option cards with shorter copy, consistent selects; extension popup
+     merged into one live "Protection" list, options page as cards with details behind
+     disclosures and blurring options shown once blurring is on.
    - Not possible: the Cognito sign-in placeholder (owner chose to keep Cognito's page).
 1. Owner, before inviting testers: check self sign-up with a real inbox and a manual run in Google
    Chrome stable (docs/release/BETA_RELEASE_RECORD.md); publish the draft GitHub release (beta zip)

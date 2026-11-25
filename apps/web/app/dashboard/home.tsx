@@ -106,7 +106,7 @@ export function checklistItems(groups: HomeGroup[], extension: ExtensionStatus):
           ...(firstGroup && {
             action: {
               label: 'Choose who',
-              href: `/dashboard/groups/${firstGroup.groupId}#accountability`,
+              href: `/dashboard/groups/${firstGroup.groupId}?tab=accountability`,
             },
           }),
         },

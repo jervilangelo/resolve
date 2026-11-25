@@ -70,3 +70,131 @@
     transform: none;
   }
 }
+
+/* ---- App motion: dialogs, toasts, page entrance, boot screen ---- */
+@keyframes rs-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rs-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Scale only: the dialog is centred with the separate `translate` property. */
+@keyframes rs-pop-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+@keyframes rs-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes rs-slide-out {
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes rs-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes rs-breathe {
+  50% {
+    opacity: 0.45;
+    transform: scale(0.96);
+  }
+}
+
+.rs-overlay[data-state='open'] {
+  animation: rs-fade-in 160ms ease-out;
+}
+
+.rs-overlay[data-state='closed'] {
+  animation: rs-fade-out 120ms ease-in;
+}
+
+.rs-dialog[data-state='open'] {
+  animation: rs-pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rs-dialog[data-state='closed'] {
+  animation: rs-fade-out 120ms ease-in;
+}
+
+.rs-toast[data-state='open'] {
+  animation: rs-slide-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rs-toast[data-state='closed'] {
+  animation: rs-slide-out 160ms ease-in;
+}
+
+.rs-toast[data-swipe='move'] {
+  transform: translateX(var(--radix-toast-swipe-move-x));
+}
+
+.rs-page {
+  animation: rs-page-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Boot screen: shown only on a first visit in a session (see components/boot-screen). */
+.rs-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  place-items: center;
+  background: var(--background);
+}
+
+/* Fail-safe: if the app never hydrates (a script failed), the cover still leaves after 3 s. */
+@keyframes rs-boot-give-up {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.rs-booting .rs-boot {
+  display: grid;
+  animation: rs-boot-give-up 300ms ease-out 3s forwards;
+}
+
+.rs-booted .rs-boot {
+  display: grid;
+  animation: rs-fade-out 280ms ease-out forwards;
+  pointer-events: none;
+}
+
+.rs-boot-mark {
+  animation: rs-breathe 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-overlay,
+  .rs-dialog,
+  .rs-toast,
+  .rs-page,
+  .rs-boot-mark {
+    animation: none !important;
+  }
+
+  .rs-booted .rs-boot {
+    display: none;
+  }
+}

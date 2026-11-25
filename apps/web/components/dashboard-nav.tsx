@@ -7,10 +7,11 @@
 
 'use client';
 
-import Link from 'next/link';
+import Link, { useLinkStatus } from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 import { Logo } from '@/components/logo';
+import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 
 /** 16px outline icons, 1.5px stroke, in the text colour. */
@@ -83,6 +84,12 @@ const LEARN = [
   { href: '/support', label: 'Support', icon: icons.support },
 ] as const;
 
+/** Shown while the link's page is loading (slow connections), so a click is never silent. */
+function Pending() {
+  const { pending } = useLinkStatus();
+  return pending ? <Spinner className="ml-auto size-3.5" /> : null;
+}
+
 function NavLink({
   href,
   label,
@@ -110,6 +117,7 @@ function NavLink({
     >
       {icon}
       {label}
+      <Pending />
     </Link>
   );
 }

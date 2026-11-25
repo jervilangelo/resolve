@@ -52,7 +52,7 @@ test('the background service answers with blocked-visit alerts granted', async (
   await expect(popup.getByRole('list', { name: 'Protection features' })).toBeVisible();
   await expect(popup.getByText('Could not reach the Resolve background service')).toHaveCount(0);
   // Signed out: alerts are granted but cannot report yet, and the status says so.
-  await expect(popup.getByText(/Alerts for blocked visits: on, but inactive/)).toBeVisible();
+  await expect(popup.getByText(/On, but inactive/)).toBeVisible();
 });
 
 test('settings show alerts as granted with an honest status', async () => {

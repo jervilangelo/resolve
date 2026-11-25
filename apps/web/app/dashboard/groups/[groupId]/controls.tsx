@@ -7,10 +7,14 @@
 
 'use client';
 
+import { unstable_rethrow } from 'next/navigation';
 import { useActionState, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
+import { useToast } from '@/components/ui/toaster';
 import {
   type ActionState,
   addBlockedDomain,
@@ -43,19 +47,14 @@ export function InvitePanel({ groupId }: { groupId: string }) {
       <form action={action} className="flex flex-wrap items-end gap-3">
         <div className="space-y-2">
           <Label htmlFor="maxUses">People who can use the link</Label>
-          <select
-            id="maxUses"
-            name="maxUses"
-            defaultValue="1"
-            className="border-input bg-background h-9 rounded-md border px-3 text-sm"
-          >
+          <NativeSelect id="maxUses" name="maxUses" defaultValue="1">
             <option value="1">1 person</option>
             <option value="5">Up to 5 people</option>
             <option value="10">Up to 10 people</option>
-          </select>
+          </NativeSelect>
         </div>
-        <Button type="submit" disabled={pending}>
-          {pending ? 'Creating…' : 'Create invite link'}
+        <Button type="submit" loading={pending}>
+          Create invite link
         </Button>
       </form>
       <ErrorText message={state.error} />
@@ -102,36 +101,54 @@ export function InvitePanel({ groupId }: { groupId: string }) {
 
 function ConfirmButton({
   label,
-  confirmText,
+  title,
+  description,
+  confirmLabel,
+  done,
   run,
-  variant = 'outline',
+  destructive = false,
 }: {
   label: string;
-  confirmText: string;
+  title: string;
+  description?: string;
+  confirmLabel: string;
+  /** Toast text once it worked; omitted when the page itself changes (leaving a group). */
+  done?: string;
   run: () => Promise<ActionState>;
-  variant?: 'outline' | 'destructive';
+  destructive?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
-  const [error, setError] = useState<string>();
+  const toast = useToast();
   return (
-    <span className="inline-flex flex-col items-end gap-1">
-      <Button
-        type="button"
-        size="sm"
-        variant={variant}
-        disabled={pending}
-        onClick={() => {
-          if (!window.confirm(confirmText)) return;
-          start(async () => {
+    <ConfirmDialog
+      open={open}
+      onOpenChange={setOpen}
+      pending={pending}
+      title={title}
+      description={description}
+      confirmLabel={confirmLabel}
+      destructive={destructive}
+      trigger={
+        <Button type="button" size="sm" variant="outline">
+          {label}
+        </Button>
+      }
+      onConfirm={() => {
+        start(async () => {
+          try {
             const result = await run();
-            setError(result.error);
-          });
-        }}
-      >
-        {pending ? 'Working…' : label}
-      </Button>
-      <ErrorText message={error} />
-    </span>
+            if (result.error) toast(result.error, 'error');
+            else if (done) toast(done);
+          } catch (error) {
+            unstable_rethrow(error); // redirects (sign-in, leaving) are navigations, not failures
+            toast('Something went wrong. Please try again.', 'error');
+          } finally {
+            setOpen(false);
+          }
+        });
+      }}
+    />
   );
 }
 
@@ -147,7 +164,11 @@ export function RemoveMemberButton({
   return (
     <ConfirmButton
       label="Remove"
-      confirmText={`Remove ${name} from this group?`}
+      title={`Remove ${name}?`}
+      description="They leave the group and stop following its blocked websites. They need a new invite to rejoin."
+      confirmLabel="Remove"
+      destructive
+      done={`${name} was removed.`}
       run={() => removeMember(groupId, userId)}
     />
   );
@@ -163,7 +184,10 @@ export function RevokeInvitationButton({
   return (
     <ConfirmButton
       label="Revoke"
-      confirmText="Revoke this invite link? It will stop working immediately."
+      title="Revoke this invite link?"
+      description="It stops working immediately. People who already joined stay in the group."
+      confirmLabel="Revoke link"
+      done="Invite link revoked."
       run={() => revokeInvitation(groupId, invitationId)}
     />
   );
@@ -173,8 +197,10 @@ export function LeaveGroupButton({ groupId }: { groupId: string }) {
   return (
     <ConfirmButton
       label="Leave group"
-      variant="destructive"
-      confirmText="Leave this group? You will need a new invitation to rejoin."
+      title="Leave this group?"
+      description="You will need a new invite to rejoin."
+      confirmLabel="Leave group"
+      destructive
       run={() => leaveGroup(groupId)}
     />
   );
@@ -189,8 +215,8 @@ export function RenameGroupForm({ groupId, name }: { groupId: string; name: stri
           <Label htmlFor="group-name">Group name</Label>
           <Input id="group-name" name="name" defaultValue={name} maxLength={60} required />
         </div>
-        <Button type="submit" variant="outline" disabled={pending}>
-          {pending ? 'Saving…' : 'Rename'}
+        <Button type="submit" variant="outline" loading={pending}>
+          Rename
         </Button>
       </div>
       <ErrorText message={state.error} />
@@ -217,16 +243,31 @@ export function RoleButton({
   self: boolean;
 }) {
   const label = to === 'ADMIN' ? 'Make admin' : self ? 'Step down' : 'Make member';
-  const confirmText =
+  const title =
     to === 'ADMIN'
-      ? `Make ${name} an admin? Admins can invite and remove members, change roles and dissolve the group.`
+      ? `Make ${name} an admin?`
       : self
-        ? 'Step down to member? You will lose admin rights in this group.'
-        : `Change ${name} to a regular member?`;
+        ? 'Step down to member?'
+        : `Make ${name} a member?`;
+  const description =
+    to === 'ADMIN'
+      ? 'Admins manage blocked websites, invite and remove members, and can dissolve the group.'
+      : self
+        ? 'You will lose admin rights in this group.'
+        : 'They keep their membership but lose admin rights.';
   return (
     <ConfirmButton
       label={label}
-      confirmText={confirmText}
+      title={title}
+      description={description}
+      confirmLabel={label}
+      done={
+        to === 'ADMIN'
+          ? `${name} is now an admin.`
+          : self
+            ? 'You are now a member.'
+            : `${name} is now a member.`
+      }
       run={() => setMemberRole(groupId, userId, to)}
     />
   );
@@ -256,6 +297,7 @@ export function DissolveGroupPanel({ groupId, name }: { groupId: string; name: s
       <Button
         type="button"
         variant="destructive"
+        loading={pending}
         disabled={pending || typed !== name}
         onClick={() => {
           start(async () => {
@@ -264,7 +306,7 @@ export function DissolveGroupPanel({ groupId, name }: { groupId: string; name: s
           });
         }}
       >
-        {pending ? 'Dissolving…' : 'Dissolve group'}
+        Dissolve group
       </Button>
       <ErrorText message={error} />
     </div>
@@ -283,24 +325,19 @@ export function BlockDomainForm({ groupId, isAdmin }: { groupId: string; isAdmin
         {isAdmin && (
           <div className="space-y-2">
             <Label htmlFor="type">Category</Label>
-            <select
-              id="type"
-              name="type"
-              defaultValue="ADDITIONAL"
-              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
-            >
+            <NativeSelect id="type" name="type" defaultValue="ADDITIONAL">
               <option value="ADDITIONAL">Additional</option>
               <option value="NON_NEGOTIABLE">Non-negotiable</option>
-            </select>
+            </NativeSelect>
           </div>
         )}
-        <Button type="submit" disabled={pending}>
-          {pending ? 'Adding…' : isAdmin ? 'Block' : 'Submit'}
+        <Button type="submit" loading={pending}>
+          {isAdmin ? 'Block' : 'Submit'}
         </Button>
       </div>
       <p className="text-muted-foreground text-xs">
-        Covers the website and all its subdomains. Essential services (such as Gmail, YouTube and
-        Microsoft 365) always stay reachable.
+        Includes its subdomains. Essential services such as Gmail and Microsoft 365 always stay
+        reachable.
       </p>
       <ErrorText message={state.error} />
       {state.message && (
@@ -322,16 +359,28 @@ export function DomainActions({
   type: 'NON_NEGOTIABLE' | 'ADDITIONAL';
 }) {
   const to = type === 'ADDITIONAL' ? 'NON_NEGOTIABLE' : 'ADDITIONAL';
+  const toLabel = to === 'NON_NEGOTIABLE' ? 'non-negotiable' : 'additional';
   return (
     <div className="flex flex-wrap justify-end gap-2">
       <ConfirmButton
         label={to === 'NON_NEGOTIABLE' ? 'Make non-negotiable' : 'Make additional'}
-        confirmText={`Change ${domain} to ${to === 'NON_NEGOTIABLE' ? 'non-negotiable' : 'additional'}?`}
+        title={`Make ${domain} ${toLabel}?`}
+        description={
+          to === 'NON_NEGOTIABLE'
+            ? 'A deliberate visit can then send an alert to members’ accountability partners.'
+            : 'It stays blocked, but visits no longer send alerts.'
+        }
+        confirmLabel={`Make ${toLabel}`}
+        done={`${domain} is now ${toLabel}.`}
         run={() => setBlockedDomainType(groupId, domain, to)}
       />
       <ConfirmButton
         label="Remove"
-        confirmText={`Stop blocking ${domain} for this group?`}
+        title={`Stop blocking ${domain}?`}
+        description="It becomes reachable for everyone in this group."
+        confirmLabel="Stop blocking"
+        destructive
+        done={`${domain} is no longer blocked.`}
         run={() => removeBlockedDomain(groupId, domain)}
       />
     </div>

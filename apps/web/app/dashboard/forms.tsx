@@ -48,8 +48,8 @@ export function ProfileForm({ displayName }: { displayName: string | null }) {
         <p className="text-muted-foreground text-xs">Shown to members of your groups.</p>
       </div>
       <Status state={state} savedText="Saved." />
-      <Button type="submit" disabled={pending}>
-        {pending ? 'Saving…' : 'Save'}
+      <Button type="submit" loading={pending}>
+        Save
       </Button>
     </form>
   );
@@ -76,8 +76,8 @@ export function WelcomeForm() {
         </p>
       </div>
       <Status state={state} />
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? 'Saving…' : 'Continue to my dashboard'}
+      <Button type="submit" size="lg" loading={pending}>
+        Continue to my dashboard
       </Button>
     </form>
   );
@@ -100,8 +100,8 @@ export function CreateGroupForm({
           <Label htmlFor="name">New group name</Label>
           <Input id="name" name="name" maxLength={60} required defaultValue={defaultName} />
         </div>
-        <Button type="submit" disabled={pending}>
-          {pending ? 'Creating…' : 'Create group'}
+        <Button type="submit" loading={pending}>
+          Create group
         </Button>
       </div>
       <Status state={state} />
@@ -118,8 +118,8 @@ export function DeleteAccountForm() {
         <Input id="confirm-delete" name="confirm" autoComplete="off" required />
       </div>
       <Status state={state} />
-      <Button type="submit" variant="destructive" disabled={pending}>
-        {pending ? 'Deleting…' : 'Delete my account'}
+      <Button type="submit" variant="destructive" loading={pending}>
+        Delete my account
       </Button>
     </form>
   );

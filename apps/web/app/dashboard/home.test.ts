@@ -36,7 +36,7 @@ describe('Resolve checklist', () => {
     const items = checklistItems([group({ mode: 'PRIVATE', receiving: 0 })], { state: 'absent' });
     expect(score(items)).toBe(1);
     expect(items[0]?.action?.href).toBe('/getting-started');
-    expect(items[2]?.action?.href).toContain('#accountability');
+    expect(items[2]?.action?.href).toContain('?tab=accountability');
   });
 
   it('does not score media blurring while the browser is being checked', () => {

@@ -32,7 +32,7 @@ installed this way.
 ## 3. Turn on protection
 
 1. Click the Resolve icon and **Sign in** with the same account.
-2. Choose your **Active group**. The popup shows "Domain protection: on" once your group's
+2. Choose your **Active group**. The popup shows "Website blocking: on" once your group's
    blocked websites apply.
 3. Optional, in **Settings**: turn on **Blur sensitive images and videos**, and if you share
    accountability alerts, **Alert my accountability partners about blocked visits**. The browser
