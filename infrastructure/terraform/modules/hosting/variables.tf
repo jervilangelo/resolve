@@ -45,3 +45,9 @@ variable "contact_email" {
   type        = string
   default     = null
 }
+
+variable "custom_domain" {
+  description = "Custom domain the dashboard is served on (null: Amplify's address)."
+  type        = string
+  default     = null
+}

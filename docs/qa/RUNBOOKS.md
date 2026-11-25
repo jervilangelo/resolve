@@ -91,3 +91,26 @@ Routine deploys go through the "Deploy prod" workflow (manual, owner approval).
 Deploys run from `main` through "Deploy dev". To roll back, revert the offending commit on `main`
 (never force-push); the pipeline re-applies the previous state. Terraform state is in the
 encrypted, versioned state bucket if a manual recovery is needed.
+
+## Switching to the custom domain
+
+The domain module (Route 53 zone, SES domain identity, Amplify domain) is applied first; the
+dashboard and the alert sender switch only when everything verifies, because an unverified sender
+is rejected by SES and an unissued certificate breaks the address.
+
+1. At the registrar, set the nameservers to the zone's (`terraform output name_servers` in prod).
+2. Wait until all three are verified:
+   - `nslookup -type=NS getresolved.site 8.8.8.8` lists the awsdns servers;
+   - `aws sesv2 get-email-identity --email-identity getresolved.site` shows
+     `VerifiedForSendingStatus: true` and DKIM `SUCCESS` (MAIL FROM `SUCCESS`);
+   - `aws amplify get-domain-association --app-id <id> --domain-name getresolved.site` shows
+     `AVAILABLE`.
+3. Change the default of `use_domain` to `true` in `environments/prod/variables.tf` (in code, so
+   the Deploy prod workflow keeps it), commit and apply. Sign-in callbacks, CORS, alert links and
+   the sender change together.
+4. Rebuild the dashboard (`aws amplify start-job --app-id <id> --branch-name main --job-type
+   RELEASE`): `NEXT_PUBLIC_*` values are fixed at build time.
+5. Check: `https://www.getresolved.site` and the amplifyapp address redirect to
+   `https://getresolved.site`; sign in; send a test alert to the SES simulator and check the
+   headers (SPF, DKIM and DMARC pass, From "Resolve <no-reply@getresolved.site>").
+6. Rebuild the beta extension with the new dashboard URL and send testers the new zip.

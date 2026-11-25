@@ -64,3 +64,21 @@ variable "permissions_boundary" {
   type        = string
   default     = null
 }
+
+variable "custom_domain" {
+  description = "Custom domain for the dashboard (prod)."
+  type        = string
+  default     = null
+}
+
+variable "ses_sender_name" {
+  description = "Display name on alert emails."
+  type        = string
+  default     = "Resolve"
+  nullable    = false
+  validation {
+    # Must match the worker's check (SENDER_NAME in delivery-worker.ts).
+    condition     = can(regex("^[A-Za-z0-9_ .-]{1,40}$", var.ses_sender_name))
+    error_message = "Use 1-40 letters, digits, spaces, dots, dashes or underscores."
+  }
+}

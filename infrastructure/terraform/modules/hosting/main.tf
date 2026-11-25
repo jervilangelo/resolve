@@ -8,7 +8,9 @@
 # address (https://<branch>.<app id>.amplifyapp.com) until a custom domain is attached.
 
 locals {
-  origin = "https://${var.branch}.${aws_amplify_app.this.default_domain}"
+  amplify_origin = "https://${var.branch}.${aws_amplify_app.this.default_domain}"
+  # The public address: the custom domain once attached, otherwise Amplify's own.
+  origin = var.custom_domain == null ? local.amplify_origin : "https://${var.custom_domain}"
 }
 
 # Encrypts the dashboard's session cookies. Lives only in Terraform state (encrypted bucket) and

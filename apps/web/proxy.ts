@@ -7,6 +7,8 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { authConfig, readSession, sessionCookies } from '@/lib/auth';
+import { canonicalRedirect } from '@/lib/canonical-host';
+import { publicEnv } from '@/lib/env';
 import { TokenError, refreshTokens } from '@/lib/cognito';
 import { clearCookies } from '@/lib/session';
 
@@ -42,6 +44,17 @@ function toLogin(request: NextRequest, clear: boolean) {
  * the access token shortly before expiry, so server components and actions see a valid one.
  */
 export async function proxy(request: NextRequest) {
+  // One address for the whole dashboard (sign-in cookies are per host); see lib/canonical-host.
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
+    const target = canonicalRedirect(new URL(request.url), host, publicEnv.NEXT_PUBLIC_SITE_URL);
+    if (target) return NextResponse.redirect(target, 308);
+  }
+  const path = request.nextUrl.pathname;
+  if (path !== '/invite' && path !== '/dashboard' && !path.startsWith('/dashboard/')) {
+    return NextResponse.next();
+  }
+
   const current = await readSession(request.cookies);
   if (!current) return toLogin(request, true);
 
@@ -65,4 +78,9 @@ export async function proxy(request: NextRequest) {
   }
 }
 
-export const config = { matcher: ['/dashboard/:path*', '/invite'] };
+// Every page (for the canonical-host redirect); static assets and Next.js internals excluded.
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|svg|jpg|jpeg|webp|ico|txt)$).*)',
+  ],
+};

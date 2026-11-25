@@ -43,3 +43,8 @@ output "github_deploy_role_arn" {
 output "extension_client_id" {
   value = module.resolve.extension_client_id
 }
+
+output "name_servers" {
+  description = "Nameservers to set at the domain registrar."
+  value       = module.domain.name_servers
+}

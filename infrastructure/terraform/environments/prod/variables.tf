@@ -60,3 +60,15 @@ variable "store_extension_ids" {
   type        = list(string)
   default     = []
 }
+
+variable "domain" {
+  description = "Production domain (dashboard address and email sending domain)."
+  type        = string
+  default     = "getresolved.site"
+}
+
+variable "use_domain" {
+  description = "Serve the dashboard and send alerts from var.domain (after it is delegated and verified)."
+  type        = bool
+  default     = false
+}

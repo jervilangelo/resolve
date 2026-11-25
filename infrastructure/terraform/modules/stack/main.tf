@@ -10,7 +10,10 @@ locals {
   repo_root   = "${path.root}/../../../.."
   is_prod     = var.stage == "prod"
   # The hosted dashboard (when enabled) comes first: it is the address alert emails link to.
-  web_origins = concat(var.enable_hosting ? [module.hosting[0].origin] : [], var.web_origins)
+  web_origins = concat(
+    var.enable_hosting ? distinct([module.hosting[0].origin, module.hosting[0].amplify_origin]) : [],
+    var.web_origins,
+  )
 }
 
 module "hosting" {
@@ -23,6 +26,7 @@ module "hosting" {
   cognito_domain      = module.identity.hosted_domain
   web_client_id       = module.identity.web_client_id
   contact_email       = var.alert_email
+  custom_domain       = var.custom_domain
 }
 
 module "identity" {
@@ -70,11 +74,14 @@ module "notifications" {
   worker_source_dir    = "${local.repo_root}/services/notifications/dist/delivery-worker"
   log_retention_days   = var.log_retention_days
   sender_email         = var.ses_sender_email
-  table_name           = module.data.table_name
-  table_arn            = module.data.table_arn
-  user_pool_id         = module.identity.user_pool_id
-  user_pool_arn        = module.identity.user_pool_arn
-  dashboard_url        = local.web_origins[0]
+  sender_name          = var.ses_sender_name
+  # An address on the custom domain is authorized by the domain identity (modules/domain).
+  create_sender_identity = var.custom_domain == null || !endswith(coalesce(var.ses_sender_email, "-"), "@${coalesce(var.custom_domain, "-")}")
+  table_name             = module.data.table_name
+  table_arn              = module.data.table_arn
+  user_pool_id           = module.identity.user_pool_id
+  user_pool_arn          = module.identity.user_pool_arn
+  dashboard_url          = local.web_origins[0]
 }
 
 module "observability" {

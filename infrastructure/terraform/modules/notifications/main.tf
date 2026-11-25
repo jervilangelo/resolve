@@ -85,7 +85,7 @@ resource "aws_lambda_event_source_mapping" "relay" {
 # Sender identity for notification emails. A single verified address keeps SES in sandbox mode
 # (it can only send to verified recipients) until production access and a domain are approved.
 resource "aws_sesv2_email_identity" "sender" {
-  count          = var.sender_email == null ? 0 : 1
+  count          = var.sender_email == null || !var.create_sender_identity ? 0 : 1
   email_identity = var.sender_email
 }
 
@@ -170,6 +170,7 @@ module "worker" {
     TABLE_NAME    = var.table_name
     USER_POOL_ID  = var.user_pool_id
     SENDER_EMAIL  = coalesce(var.sender_email, "unset@invalid")
+    SENDER_NAME   = var.sender_name
     DASHBOARD_URL = var.dashboard_url
   }
 }

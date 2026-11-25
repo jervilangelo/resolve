@@ -60,3 +60,21 @@ variable "permissions_boundary" {
   type        = string
   default     = null
 }
+
+variable "sender_name" {
+  description = "Display name on alert emails."
+  type        = string
+  default     = "Resolve"
+  nullable    = false
+  validation {
+    # Must match the worker's check (SENDER_NAME in delivery-worker.ts).
+    condition     = can(regex("^[A-Za-z0-9_ .-]{1,40}$", var.sender_name))
+    error_message = "Use 1-40 letters, digits, spaces, dots, dashes or underscores."
+  }
+}
+
+variable "create_sender_identity" {
+  description = "Verify sender_email as its own SES identity (false when its domain is verified)."
+  type        = bool
+  default     = true
+}

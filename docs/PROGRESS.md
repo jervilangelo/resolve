@@ -10,7 +10,8 @@ Where development stopped and what comes next. Read this first when resuming; up
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
 **Last updated:** 2026-11-25 · **Current:** Phase 10 complete (limited beta live on production);
-store submission and Phase 11 (Focus Mode) next
+owner revisions in progress: custom domain getresolved.site (DNS applied, awaiting delegation),
+then dashboard/extension revisions
 
 ## Phase status
 
@@ -152,6 +153,18 @@ store submission and Phase 11 (Focus Mode) next
 
 ## Next steps
 
+0. **Owner revisions (2026-11-25)**, in order:
+   - Custom domain `getresolved.site` (bought at Namecheap): Route 53 zone, SES domain identity
+     (DKIM 2048, MAIL FROM `mail.`, SPF, DMARC quarantine) and the Amplify domain (apex + www) are
+     applied. Waiting for the owner's Namecheap nameserver change to propagate; then follow
+     "Switching to the custom domain" in docs/qa/RUNBOOKS.md (`use_domain` default → true, apply, rebuild, new
+     beta build with the new dashboard URL). Alerts then come from "Resolve <no-reply@getresolved.site>".
+   - Dashboard: loading screen + display-name prompt on first entry; Resolve checklist (media
+     blurring, joining a group, accountability sharing; 3/3 = strong); About page from the README;
+     bulk website entry (lines, CSV/XLSX, JSON); full UI refresh (design-taste skill), keeping all
+     functionality.
+   - Extension: sign-out confirmation (Yes/No); auto-select the active group when there is only one.
+   - Not possible: the Cognito sign-in placeholder (owner chose to keep Cognito's page).
 1. Owner, before inviting testers: check self sign-up with a real inbox and a manual run in Google
    Chrome stable (docs/release/BETA_RELEASE_RECORD.md); publish the draft GitHub release (beta zip)
    and send testers docs/release/BETA_TESTERS.md.
@@ -159,7 +172,7 @@ store submission and Phase 11 (Focus Mode) next
    to get their IDs, set `store_extension_ids` in prod tfvars, apply, build and zip the store
    version (`pnpm --filter @resolve/extension zip`), submit with docs/release/STORE_LISTING.md.
 3. Phase 11 — Focus Mode & Intentional Exit (roadmap; DNR rule IDs from 100000 are reserved).
-4. Later: custom domain (Amplify + SES domain with SPF/DKIM/DMARC); Firefox; docs/qa/BACKLOG.md.
+4. Later: Firefox; docs/qa/BACKLOG.md.
 
 ## Decisions log
 

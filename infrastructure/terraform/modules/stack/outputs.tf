@@ -43,3 +43,8 @@ output "dashboard_url" {
   description = "Address alert emails link to (the hosted dashboard when enabled)."
   value       = local.web_origins[0]
 }
+
+output "amplify_app_id" {
+  description = "Amplify app of the hosted dashboard (null when hosting is off)."
+  value       = var.enable_hosting ? module.hosting[0].app_id : null
+}

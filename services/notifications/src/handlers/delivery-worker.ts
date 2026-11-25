@@ -35,6 +35,11 @@ const env = parseEnv(
     TABLE_NAME: z.string().min(1),
     USER_POOL_ID: z.string().min(1),
     SENDER_EMAIL: z.email(),
+    /** Display name shown in inboxes, e.g. "Resolve". */
+    SENDER_NAME: z
+      .string()
+      .regex(/^[\w .-]{1,40}$/)
+      .default('Resolve'),
     DASHBOARD_URL: z.url(),
   }),
   process.env,
@@ -215,7 +220,7 @@ const deps: DeliveryDeps = {
     try {
       await ses.send(
         new SendEmailCommand({
-          FromEmailAddress: env.SENDER_EMAIL,
+          FromEmailAddress: `"${env.SENDER_NAME}" <${env.SENDER_EMAIL}>`,
           Destination: { ToAddresses: [to] },
           Content: {
             Simple: {

@@ -11,3 +11,8 @@ output "origin" {
 output "app_id" {
   value = aws_amplify_app.this.id
 }
+
+output "amplify_origin" {
+  description = "Amplify's own HTTPS address for the dashboard (always valid)."
+  value       = local.amplify_origin
+}
