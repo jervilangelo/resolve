@@ -144,8 +144,8 @@ SES production access (AWS review), the prod GitHub settings and store accounts
 
 ## Next steps
 
-1. Owner: run the prod GitHub setup script (environment variables and secrets for "Deploy prod");
-   then run "Deploy prod" once to confirm the pipeline (it should change nothing).
+1. Done 2026-11-25: prod GitHub environment configured; first "Deploy prod" run succeeded with
+   owner approval (updated the three Lambda bundles; health check passed).
 2. SES production access: wait for AWS's review (check `aws sesv2 get-account --profile
    resolve-prod`); answer any follow-up questions from AWS.
 3. Store: owner creates Chrome Web Store and Edge Partner Center developer accounts; create draft
