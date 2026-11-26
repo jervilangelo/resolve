@@ -77,7 +77,7 @@ and what is not covered. Run everything yourself with the commands at the end.
 | Chromium (Playwright, CI)    | 8/8 + web 18    | Whole-browser network log must stay local                                                   |
 | Microsoft Edge 158           | 8/8             | Vendor background traffic exists; the extension's and pages' requests are checked instead |
 | Brave 1.100 (Chromium 158)   | 8/8             | As Edge                                                                                     |
-| Google Chrome                | Not automated   | Same engine as above; checked by hand before store submission (RELEASE_CHECKLIST.md) |
+| Google Chrome                | Not automated   | Same engine as above; checked by hand before store submission ([RELEASING.md](../RELEASING.md#release-checklist)) |
 | Firefox                      | —               | Not supported: no offscreen documents (media filter), no Gecko ID (sign-in); on hold        |
 
 ## Open items
@@ -86,7 +86,7 @@ and what is not covered. Run everything yourself with the commands at the end.
   failure on danger buttons) and the Trigger A real-browser re-run (a script redirect into a
   blocked site is blocked without an alert; a deliberate visit sends exactly one).
 - Media filter false-negative rate needs the owner's private labelled dataset.
-- Everything else open is in BACKLOG.md.
+- Everything else open is in [ROADMAP.md](../ROADMAP.md).
 
 ## How to reproduce
 

@@ -79,9 +79,7 @@ export default function SupportPage() {
                 className="mx-auto mt-5 h-auto w-full max-w-[18rem] rounded-xl bg-white"
               />
               <p className="text-muted-foreground mt-4 text-sm">
-                Scanning with GCash, or any bank app that reads InstaPay QR Ph codes, opens a money
-                transfer to Jervil Angelo De Leon, Resolve’s developer. Choose the amount in your
-                app and check the recipient’s name before you send.
+                Scan with GCash, or any bank app that reads InstaPay QR Ph codes.
               </p>
             </>
           ) : (

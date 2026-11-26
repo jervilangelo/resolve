@@ -53,6 +53,8 @@ Cognito (the worker looks them up at send time and does not keep them).
 | Focus Mode settings        | Extension-origin IndexedDB              | Running session's start and end time, last duration, the three optional sites (no visits, no history; the emergency phrase is never stored) | Until changed; a session clears at its end |
 | Media verdict cache        | Worker and page memory only             | Scores per image URL (worker), verdicts per URL (page)        | Until the worker or page goes away  |
 | Navigation tracking        | Worker memory only                      | Per tab: host a navigation started at, last page host and time, last blocked host and time | Until the tab closes or the worker stops |
+| Blocked-page routing       | Worker memory only                      | Per tab: the latest top-level navigation URL and the host whose block Resolve's page is showing (to avoid overriding a newer page and to step Back past it) | Until the tab closes or the worker stops |
+| Blocked-page variety       | Extension-page localStorage             | Index of the last reflection and quotation shown (no site)    | Until the extension is removed      |
 | Alert cooldowns            | Extension-origin IndexedDB              | Per sign-in and group: time of the last report (no URL)       | 10 minutes (expired entries dropped) |
 | Setup checklist answer     | Sent to the dashboard page only (same browser, its exact origin) | Two yes/no facts: signed in, media blurring on. Not stored by the dashboard or sent to the server | Not kept (asked on each visit) |
 

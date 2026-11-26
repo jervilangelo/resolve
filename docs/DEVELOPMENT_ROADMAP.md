@@ -3,7 +3,8 @@
 > **Take every thought captive.**  
 > Biblical inspiration: 2 Corinthians 10:5. Historical inspiration: Jonathan Edwards' *Resolutions*.
 
-**Status:** Planned. **Schedule:** Phase-based, with no fixed dates or duration estimates.  
+**Status:** Phases 1–11 delivered (2026-11-26); this file is the record of how Resolve was built.
+Future work lives only in [ROADMAP.md](ROADMAP.md) (deferred, revisit 2027).  
 **Repository:** https://github.com/jervilangelo/resolve  
 **Authoritative system specification:** [MASTER_PLAN.md](MASTER_PLAN.md)
 
@@ -262,7 +263,7 @@ Define and test a maintainable domain mapping for each service, including recogn
 - Keep storage minimal: the enabled flag, three optional booleans, and any enforcement metadata needed for recovery. Do not create a focus-history database or transmit browsing events.
 - Test mouse/keyboard interactions, reduced-motion behavior, rule cleanup, extension limitations, and every supported browser.
 
-**Deferred enhancements (v1.2+):** Optional timed sessions, schedules, Pomodoro cycles, personalized domain lists, private statistics, and other habit-building features. These are **not part of v1.1** and must not complicate the initial switch experience.
+**Deferred enhancements:** timed sessions shipped in 0.3.0; the rest (schedules, Pomodoro cycles, personal site lists, statistics) is in [ROADMAP.md](ROADMAP.md#extension).
 
 **Deliverables:** Simple extension Focus Mode UI; fixed service blocklist with three optional services; isolated local browser enforcement; branded restriction page; reliable On/Off state and restart recovery; cross-browser tests.
 

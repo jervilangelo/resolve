@@ -123,8 +123,8 @@ owner revisions done; production on https://getresolved.site with alerts from
   talks to production (`SITE_URL=<dashboard> pnpm extension:env prod` writes
   `.env.production.local`). Acceptance passed on production: group setup, consent, extension
   sign-in and protection, Trigger A and Trigger B emails, self-service deletion of all accounts.
-  Record: docs/release/BETA_RELEASE_RECORD.md; testers: docs/release/BETA_TESTERS.md; store
-  screenshots: docs/release/screenshots.
+  Record: CHANGELOG.md and docs/RELEASING.md (the beta record and tester guide were merged there
+  and into the website Tutorial on 2026-11-26); store screenshots: docs/release/screenshots.
 - **Production (Phase 10, 2026-11-25):** dedicated AWS account `514009713156` (in the owner's
   organization; CLI profile `resolve-prod`; Terraform via exported credentials:
   `eval "$(aws configure export-credentials --profile resolve-prod --format env)"`). Dashboard:
@@ -141,7 +141,7 @@ owner revisions done; production on https://getresolved.site with alerts from
   account, 2-hour tombstone refuses leftover tokens; verified live); Amplify hosting module
   (`modules/hosting`, enabled per stage, token needed only at creation); store listing pack and
   release notes in docs/release. Owner's Windows desktop proposal recorded as post-launch
-  (docs/HYBRID_DESKTOP_ARCHITECTURE_PROPOSAL.md).
+  (now in docs/ROADMAP.md, deferred).
 - **Whole-system review (2026-11-24, Claude reviewers per area):** no critical or high findings.
   Fixed: media re-reads no longer hit the HTTP disk cache, fetch/classify timeouts and a streamed
   size cap, late video verdicts can't unblur a new source, fair video sampling, rules removed at
@@ -152,6 +152,15 @@ owner revisions done; production on https://getresolved.site with alerts from
 - **Checks:** `pnpm check`, `pnpm build`, `pnpm e2e`, `pnpm integration` all passing at pause.
 
 ## Next steps
+
+- Done (2026-11-26): extension 0.4.1 released (Access Blocked wording, Focus page line,
+  ownership notices). Docs consolidated: README redesigned (animated logo, verified features,
+  privacy, limitations); docs/DEVELOPMENT.md (contributors), docs/RELEASING.md (maintainers,
+  absorbs the release checklist and beta record), CHANGELOG.md (absorbs release notes);
+  docs/ROADMAP.md is the only home for future work (desktop companion, Firefox, stores, backlog,
+  hardening), deferred to 2027. Removed after merging: HYBRID_DESKTOP_ARCHITECTURE_PROPOSAL.md,
+  qa/BACKLOG.md, qa/RELEASE_CHECKLIST.md, release/RELEASE_NOTES.md, BETA_RELEASE_RECORD.md,
+  BETA_TESTERS.md. Production infrastructure plan: no changes.
 
 - Done (2026-11-26): Tutorial page (/tutorial, in the nav; /getting-started redirects) with real
   screenshots and a captioned Focus Mode video captured on the dev stack with synthetic users;
@@ -221,13 +230,13 @@ owner revisions done; production on https://getresolved.site with alerts from
      the main account was deleted.
    - Not possible: the Cognito sign-in placeholder (owner chose to keep Cognito's page).
 1. Owner, before inviting testers: check self sign-up with a real inbox and a manual run in Google
-   Chrome stable (docs/release/BETA_RELEASE_RECORD.md); publish the draft GitHub release (beta zip)
-   and send testers docs/release/BETA_TESTERS.md.
+   Chrome stable (docs/RELEASING.md); publish the GitHub release (beta zip) and point testers at
+   the website Tutorial.
 2. Store release: owner creates Chrome Web Store and Edge Partner Center accounts; create the items
    to get their IDs, set `store_extension_ids` in prod tfvars, apply, build and zip the store
    version (`pnpm --filter @resolve/extension zip`), submit with docs/release/STORE_LISTING.md.
 3. Phase 11 — Focus Mode & Intentional Exit (roadmap; DNR rule IDs from 100000 are reserved).
-4. Later: Firefox; docs/qa/BACKLOG.md.
+4. Later: Firefox; docs/ROADMAP.md.
 
 ## Decisions log
 
