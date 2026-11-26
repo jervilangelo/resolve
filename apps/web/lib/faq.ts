@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -22,6 +22,10 @@ export const FAQ: { id: string; title: string; items: FaqItem[] }[] = [
       {
         q: 'What does it cost?',
         a: 'Nothing. Resolve is free and has no ads or paid tiers. Voluntary donations help keep it running but never unlock anything.',
+      },
+      {
+        q: 'Can Resolve be turned off?',
+        a: 'Yes. Any extension can be disabled or removed, and Resolve protects only the browser it is installed in. It supports honest people; it is not a lock.',
       },
       {
         q: 'Does it replace accountability in a church?',
@@ -130,30 +134,26 @@ export const FAQ: { id: string; title: string; items: FaqItem[] }[] = [
         a: 'Accounts and groups run on AWS-managed services with security controls. See the privacy policy for exactly what is stored.',
       },
       {
+        q: 'Is every image and video checked?',
+        a: 'Not always. Some images and protected videos cannot be checked, and they stay blurred by default. Pages a site saved for offline use may still open.',
+      },
+      {
         q: 'Too many or too few images are blurred.',
         a: 'Change the sensitivity in the extension’s settings. The model makes mistakes in both directions.',
       },
     ],
   },
   {
-    id: 'limits',
-    title: 'Limitations',
+    id: 'account',
+    title: 'Account and security',
     items: [
       {
-        q: 'Can Resolve be turned off?',
-        a: 'Yes. Any extension can be disabled or removed, and Resolve protects only the browser it is installed in. It supports honest people; it is not a lock.',
-      },
-      {
-        q: 'Does it work on every page and video?',
-        a: 'No. Some images and protected videos cannot be checked (they stay blurred by default), and pages a site saved for offline use may still open.',
+        q: 'How do I delete my account?',
+        a: 'Use “Delete account” on your dashboard profile. It removes your account and your group memberships.',
       },
       {
         q: 'How do I report a security or privacy problem?',
         a: 'Email resolved.site@gmail.com with “Security” in the subject, and please allow time for a fix before sharing it publicly.',
-      },
-      {
-        q: 'How do I delete my account?',
-        a: 'Use “Delete account” on your dashboard profile. It removes your account and your group memberships.',
       },
     ],
   },

@@ -1,6 +1,6 @@
 <!--
 Resolve — Take every thought captive.
-Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+Copyright © Jervil Angelo De Leon. All rights reserved.
 Proprietary source code. See LICENSE.
 -->
 
@@ -152,6 +152,14 @@ owner revisions done; production on https://getresolved.site with alerts from
 - **Checks:** `pnpm check`, `pnpm build`, `pnpm e2e`, `pnpm integration` all passing at pause.
 
 ## Next steps
+
+- Done (2026-11-26): Tutorial page (/tutorial, in the nav; /getting-started redirects) with real
+  screenshots and a captioned Focus Mode video captured on the dev stack with synthetic users;
+  About copy and builder note; landing hero is the logo; FAQ "Limitations" removed; Access Blocked
+  shows "This page is blocked by Resolve…"; robots.txt disallows documented AI crawlers; source,
+  bundles, NOTICE.txt and site use "Copyright © Jervil Angelo De Leon. All rights reserved."
+  Security review: no high findings. Owner actions: restrict the GitHub `prod` environment to
+  `main`; QR image still pending. Extension changes not released (needs a version bump).
 
 - Done (2026-11-26): two blocked-page experiences. Group restrictions show "Access Blocked"
   (blocked.html: randomized reflection and verified KJV/Puritan quotation from

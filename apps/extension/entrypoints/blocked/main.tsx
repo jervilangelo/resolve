@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -85,6 +85,9 @@ function BlockedPage() {
         <h1 className="text-muted-foreground mt-5 text-sm font-semibold tracking-wide">
           Access Blocked
         </h1>
+        <p className="mt-2 text-sm">
+          This page is blocked by Resolve. Please stay away from this website.
+        </p>
         <p className="font-display mt-4 text-4xl leading-tight sm:text-5xl">{reflection}</p>
         <p className="text-muted-foreground mx-auto mt-5 max-w-md text-lg">
           You made a commitment to guard your heart. Before you go any further, remember who you are

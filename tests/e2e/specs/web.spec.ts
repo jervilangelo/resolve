@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -8,12 +8,17 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-test('home page renders brand, tagline and availability line', async ({ page }) => {
+test('home page leads with the logo as its heading and the availability line', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await expect(page).toHaveTitle(/Resolve/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Take every thought captive.');
+  // The hero heading is the logo; its accessible name is the brand.
+  await expect(page.getByRole('heading', { level: 1, name: 'Resolve' })).toBeVisible();
+  await expect(page.locator('h1 img[src*="horizontal-light.svg"]')).toBeVisible();
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.getByRole('heading', { level: 1, name: 'Resolve' })).toBeVisible();
+  await expect(page.locator('h1 img[src*="horizontal-dark.svg"]')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Resolve home' })).toBeVisible();
   await expect(page.getByText('Free · No ads · Chrome, Edge and Brave')).toBeVisible();
   expect(errors).toEqual([]);
@@ -60,7 +65,7 @@ test.describe('accessibility (WCAG 2.1 A/AA, axe)', () => {
       '/privacy',
       '/terms',
       '/support',
-      '/getting-started',
+      '/tutorial',
       '/about',
       '/faq',
       '/downloads',
@@ -82,7 +87,7 @@ test('public information pages render and are linked from every page', async ({ 
   await page.goto('/');
   for (const [label, heading] of [
     ['About', 'About Resolve'],
-    ['Getting started', 'Getting started'],
+    ['Tutorial', 'How to use Resolve'],
     ['FAQ', 'Frequently asked questions'],
     ['Download', 'Download Resolve'],
     ['Support Resolve', 'Help keep Resolve available'],
@@ -95,4 +100,59 @@ test('public information pages render and are linked from every page', async ({ 
   // The privacy policy states the core guarantee plainly.
   await page.goto('/privacy');
   await expect(page.getByText('never uploaded to Resolve or anyone else')).toBeVisible();
+});
+
+test('the tutorial covers the whole journey with described media', async ({ page }) => {
+  await page.goto('/tutorial');
+  for (const name of [
+    'Get Resolve',
+    'Install the extension',
+    'Sign in and check it is ready',
+    'Blur sensitive images',
+    'Use Focus Mode',
+    'Groups and website restrictions',
+    'Accountability alerts',
+    'The two blocked screens',
+    'Fix common problems',
+  ]) {
+    await expect(page.getByRole('heading', { level: 2, name })).toBeVisible();
+  }
+  const images = page.locator('article img');
+  expect(await images.count()).toBeGreaterThanOrEqual(12);
+  for (const alt of await images.evaluateAll((els) => els.map((e) => e.getAttribute('alt')))) {
+    expect((alt ?? '').length).toBeGreaterThan(20);
+  }
+  await expect(page.locator('video track[kind="captions"]')).toHaveCount(1);
+  // Keyboard: the section links move focus through the contents list.
+  await page
+    .getByRole('navigation', { name: 'Tutorial sections' })
+    .getByRole('link', { name: 'Use Focus Mode' })
+    .click();
+  await expect(page).toHaveURL(/#focus$/);
+  expect(await page.content()).not.toMatch(/demo\.(member|partner|guest)@/);
+  // Old links keep working.
+  await page.goto('/getting-started');
+  await expect(page).toHaveURL(/\/tutorial$/);
+});
+
+test('about page has the new opening, the builder note and no 2 Corinthians quotation', async ({
+  page,
+}) => {
+  await page.goto('/about');
+  await expect(page.getByText('Resolve is for Christians who want to be diligent')).toBeVisible();
+  await expect(page.getByText('Like any tool, Resolve can be bypassed.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'View my portfolio' })).toHaveAttribute(
+    'href',
+    'https://jervilangelo.online',
+  );
+  await expect(page.locator('main')).not.toContainText('2 Corinthians');
+});
+
+test('the FAQ has no Limitations category but keeps account and security answers', async ({
+  page,
+}) => {
+  await page.goto('/faq');
+  await expect(page.getByRole('heading', { name: 'Limitations' })).toHaveCount(0);
+  await expect(page.getByText('How do I delete my account?')).toBeVisible();
+  await expect(page.getByText('How do I report a security or privacy problem?')).toBeVisible();
 });

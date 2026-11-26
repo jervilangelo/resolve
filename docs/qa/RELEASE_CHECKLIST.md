@@ -1,6 +1,6 @@
 <!--
 Resolve — Take every thought captive.
-Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+Copyright © Jervil Angelo De Leon. All rights reserved.
 Proprietary source code. See LICENSE.
 -->
 

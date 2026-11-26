@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -41,7 +41,7 @@ export function SiteNav({ signedIn }: { signedIn: boolean }) {
         <Link href="/" className="rounded-sm" aria-label="Resolve home" onClick={close}>
           <Logo variant="horizontal-compact" height={26} priority />
         </Link>
-        <nav aria-label="Main" className="hidden md:block">
+        <nav aria-label="Main" className="hidden lg:block">
           <ul className="flex items-center gap-1">
             {PUBLIC_NAV.map((item) => {
               const current = pathname === item.href;
@@ -64,7 +64,7 @@ export function SiteNav({ signedIn }: { signedIn: boolean }) {
             })}
           </ul>
         </nav>
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-2 lg:flex">
           {!signedIn && (
             <Link
               href="/dashboard"
@@ -82,7 +82,7 @@ export function SiteNav({ signedIn }: { signedIn: boolean }) {
         </div>
         <button
           type="button"
-          className="hover:bg-muted -mr-2 inline-flex h-11 items-center rounded-full px-4 text-sm font-medium md:hidden"
+          className="hover:bg-muted -mr-2 inline-flex h-11 items-center rounded-full px-4 text-sm font-medium lg:hidden"
           aria-expanded={open}
           aria-controls="site-menu"
           onClick={() => {
@@ -93,7 +93,7 @@ export function SiteNav({ signedIn }: { signedIn: boolean }) {
         </button>
       </div>
       {open && (
-        <div id="site-menu" className="rs-page border-t md:hidden">
+        <div id="site-menu" className="rs-page border-t lg:hidden">
           <nav aria-label="Main" className="mx-auto max-w-6xl px-5 py-4 sm:px-8">
             <ul className="space-y-1">
               {PUBLIC_NAV.map((item) => (

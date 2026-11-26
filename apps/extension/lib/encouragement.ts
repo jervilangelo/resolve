@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -37,7 +37,6 @@ export type Theme =
 export const REFLECTIONS: readonly string[] = [
   'Will this glorify God?',
   'Is this drawing you closer to Christ?',
-  'Is this worth surrendering your peace for?',
   'What would faithfulness look like in this moment?',
   'Are you feeding your flesh or pursuing holiness?',
   'Who are you living for right now?',

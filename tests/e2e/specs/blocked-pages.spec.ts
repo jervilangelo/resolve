@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -195,6 +195,9 @@ test('a group block shows Access Blocked, takes precedence over Focus, and keeps
     const page = await visit(context, 'http://www.casino.example/table?id=7');
     await page.waitForURL(/\/blocked\.html$/);
     await expect(page.getByRole('heading', { name: 'Access Blocked' })).toBeVisible();
+    await expect(
+      page.getByText('This page is blocked by Resolve. Please stay away from this website.'),
+    ).toBeVisible();
     await expect(page.getByText('You made a commitment to guard your heart.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Choose to Walk Away' })).toBeVisible();
     await expect(page.getByRole('button', { name: /continue|ignore|unlock/i })).toHaveCount(0);
@@ -229,7 +232,7 @@ test('Access Blocked varies its reflection and quotation between visits', async 
       const page = await context.newPage();
       await page.goto(url);
       seen.push(
-        `${await page.locator('main p').first().textContent()}|${await page.locator('blockquote').textContent()}`,
+        `${await page.locator('main p').nth(1).textContent()}|${await page.locator('blockquote').textContent()}`,
       );
       await page.close();
     }

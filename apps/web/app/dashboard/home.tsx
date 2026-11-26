@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -53,7 +53,7 @@ export function checklistItems(groups: HomeGroup[], extension: ExtensionStatus):
             state: 'todo',
             detail:
               'Install the Resolve extension in this browser, then turn on "Blur sensitive images and videos" in its Settings.',
-            action: { label: 'How to install', href: '/getting-started' },
+            action: { label: 'How to install', href: '/tutorial#install' },
           }
         : extension.mediaBlur
           ? {

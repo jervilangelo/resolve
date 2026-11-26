@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -61,8 +61,10 @@ export default function AboutPage() {
         title="About Resolve"
         intro={
           <p>
-            Resolve helps Christians guard what they see online and invite trusted friends into the
-            fight, in the spirit of 2 Corinthians 10:5: “take every thought captive to obey Christ.”
+            Resolve is for Christians who want to be diligent and careful about how they use the
+            internet as part of their walk with Christ. It helps you set boundaries online and
+            invite trusted people to encourage you. All of life is for God’s glory, including how we
+            spend our time online.
           </p>
         }
       />
@@ -147,6 +149,11 @@ export default function AboutPage() {
       </div>
       <div className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
         <Prose id="mortify" title="A tool, not the mortifier of sin">
+          <p>
+            Like any tool, Resolve can be bypassed. Our hearts can be quick to find excuses when we
+            want to do something we know we should avoid. Resolve can help by interrupting a habit,
+            making temptation harder to act on, and encouraging accountability.
+          </p>
           <p className="font-medium">Resolve is not the ultimate mortifier of sin.</p>
           <p>
             No browser extension, blocked website, or automated notification can put sin to death on
@@ -160,6 +167,21 @@ export default function AboutPage() {
           <p>
             It must never become a substitute for repentance, prayer, Scripture, personal
             responsibility, pastoral care, or dependence on Christ.
+          </p>
+        </Prose>
+        <Prose id="builder" title="Who built Resolve">
+          <p>
+            I’m Jervil Angelo De Leon. I built Resolve to grow my skills as a developer and to help
+            fellow believers pursue holiness and godliness in everyday life.
+          </p>
+          <p>
+            <a
+              href="https://jervilangelo.online"
+              className="font-medium underline underline-offset-4"
+              rel="noopener"
+            >
+              View my portfolio
+            </a>
           </p>
         </Prose>
       </div>

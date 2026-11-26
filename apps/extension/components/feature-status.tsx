@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -133,6 +133,9 @@ export function FeatureStatus() {
         })}
       </ul>
       <p className="text-muted-foreground mt-2 text-xs">Version {state.status.version}</p>
+      <p className="text-muted-foreground mt-1 text-xs">
+        Copyright © Jervil Angelo De Leon. All rights reserved.
+      </p>
     </div>
   );
 }

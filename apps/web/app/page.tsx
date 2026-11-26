@@ -1,10 +1,11 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
 
+import Image from 'next/image';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { FaqList } from '@/components/faq-list';
@@ -87,15 +88,20 @@ export default async function HomePage() {
       <section aria-labelledby="hero-title" className="relative overflow-hidden">
         <div className={`${WRAP} py-20 text-center sm:py-28`}>
           <div className="mx-auto max-w-3xl">
-            <h1
-              id="hero-title"
-              className="font-display text-[clamp(2.6rem,6vw,4.6rem)] leading-[1.04] tracking-[-0.02em]"
-            >
-              <span className="rs-mask">
-                <span>{'Take every '}</span>
-              </span>
-              <span className="rs-mask">
-                <span style={delay(110)}>thought captive.</span>
+            <h1 id="hero-title" className="rs-mask">
+              <span className="sr-only">Resolve</span>
+              <span aria-hidden="true">
+                {(['light', 'dark'] as const).map((theme) => (
+                  <Image
+                    key={theme}
+                    src={`/brand/horizontal-${theme}.svg`}
+                    alt=""
+                    width={741}
+                    height={193}
+                    priority
+                    className={`mx-auto h-auto w-[min(78vw,34rem)] ${theme === 'light' ? 'rs-only-light' : 'rs-only-dark'}`}
+                  />
+                ))}
               </span>
             </h1>
             <div className="rs-after-headline">

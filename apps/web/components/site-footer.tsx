@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -15,7 +15,7 @@ const COLUMNS = [
     links: [
       { href: '/#features', label: 'Features' },
       { href: '/downloads', label: 'Download' },
-      { href: '/getting-started', label: 'Getting started' },
+      { href: '/tutorial', label: 'Tutorial' },
     ],
   },
   {
@@ -73,7 +73,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t">
         <p className="text-muted-foreground mx-auto max-w-6xl px-5 py-6 text-xs sm:px-8">
-          © 2026 Jervil Angelo De Leon.
+          Copyright © Jervil Angelo De Leon. All rights reserved.
         </p>
       </div>
     </footer>

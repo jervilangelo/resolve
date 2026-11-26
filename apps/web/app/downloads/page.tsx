@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -177,8 +177,8 @@ export default async function DownloadsPage() {
           <p className="text-muted-foreground mt-5 text-sm">
             Resolve is distributed directly from this website and GitHub Releases, for computers
             (not phones). After installing, sign in from the extension’s popup. Next:{' '}
-            <Link href="/getting-started" className="underline underline-offset-4">
-              getting started
+            <Link href="/tutorial" className="underline underline-offset-4">
+              the step-by-step tutorial
             </Link>
             .
           </p>

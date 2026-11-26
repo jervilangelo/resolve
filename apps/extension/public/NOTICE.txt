@@ -1,0 +1,9 @@
+Resolve
+Copyright © Jervil Angelo De Leon. All rights reserved.
+
+Resolve is proprietary software. No license is granted to copy, modify, redistribute or
+create derivative works from it except as allowed by law. Full terms:
+https://github.com/jervilangelo/resolve/blob/main/LICENSE
+
+Third-party components keep their own licenses. The on-device image model and its license
+are in models/nsfw/NOTICE.txt.

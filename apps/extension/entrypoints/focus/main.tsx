@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -79,6 +79,9 @@ function FocusPage() {
           role="timer"
         >
           {remaining !== null && `${formatRemaining(remaining)} left`}
+        </p>
+        <p className="text-muted-foreground text-sm">
+          This website opens again when your Focus session ends.
         </p>
         <p className="mt-6 text-lg">
           You committed this time to what matters. Don’t let a moment of distraction take it away.

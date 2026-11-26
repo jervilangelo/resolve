@@ -1,6 +1,6 @@
 # Resolve — Copyright and source file notice
 
-**Copyright © 2026 Jervil Angelo De Leon. All rights reserved.**
+**Copyright © Jervil Angelo De Leon. All rights reserved.**
 
 Resolve is proprietary. The repository is **not** licensed under MIT, Apache, GPL, or any other open-source license. No general permission is granted to reuse, modify, or redistribute the project source. See [../LICENSE](../LICENSE).
 
@@ -13,7 +13,7 @@ Place a concise header at the beginning of **new, original project source files*
 ```ts
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -23,7 +23,7 @@ Place a concise header at the beginning of **new, original project source files*
 
 ```text
 # Resolve — Take every thought captive.
-# Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+# Copyright © Jervil Angelo De Leon. All rights reserved.
 # Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
 # See LICENSE for terms and applicable exceptions.
 ```
@@ -33,7 +33,7 @@ Place a concise header at the beginning of **new, original project source files*
 ```html
 <!--
 Resolve — Take every thought captive.
-Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+Copyright © Jervil Angelo De Leon. All rights reserved.
 Proprietary source code. See LICENSE.
 -->
 ```

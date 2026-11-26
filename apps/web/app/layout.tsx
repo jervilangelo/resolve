@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -22,6 +22,7 @@ export const metadata: Metadata = {
   title: { default: 'Resolve — Take every thought captive.', template: '%s · Resolve' },
   description,
   manifest: '/site.webmanifest',
+  other: { copyright: 'Copyright © Jervil Angelo De Leon. All rights reserved.' },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '32x32' },

@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -14,7 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const NOTICE = 'Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.';
+const NOTICE = 'Copyright © Jervil Angelo De Leon. All rights reserved.';
 const SEARCH_WINDOW = 600;
 
 const checkedExtensions = new Set([

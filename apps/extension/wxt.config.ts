@@ -1,11 +1,12 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
 import { ALL_FOCUS_PATTERNS } from './lib/focus';
@@ -62,6 +63,25 @@ function hostPermissions(settings: Record<string, string>): string[] {
   });
 }
 
+const BANNER =
+  '/*! Resolve. Copyright © Jervil Angelo De Leon. All rights reserved. Proprietary; see NOTICE.txt. */';
+
+/** Prepends the ownership notice to every emitted script, once the files are written. */
+function ownershipBanner() {
+  return {
+    name: 'resolve-ownership-banner',
+    enforce: 'post' as const,
+    writeBundle(options: { dir?: string }, bundle: Record<string, { type: string }>) {
+      for (const [name, file] of Object.entries(bundle)) {
+        if (file.type !== 'chunk' || !options.dir) continue;
+        const target = path.join(options.dir, name);
+        const code = readFileSync(target, 'utf8');
+        if (!code.startsWith(BANNER)) writeFileSync(target, `${BANNER}\n${code}`);
+      }
+    },
+  };
+}
+
 // Chrome, Brave and Edge share the Chromium MV3 build; Firefox gets its own MV3 build (`-b firefox`).
 // Permissions are added only with the features that need them (docs/MASTER_PLAN.md §13):
 // `identity` for Cognito sign-in; `declarativeNetRequest` to block group domains (block/allow
@@ -75,11 +95,12 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifestVersion: 3,
   vite: (env) => ({
-    plugins: [tailwindcss()],
+    plugins: [tailwindcss(), ownershipBanner()],
     define: { __RESOLVE_SETTINGS__: JSON.stringify(loadSettings(env.mode)) },
   }),
   manifest: ({ browser, mode }) => ({
     name: 'Resolve',
+    author: 'Jervil Angelo De Leon',
     // Shown on the browser's extensions page (Chrome allows up to 132 characters).
     description:
       'Take every thought captive. Group website blocking, on-device media blurring, Focus Mode and voluntary accountability.',

@@ -1,6 +1,6 @@
 /**
  * Resolve — Take every thought captive.
- * Copyright (c) 2026 Jervil Angelo De Leon. All rights reserved.
+ * Copyright © Jervil Angelo De Leon. All rights reserved.
  * Proprietary source code. Unauthorized copying, modification, or distribution is prohibited.
  * See LICENSE for terms and applicable exceptions.
  */
@@ -36,7 +36,7 @@ describe('Resolve checklist', () => {
   it('counts private sharing and a missing extension as to do, with a next step', () => {
     const items = checklistItems([group({ mode: 'PRIVATE', receiving: 0 })], { state: 'absent' });
     expect(score(items)).toBe(1);
-    expect(items[0]?.action?.href).toBe('/getting-started');
+    expect(items[0]?.action?.href).toBe('/tutorial#install');
     expect(items[2]?.action?.href).toContain('?tab=accountability');
   });
 
