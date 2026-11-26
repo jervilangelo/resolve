@@ -19,7 +19,7 @@ you, open their invitation link after signing in.
 
 Until Resolve is in the browser stores, it is installed from a file:
 
-1. Download `resolve-0.1.0-beta-chrome.zip` from the link you were sent and **unzip** it to a
+1. Download `resolve-0.1.1-chrome.zip` from https://getresolved.site/downloads and **unzip** it to a
    folder you will keep (the browser loads it from there; do not delete the folder).
 2. Open the extensions page: `chrome://extensions` (Chrome, Brave) or `edge://extensions` (Edge).
 3. Turn on **Developer mode** (top right in Chrome, left side in Edge).

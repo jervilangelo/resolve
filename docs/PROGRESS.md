@@ -189,6 +189,9 @@ owner revisions done; production on https://getresolved.site with alerts from
      quick actions; join by pasted invite link; alerts as an explicit opt-in (off by default,
      explanation first, partners and consent shown, one-step turn-off); blocked websites split into
      non-negotiable and additional; role badges.
+   - Done (2026-11-26): GitHub release v0.1.1 published (latest, not a pre-release) with
+     `resolve-0.1.1-chrome.zip`; the Download page offers it. The stray empty Route 53 zone in
+     the main account was deleted.
    - Not possible: the Cognito sign-in placeholder (owner chose to keep Cognito's page).
 1. Owner, before inviting testers: check self sign-up with a real inbox and a manual run in Google
    Chrome stable (docs/release/BETA_RELEASE_RECORD.md); publish the draft GitHub release (beta zip)
@@ -240,8 +243,6 @@ owner revisions done; production on https://getresolved.site with alerts from
 
 ## Open decisions for the owner
 
-- An empty Route 53 zone "Resolve production DNS" (Z0372274Y8ALNQPNUJ46) exists in the main
-  (shared) AWS account, created outside Terraform and unused since 2026-11-25. Delete it?
 
 - Phase order: roadmap (Phase 4 next) vs. handbook (on-device AI blur next). Currently following the
   roadmap.
