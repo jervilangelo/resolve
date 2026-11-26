@@ -188,51 +188,70 @@
 
 **Acceptance:** A new beta user can register, join a group, enable protection, configure consent, and exercise both alert triggers.
 
-## Phase 11 — Focus Mode & Intentional Exit (post-launch v1.1)
+## Phase 11 — Focus Mode (post-launch v1.1)
 
 **Status:** Planned for after Phase 10; not part of the initial MVP.
 
-**Goal:** Add an optional, privacy-first, extension-native focus timer that temporarily restricts user-selected distracting websites and encourages deliberate decisions before ending a session early.
+**Goal:** Provide a straightforward, voluntary way to reduce distracting browsing. Users simply turn Focus Mode **On** or **Off**; there are no activity/purpose categories.
 
 **Product principles:**
-- Focus Mode is voluntary, controlled by the individual user, and separate from group accountability.
-- Focus activity, selected websites, and basic session statistics stay on-device by default; no browsing history or page content is uploaded.
-- Focus Mode creates **no new accountability notification triggers**; existing v1 alert triggers remain unchanged.
-- User-selected Focus restrictions may cover otherwise group-exempt sites (such as Facebook or YouTube), but group-level essential-service exemptions and group block rules must remain unchanged.
-- Focus restrictions cannot weaken or remove active group protection. Focus Mode is not tamper-proof, and the user retains ultimate control of their browser.
+- Focus Mode is personal and independent of group accountability. It does not send alerts to partners or introduce new accountability notification triggers.
+- The only main control is a clear **Focus Mode On/Off switch** in the extension. Do not ask users to select Deep Work, Studying, Prayer & Devotion, Personal Time, or any other purpose.
+- When enabled, Focus Mode blocks **Facebook, Instagram, X/Twitter, TikTok, and Reddit** by default.
+- **YouTube, Netflix, and Twitch** are individually optional Focus Mode restrictions, disabled by default until a user chooses to include them.
+- Focus Mode applies only to the user's own browsing; it never edits the platform essential allowlist, group policy rules, group permissions, or accountability-sharing preferences.
+- A user-selected Focus restriction may temporarily block a site exempt from **group** restrictions (for example Facebook or YouTube). This is a separate, higher-priority personal Focus layer; when Focus Mode is Off, the existing group exemptions still apply.
+- Focus Mode never weakens existing group blocking. Turning it off removes **only Focus Mode rules**, not group policy rules.
+- Local settings and state remain on-device by default. No page content, screenshots, or browsing history are collected or sent to AWS.
+- Be transparent that browser extension enforcement can be disabled or bypassed; do not claim Focus Mode is tamper-proof.
+
+**Default blocked services while Focus Mode is On:**
+
+| Service | Default | Scope |
+| --- | --- | --- |
+| Facebook | Blocked | Main site and appropriate web subdomains |
+| Instagram | Blocked | Main site and appropriate web subdomains |
+| X / Twitter | Blocked | Both `x.com` and `twitter.com` and relevant web subdomains |
+| TikTok | Blocked | Main site and appropriate web subdomains |
+| Reddit | Blocked | Main site and appropriate web subdomains |
+| YouTube | Optional; Off by default | Block when the user enables the YouTube option |
+| Netflix | Optional; Off by default | Block when the user enables the Netflix option |
+| Twitch | Optional; Off by default | Block when the user enables the Twitch option |
+
+Define and test a maintainable domain mapping for each service, including recognized alternate domains where needed. Restrict only the intended sites: avoid blanket wildcard rules that accidentally break unrelated services. In particular, verify Facebook/Messenger separation, Google account services, and YouTube versus essential Google functionality.
 
 **Core user journey:**
-1. Open the Resolve extension and choose Focus Mode.
-2. Select a purpose (for example Deep Work, Studying, Prayer & Devotion, or Personal Time), a duration (presets such as 25, 60, 120, or 180 minutes), and websites to restrict.
-3. Choose common distraction sites (Facebook, Instagram, X/Twitter, TikTok, Reddit, optionally YouTube/Netflix/Twitch) and/or enter custom domains. Validate domain inputs and explain subdomain coverage.
-4. Click **Start Focus Mode**. Activate temporary browser-specific blocking rules and show the remaining time in the extension.
-5. On attempted navigation to a selected website, show a branded Resolve focus page with the remaining time and an option to return to productive browsing.
-6. At the scheduled end, automatically lift **only** the temporary Focus Mode restrictions and show a private completion summary.
+1. Open the Resolve extension and navigate to **Focus Mode**.
+2. See one main switch labeled **Focus Mode**, initially Off.
+3. Optionally choose whether Focus Mode should also restrict **YouTube**, **Netflix**, and/or **Twitch** using three simple secondary toggles. The five default services cannot be unchecked while Focus Mode is On.
+4. Turn **Focus Mode On**. Immediately activate the Focus blocking rules. Show a clear **Focus Mode is On** status.
+5. An attempt to open a Focus-blocked site displays a simple branded page: **“Focus Mode is on”**, with a brief explanation and a safe way back. Do not display a timer when no timer exists.
+6. Turn **Focus Mode Off** to remove its temporary restrictions and restore access to sites that are not separately blocked by active group rules. The optional-site selections remain saved locally for next time.
 
-**Intentional Exit — early termination flow:**
-- The active-session interface offers **Stop Focus Mode**.
-- **Step 1: “Is this an emergency?”** Require the exact typed phrase `Yes, this is an emergency.`
-- **Step 2: “Are you sure?”** Show **Yes** and **No** buttons; No returns to the active session.
-- **Step 3: “Like, really really sure?”** Require the exact typed response `Yes`.
-- On completion of all three steps, end the session, remove its temporary rules, and mark the session as stopped early.
-- The countdown continues during confirmation. Closing the popup or abandoning the flow does not end the session; normal expiration still ends it.
-- Offer a clearly identified immediate emergency/accessibility override so urgent access is not delayed by the confirmation flow.
-- **No CAPTCHA, Cloudflare Turnstile, or external verification service** is required.
+**On/Off behavior and scope:**
+- No purpose selection, mandatory duration, session presets, countdown, Pomodoro cycle, or automatic expiration in v1.1. Focus Mode remains enabled until the user turns it Off or enforcement is unavailable.
+- An explicit Off action should be straightforward. Do not require typed phrases, multi-step confirmation dialogs, CAPTCHAs, or an emergency-exit challenge for a simple toggle.
+- If the user disables Focus Mode, remove only the Focus-specific dynamic rules. Never clear, overwrite, or bypass the group policy.
+- Persist the chosen switch state and optional-site toggles locally, and restore the intended policy after supported browser/extension restarts.
+- Provide truthful status if an extension lacks a permission or the browser cannot enforce some rule; never display a misleading “On/protected” state.
+- Focus Mode blocks navigation in the supported browser extension only; it is not system-wide filtering.
 
 **Engineering tasks:**
-- Add extension popup/options UI for purposes, duration presets, selected sites, custom domains, and saved presets.
-- Implement a background session controller with persistent start/deadline timestamps, browser alarms, local state recovery, and offline operation; avoid relying on a continuously running popup timer.
-- Enforce temporary restrictions through Chromium declarativeNetRequest and a Firefox-compatible adapter where supported; document browser differences.
-- Keep Focus rules and IDs isolated from group policy rules; ending or expiring Focus must never clear group blocks.
-- Handle restarts, stale/expired rules, already-open tabs, subdomains, invalid domains, browser clock changes, and interrupted confirmation flows.
-- Store minimal local session summaries (purpose, planned duration, completion/early stop); provide deletion controls and avoid storing visited URLs.
-- Test accessibility, keyboard-only interactions, emergency override, performance, and extension disable/uninstall limitations.
+- Add a simple Focus Mode switch to the extension popup/options, plus three optional site toggles for YouTube, Netflix, and Twitch.
+- Build a local Focus policy module for the fixed default services and optional service selections, with cross-browser domain normalization and tests.
+- Implement activation/deactivation and startup recovery through the extension background runtime, independent of whether the popup is open.
+- Apply rules using Chromium declarativeNetRequest and a compatible Firefox adapter where supported; isolate Focus rule IDs/state from all group rules.
+- Build a branded, accessible Focus restriction page with no unnecessary settings or timer.
+- Handle browser restarts, already-open tabs, subdomain/redirect behavior, changes to optional selections while enabled, offline usage, and inconsistent rule state.
+- Verify Focus restrictions on group-exempt websites without altering the underlying essential allowlist, and check that sign-in/Messenger and unrelated services remain functional.
+- Keep storage minimal: the enabled flag, three optional booleans, and any enforcement metadata needed for recovery. Do not create a focus-history database or transmit browsing events.
+- Test mouse/keyboard interactions, reduced-motion behavior, rule cleanup, extension limitations, and every supported browser.
 
-**Deferred enhancements (v1.2+):** Pomodoro cycles and breaks, recurring schedules, advanced private analytics, optional Scripture prompts, distraction-free YouTube controls, and opt-in cross-device settings sync.
+**Deferred enhancements (v1.2+):** Optional timed sessions, schedules, Pomodoro cycles, personalized domain lists, private statistics, and other habit-building features. These are **not part of v1.1** and must not complicate the initial switch experience.
 
-**Deliverables:** Extension-native Focus Mode UI, temporary website-blocking controller, branded restriction page, three-step Intentional Exit, local session persistence/recovery, privacy-preserving summaries, and cross-browser test coverage.
+**Deliverables:** Simple extension Focus Mode UI; fixed service blocklist with three optional services; isolated local browser enforcement; branded restriction page; reliable On/Off state and restart recovery; cross-browser tests.
 
-**Acceptance:** A user can start a timed session, block chosen sites, see a focus page on attempted navigation, complete or intentionally end the session, and regain access when Focus ends. All three early-exit confirmations function in sequence; urgent override remains accessible; Focus data is local by default; group restrictions and the two existing accountability triggers are unaffected.
+**Acceptance:** With the switch On, Facebook, Instagram, X/Twitter, TikTok, and Reddit are restricted, while YouTube/Netflix/Twitch are restricted only when individually opted in. The switch can be turned Off without friction, removing Focus rules while leaving every active group restriction and the two existing accountability alert triggers unchanged. State persists across supported restarts; the UI accurately reflects actual enforcement; no Focus browsing history is collected or sent.
 
 ## MVP release acceptance checklist
 
