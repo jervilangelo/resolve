@@ -17,6 +17,7 @@ import {
   EyeOffIcon,
   HeartIcon,
   ShieldIcon,
+  TimerIcon,
   UsersIcon,
 } from '@/components/icons';
 import { Reveal } from '@/components/landing/reveal';
@@ -27,7 +28,13 @@ import { FAQ } from '@/lib/faq';
 const WRAP = 'mx-auto w-full max-w-6xl px-5 sm:px-8';
 const delay = (ms: number) => ({ ['--rs-delay' as string]: `${String(ms)}ms` }) as CSSProperties;
 
-const FEATURES: { icon: ReactNode; title: string; text: string; points: string[] }[] = [
+const FEATURES: {
+  icon: ReactNode;
+  title: string;
+  text: string;
+  points: string[];
+  link?: { href: string; label: string };
+}[] = [
   {
     icon: <ShieldIcon width={22} height={22} />,
     title: 'Website protection',
@@ -45,6 +52,13 @@ const FEATURES: { icon: ReactNode; title: string; text: string; points: string[]
     title: 'Voluntary accountability',
     text: 'Choose partners who may hear about a blocked visit, only if they agree.',
     points: ['Off by default', 'Never names the website', 'You can stop at any time'],
+  },
+  {
+    icon: <TimerIcon width={22} height={22} />,
+    title: 'Focus Mode',
+    text: 'Temporarily block distracting websites while you study, work, or read. The sites become available again when your Focus session ends.',
+    points: ['5 to 240 minutes', 'Works without an account', 'Never alerts anyone'],
+    link: { href: '/tutorial#focus', label: 'How Focus Mode works' },
   },
 ];
 
@@ -140,13 +154,13 @@ export default async function HomePage() {
         <div className={`${WRAP} py-20 sm:py-24`}>
           <div className="max-w-2xl" data-reveal>
             <h2 id="features-title" className="font-display text-3xl leading-tight sm:text-4xl">
-              Three protections, one simple setup
+              Four protections, one simple setup
             </h2>
             <p className="text-muted-foreground mt-4 text-lg">
               Use what helps you. Each part works on its own.
             </p>
           </div>
-          <ul className="mt-12 grid gap-5 md:grid-cols-3">
+          <ul className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             {FEATURES.map((f, i) => (
               <li
                 key={f.title}
@@ -171,6 +185,15 @@ export default async function HomePage() {
                     </li>
                   ))}
                 </ul>
+                {f.link && (
+                  <Link
+                    href={f.link.href}
+                    className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
+                  >
+                    {f.link.label}
+                    <ArrowRightIcon width={14} height={14} />
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

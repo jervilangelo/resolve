@@ -47,6 +47,12 @@ export const UsersIcon = (p: P) => (
     <path d="M15.5 4.9a3.25 3.25 0 0 1 0 6.2M18 14.8c1.6.8 2.7 2.6 3 5.2" />
   </Svg>
 );
+export const TimerIcon = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="13.5" r="7.5" />
+    <path d="M12 9.5v4l2.5 2M10 3h4M12 3v2.5" />
+  </Svg>
+);
 export const LockIcon = (p: P) => (
   <Svg {...p}>
     <rect x="5" y="10.5" width="14" height="10" rx="2" />

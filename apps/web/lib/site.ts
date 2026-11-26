@@ -12,11 +12,14 @@ export const REPOSITORY = 'jervilangelo/resolve';
 export const RELEASES_URL = `https://github.com/${REPOSITORY}/releases`;
 
 /**
- * The GCash QR code for voluntary donations. Until it is provided this stays null and the
- * Support page shows a placeholder; to publish it, add the image under public/support/ and set
- * e.g. `{ src: '/support/gcash-qr.png', width: 600, height: 600 }`.
+ * The GCash (InstaPay QR Ph) code for voluntary donations, cropped from the owner's GCash QR with
+ * its quiet zone kept. Set to null to show the Support page's placeholder instead.
  */
-export const GCASH_QR: { src: string; width: number; height: number } | null = null;
+export const GCASH_QR: { src: string; width: number; height: number } | null = {
+  src: '/support/gcash-qr.png',
+  width: 526,
+  height: 526,
+};
 
 export const PUBLIC_NAV = [
   { href: '/#features', label: 'Features' },

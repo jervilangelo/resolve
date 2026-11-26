@@ -75,11 +75,13 @@ export default function SupportPage() {
                 src={GCASH_QR.src}
                 width={GCASH_QR.width}
                 height={GCASH_QR.height}
-                alt="GCash QR code for donations to Resolve"
-                className="mt-5 h-auto w-full rounded-xl"
+                alt="GCash InstaPay QR code for donations to Resolve"
+                className="mx-auto mt-5 h-auto w-full max-w-[18rem] rounded-xl bg-white"
               />
               <p className="text-muted-foreground mt-4 text-sm">
-                Scan with the GCash app. Check the recipient’s name before you send.
+                Scanning with GCash, or any bank app that reads InstaPay QR Ph codes, opens a money
+                transfer to Jervil Angelo De Leon, Resolve’s developer. Choose the amount in your
+                app and check the recipient’s name before you send.
               </p>
             </>
           ) : (

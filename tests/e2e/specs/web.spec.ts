@@ -156,3 +156,23 @@ test('the FAQ has no Limitations category but keeps account and security answers
   await expect(page.getByText('How do I delete my account?')).toBeVisible();
   await expect(page.getByText('How do I report a security or privacy problem?')).toBeVisible();
 });
+
+test('the Support page shows the GCash QR code with what scanning opens', async ({ page }) => {
+  await page.goto('/support');
+  const qr = page.getByRole('img', { name: 'GCash InstaPay QR code for donations to Resolve' });
+  await expect(qr).toBeVisible();
+  expect(await qr.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  await expect(page.getByText(/opens a money\s+transfer to Jervil Angelo De Leon/)).toBeVisible();
+  await expect(page.getByText('The GCash QR code will appear here soon.')).toHaveCount(0);
+});
+
+test('the landing page features Focus Mode with a link to its tutorial steps', async ({ page }) => {
+  await page.goto('/');
+  const features = page.locator('#features');
+  await expect(features.getByRole('heading', { name: 'Focus Mode' })).toBeVisible();
+  await expect(features.getByText('Temporarily block distracting websites')).toBeVisible();
+  await expect(features.getByRole('link', { name: 'How Focus Mode works' })).toHaveAttribute(
+    'href',
+    '/tutorial#focus',
+  );
+});
