@@ -160,7 +160,7 @@ owner revisions done; production on https://getresolved.site with alerts from
   `ERR_BLOCKED_BY_CLIENT` the tab is moved to the page (group takes precedence; no site in the URL;
   Back steps past the blocked entry). Limitation: needs the optional `webNavigation` permission,
   which today is granted only with blocked-visit alerts; otherwise the browser's own block page
-  shows. Not released (needs a version bump and an owner request).
+  shows. Released as extension 0.4.0 (also carries the 0.3.1 extensions-page description).
 
 - Done (2026-11-26, pushed; 0.3.0 released): Focus Mode timer revision
   (extension 0.3.0): timed sessions (15/25/30/45/60 or 5–240 custom minutes) with a persisted
