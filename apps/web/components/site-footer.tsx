@@ -73,7 +73,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t">
         <p className="text-muted-foreground mx-auto max-w-6xl px-5 py-6 text-xs sm:px-8">
-          © 2026 Jervil Angelo De Leon. Resolve is a supporting tool, not a guarantee.
+          © 2026 Jervil Angelo De Leon.
         </p>
       </div>
     </footer>

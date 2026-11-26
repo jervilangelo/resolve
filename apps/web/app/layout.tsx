@@ -15,8 +15,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { publicEnv } from '@/lib/env';
 
-const description =
-  'Privacy-first browser protection and voluntary accountability, in development.';
+const description = 'Free browser protection and voluntary accountability for Christians.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(publicEnv.NEXT_PUBLIC_SITE_URL),

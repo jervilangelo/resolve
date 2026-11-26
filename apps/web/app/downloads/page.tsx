@@ -114,8 +114,8 @@ export default async function DownloadsPage() {
         title="Download Resolve"
         intro={
           <p>
-            The Resolve extension protects the browser you install it in. After installing, sign in
-            from its popup with your Resolve account.
+            Resolve is officially available. Download the latest release and take the first step
+            toward intentional digital accountability.
           </p>
         }
       />
@@ -145,7 +145,7 @@ export default async function DownloadsPage() {
               <p className="text-muted-foreground text-sm">
                 {lookup.state === 'unavailable'
                   ? 'Please try again later, or check the releases page.'
-                  : 'Resolve is in a limited beta. Downloads appear here when the first stable release is published.'}
+                  : 'There is no published release to download right now. Please check back soon.'}
               </p>
             </div>
           )}
@@ -175,8 +175,8 @@ export default async function DownloadsPage() {
             ))}
           </ul>
           <p className="text-muted-foreground mt-5 text-sm">
-            Resolve works on computers, not phones. Store listings will replace the manual install
-            when they are approved. Next:{' '}
+            Resolve is distributed directly from this website and GitHub Releases, for computers
+            (not phones). After installing, sign in from the extension’s popup. Next:{' '}
             <Link href="/getting-started" className="underline underline-offset-4">
               getting started
             </Link>

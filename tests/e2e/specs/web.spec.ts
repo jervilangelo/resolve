@@ -8,14 +8,14 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-test('home page renders brand, tagline and development-status notice', async ({ page }) => {
+test('home page renders brand, tagline and availability line', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await expect(page).toHaveTitle(/Resolve/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Take every thought captive.');
   await expect(page.getByRole('link', { name: 'Resolve home' })).toBeVisible();
-  await expect(page.getByText('not yet publicly available')).toBeVisible();
+  await expect(page.getByText('Free · No ads · Chrome, Edge and Brave')).toBeVisible();
   expect(errors).toEqual([]);
 });
 

@@ -16,6 +16,25 @@ export const metadata: Metadata = {
   description: 'What Resolve is for and how its three features work.',
 };
 
+function Prose({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <section
+      aria-labelledby={id}
+      className="grid gap-6 border-t py-14 first:border-t-0 first:pt-0 lg:grid-cols-[1fr_2fr] lg:gap-16"
+    >
+      <h2 id={id} className="font-display text-2xl leading-tight sm:text-3xl">
+        {title}
+      </h2>
+      <div className="max-w-[65ch] space-y-5 text-lg leading-relaxed">{children}</div>
+    </section>
+  );
+}
+
+/** A Scripture reference, kept together and set apart in the text. */
+function Ref({ children }: { children: ReactNode }) {
+  return <span className="text-muted-foreground">({children})</span>;
+}
+
 function Feature({
   icon,
   title,
@@ -28,7 +47,7 @@ function Feature({
   return (
     <section className="bg-card rounded-2xl border p-6 sm:p-8">
       <div className="bg-muted mb-5 grid size-11 place-items-center rounded-xl">{icon}</div>
-      <h2 className="text-xl font-semibold">{title}</h2>
+      <h3 className="text-xl font-semibold">{title}</h3>
       <ul className="text-muted-foreground mt-4 space-y-2.5 leading-relaxed">{children}</ul>
     </section>
   );
@@ -44,11 +63,43 @@ export default function AboutPage() {
           <p>
             Resolve helps Christians guard what they see online and invite trusted friends into the
             fight, in the spirit of 2 Corinthians 10:5: “take every thought captive to obey Christ.”
-            It is a supporting tool, never a replacement for the local church.
           </p>
         }
       />
+      <div className="mx-auto max-w-6xl px-5 pt-14 sm:px-8">
+        <Prose id="purpose" title="Why Resolve exists">
+          <p>
+            Resolve is being designed for believers who desire to take their thoughts captive and
+            walk in greater faithfulness to Christ, especially in the digital spaces where
+            temptation can be private, persistent, and difficult to resist. Its central purpose is
+            mutual accountability among fellow brethren: to make it easier for trusted brothers and
+            sisters in Christ to encourage, exhort, pray for, and support one another.
+          </p>
+          <p>
+            God has given the local church and the fellowship of believers as means of encouragement
+            and care <Ref>Hebrews 3:12–13; Galatians 6:1–2; James 5:16</Ref>.
+          </p>
+          <p>
+            We encourage every believer to join, participate faithfully in, and be accountable
+            within a sound local church, where pastors, elders, and fellow members can know and care
+            for them personally.
+          </p>
+          <p className="bg-muted/50 rounded-2xl p-5 font-medium">
+            Resolve is only a supporting tool, never a replacement for membership, discipleship,
+            pastoral oversight, fellowship, or accountability in the local church.
+          </p>
+          <p>
+            Its optional accountability groups, consent-based notifications, and browser safeguards
+            are intended to make honest conversations and intentional habits easier.
+          </p>
+          <p>
+            Accountability should be voluntary, gracious, respectful, and never used to shame or
+            control someone.
+          </p>
+        </Prose>
+      </div>
       <div className="mx-auto max-w-6xl space-y-6 px-5 py-14 sm:px-8">
+        <h2 className="font-display text-2xl leading-tight sm:text-3xl">What Resolve does</h2>
         <div className="grid gap-6 lg:grid-cols-3">
           <Feature icon={<ShieldIcon width={22} height={22} />} title="Website protection">
             <li>Your accountability group sets the websites its members’ browsers block.</li>
@@ -93,6 +144,24 @@ export default function AboutPage() {
             </ul>
           </div>
         </section>
+      </div>
+      <div className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
+        <Prose id="mortify" title="A tool, not the mortifier of sin">
+          <p className="font-medium">Resolve is not the ultimate mortifier of sin.</p>
+          <p>
+            No browser extension, blocked website, or automated notification can put sin to death on
+            a person’s behalf. Mortification is the believer’s responsibility by the Spirit and
+            through God’s grace <Ref>Romans 8:13</Ref>.
+          </p>
+          <p>
+            Resolve is only a practical aid: it can help remove opportunities for temptation,
+            encourage vigilance, and invite the support of fellow believers.
+          </p>
+          <p>
+            It must never become a substitute for repentance, prayer, Scripture, personal
+            responsibility, pastoral care, or dependence on Christ.
+          </p>
+        </Prose>
       </div>
     </>
   );

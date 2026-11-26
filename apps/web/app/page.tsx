@@ -5,7 +5,6 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-import Image from 'next/image';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { FaqList } from '@/components/faq-list';
@@ -86,13 +85,11 @@ export default async function HomePage() {
       <Reveal />
 
       <section aria-labelledby="hero-title" className="relative overflow-hidden">
-        <div
-          className={`${WRAP} grid items-center gap-14 py-16 sm:py-24 lg:grid-cols-[1fr_1.05fr]`}
-        >
-          <div>
+        <div className={`${WRAP} py-20 text-center sm:py-28`}>
+          <div className="mx-auto max-w-3xl">
             <h1
               id="hero-title"
-              className="font-display text-[clamp(2.5rem,4.6vw,3.9rem)] leading-[1.04] tracking-[-0.02em]"
+              className="font-display text-[clamp(2.6rem,6vw,4.6rem)] leading-[1.04] tracking-[-0.02em]"
             >
               <span className="rs-mask">
                 <span>{'Take every '}</span>
@@ -102,12 +99,12 @@ export default async function HomePage() {
               </span>
             </h1>
             <div className="rs-after-headline">
-              <p className="text-muted-foreground mt-6 max-w-[34rem] text-lg leading-relaxed">
+              <p className="text-muted-foreground mx-auto mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl">
                 Resolve is a free browser extension and dashboard for Christians. It blocks the
                 websites your group chooses, blurs explicit media on your device, and keeps
                 accountability voluntary.
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-10 flex flex-wrap justify-center gap-3">
                 <Button asChild size="lg" className="h-12 px-6 text-[15px]">
                   <Link href="/dashboard" prefetch={false}>
                     {signedIn ? 'Open your dashboard' : 'Get started free'}
@@ -122,21 +119,8 @@ export default async function HomePage() {
                 </Button>
               </div>
               <p className="text-muted-foreground mt-6 text-sm">
-                Free · No ads · Limited beta, not yet publicly available in the browser stores
+                Free · No ads · Chrome, Edge and Brave
               </p>
-            </div>
-          </div>
-          <div className="relative" data-reveal>
-            <div className="bg-card overflow-hidden rounded-2xl border shadow-[0_30px_80px_-30px_rgba(15,23,42,0.35)]">
-              <Image
-                src="/product/dashboard-home.png"
-                width={1200}
-                height={830}
-                priority
-                sizes="(min-width: 1024px) 560px, 100vw"
-                alt="The Resolve dashboard: protection in this browser, the setup checklist and your groups"
-                className="h-auto w-full"
-              />
             </div>
           </div>
         </div>

@@ -11,7 +11,7 @@ import { Contact, ProsePage, Section } from '@/components/prose-page';
 
 export const metadata: Metadata = {
   title: 'Terms of use',
-  description: 'The terms for using Resolve during its beta.',
+  description: 'The terms for using Resolve.',
 };
 
 export default function TermsPage() {
@@ -26,12 +26,12 @@ export default function TermsPage() {
         </p>
       }
     >
-      <Section title="A supporting tool, in beta">
+      <Section title="A supporting tool">
         <p>
-          Resolve is offered as a beta to help people who choose to pursue faithfulness online. It
-          is a supporting tool, never a replacement for the local church, and it can be bypassed:
-          the extension can be turned off or removed, other browsers and devices are not covered,
-          and the media filter makes mistakes in both directions. Features may change while in beta.
+          Resolve is offered to help people who choose to pursue faithfulness online. It is a
+          supporting tool, never a replacement for the local church, and it can be bypassed: the
+          extension can be turned off or removed, other browsers and devices are not covered, and
+          the media filter makes mistakes in both directions. Features may change over time.
         </p>
       </Section>
 
@@ -73,9 +73,9 @@ export default function TermsPage() {
 
       <Section title="No warranty">
         <p>
-          Resolve is provided as is during the beta, without guarantees that it will always be
-          available, block everything you intend, or deliver every alert. To the extent the law
-          allows, the operator is not liable for indirect or consequential losses from using it.
+          Resolve is provided as is, without guarantees that it will always be available, block
+          everything you intend, or deliver every alert. To the extent the law allows, the operator
+          is not liable for indirect or consequential losses from using it.
         </p>
       </Section>
 
