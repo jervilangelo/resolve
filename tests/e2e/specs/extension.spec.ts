@@ -16,8 +16,8 @@ test('popup reports live feature status from the background worker', async ({
   await expect(page.getByRole('img', { name: 'Resolve' })).toBeVisible();
   const features = page.getByRole('list', { name: 'Protection features' });
   await expect(features.getByRole('listitem')).toHaveCount(3);
+  // CI builds have no sign-in settings, so only browser support is asserted here.
   await expect(features).not.toContainText('Not supported in this browser');
-  await expect(features).not.toContainText('Not available in this build');
 });
 
 test('options page renders', async ({ page, extensionId }) => {

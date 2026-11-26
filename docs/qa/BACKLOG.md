@@ -13,13 +13,14 @@ findings are open. "Before beta" items block the Phase 10 release checklist.
 
 | # | Item | Why it matters |
 | --- | --- | --- |
-| 1 | SES production access (requested 2026-11-25; suppression list on); verified sender **domain** (SPF, DKIM, DMARC) once a domain is bought | Sandbox delivers only to verified addresses; deliverability |
+| 1 | ~~SES production access; verified sender domain (SPF, DKIM, DMARC)~~ | Done 2026-11-25 (getresolved.site) |
 | 2 | ~~Production stack in a separate account; deploy-role permissions boundary~~ | Done 2026-11-25 |
 | 3 | ~~Public privacy policy and terms pages~~ | Done (Phase 10) |
 | 4 | ~~Self-service account deletion~~ | Done (Phase 10) |
 | 5 | Manual check in Google Chrome (stable) of install, sign-in, blocking, media filter, alerts | Not automated here |
 | 6 | ~~Signed-in dashboard accessibility audit and Trigger A re-run~~ | Done 2026-11-25 |
 | 7 | Media filter false-negative measurement on a labelled dataset | Accuracy claims need it |
+| 8 | DNSSEC for getresolved.site (KMS key in us-east-1, key-signing key, DS record at Namecheap); optionally Route 53 query logging | Protects the domain against DNS spoofing; Checkov CKV2_AWS_38/39 accepted until then |
 
 ## Product gaps
 
