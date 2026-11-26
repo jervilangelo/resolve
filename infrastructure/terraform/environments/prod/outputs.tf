@@ -48,3 +48,8 @@ output "name_servers" {
   description = "Nameservers to set at the domain registrar."
   value       = module.domain.name_servers
 }
+
+output "ds_record" {
+  description = "DS record for getresolved.site, to add at Namecheap (Advanced DNS → DNSSEC)."
+  value       = module.domain.ds_record
+}

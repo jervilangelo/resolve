@@ -16,6 +16,21 @@ provider "aws" {
   }
 }
 
+# Route 53 DNSSEC keys and query-log groups must be in us-east-1.
+provider "aws" {
+  alias               = "us_east_1"
+  region              = "us-east-1"
+  allowed_account_ids = var.allowed_account_ids
+
+  default_tags {
+    tags = {
+      Project   = "resolve"
+      Stage     = "prod"
+      ManagedBy = "terraform"
+    }
+  }
+}
+
 module "resolve" {
   source               = "../../modules/stack"
   permissions_boundary = module.github_deploy.boundary_arn
@@ -53,6 +68,7 @@ module "domain" {
   source = "../../modules/domain"
   domain = var.domain
   # Registered as soon as hosting exists; Amplify verifies it once DNS is delegated.
+  providers        = { aws = aws, aws.us_east_1 = aws.us_east_1 }
   enable_dashboard = var.enable_hosting
   amplify_app_id   = module.resolve.amplify_app_id
 }

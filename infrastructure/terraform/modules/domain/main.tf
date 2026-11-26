@@ -89,3 +89,99 @@ resource "aws_amplify_domain_association" "dashboard" {
     prefix      = "www"
   }
 }
+
+# ---- DNSSEC: Route 53 signs the zone; the registrar publishes the DS record ----------------------
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_kms_key" "dnssec" {
+  provider                 = aws.us_east_1
+  description              = "DNSSEC key-signing key for ${var.domain}"
+  customer_master_key_spec = "ECC_NIST_P256"
+  key_usage                = "SIGN_VERIFY"
+  deletion_window_in_days  = 30
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AccountAdministers"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        Sid       = "Route53DnssecUsesKey"
+        Effect    = "Allow"
+        Principal = { Service = "dnssec-route53.amazonaws.com" }
+        Action    = ["kms:DescribeKey", "kms:GetPublicKey", "kms:Sign"]
+        Resource  = "*"
+        Condition = {
+          StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
+          ArnLike      = { "aws:SourceArn" = "arn:aws:route53:::hostedzone/*" }
+        }
+      },
+      {
+        Sid       = "Route53DnssecGrants"
+        Effect    = "Allow"
+        Principal = { Service = "dnssec-route53.amazonaws.com" }
+        Action    = "kms:CreateGrant"
+        Resource  = "*"
+        Condition = { Bool = { "kms:GrantIsForAWSResource" = "true" } }
+      },
+    ]
+  })
+}
+
+resource "aws_kms_alias" "dnssec" {
+  provider      = aws.us_east_1
+  name          = "alias/resolve-dnssec-${replace(var.domain, ".", "-")}"
+  target_key_id = aws_kms_key.dnssec.key_id
+}
+
+resource "aws_route53_key_signing_key" "this" {
+  hosted_zone_id             = aws_route53_zone.this.id
+  key_management_service_arn = aws_kms_key.dnssec.arn
+  name                       = "resolve"
+}
+
+resource "aws_route53_hosted_zone_dnssec" "this" {
+  hosted_zone_id = aws_route53_key_signing_key.this.hosted_zone_id
+  depends_on     = [aws_route53_key_signing_key.this]
+}
+
+# ---- Query logging: which resolvers asked for the domain (no visitor browsing) --------------------
+
+resource "aws_cloudwatch_log_group" "dns_queries" {
+  provider          = aws.us_east_1
+  name              = "/aws/route53/${var.domain}"
+  retention_in_days = 30
+}
+
+data "aws_iam_policy_document" "dns_query_logs" {
+  statement {
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["arn:aws:logs:us-east-1:${data.aws_caller_identity.current.account_id}:log-group:/aws/route53/*"]
+    principals {
+      type        = "Service"
+      identifiers = ["route53.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_resource_policy" "dns_queries" {
+  provider        = aws.us_east_1
+  policy_name     = "resolve-route53-query-logs"
+  policy_document = data.aws_iam_policy_document.dns_query_logs.json
+}
+
+resource "aws_route53_query_log" "this" {
+  zone_id                  = aws_route53_zone.this.zone_id
+  cloudwatch_log_group_arn = aws_cloudwatch_log_group.dns_queries.arn
+  depends_on               = [aws_cloudwatch_log_resource_policy.dns_queries]
+}

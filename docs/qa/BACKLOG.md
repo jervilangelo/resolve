@@ -20,7 +20,7 @@ findings are open. "Before beta" items block the Phase 10 release checklist.
 | 5 | Manual check in Google Chrome (stable) of install, sign-in, blocking, media filter, alerts | Not automated here |
 | 6 | ~~Signed-in dashboard accessibility audit and Trigger A re-run~~ | Done 2026-11-25 |
 | 7 | Media filter false-negative measurement on a labelled dataset | Accuracy claims need it |
-| 8 | DNSSEC for getresolved.site (KMS key in us-east-1, key-signing key, DS record at Namecheap); optionally Route 53 query logging | Protects the domain against DNS spoofing; Checkov CKV2_AWS_38/39 accepted until then |
+| 8 | DNSSEC for getresolved.site: zone signed and query logging on (2026-11-26); DS record at Namecheap pending | Protects the domain against DNS spoofing |
 
 ## Product gaps
 

@@ -32,8 +32,3 @@ skip-check:
   - CKV_AWS_144 # S3 cross-region replication
   - CKV_AWS_18 # S3 access logging
   - CKV2_AWS_62 # S3 event notifications
-  # Route 53 zone for getresolved.site. DNSSEC needs a KMS signing key and a DS record at the
-  # registrar; a mistake takes the domain offline, so it is a planned, owner-assisted step
-  # (BACKLOG). Query logs would only show which resolvers looked the domain up.
-  - CKV2_AWS_38 # Route 53 DNSSEC signing
-  - CKV2_AWS_39 # Route 53 query logging
