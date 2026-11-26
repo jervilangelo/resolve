@@ -28,7 +28,7 @@ gives you distraction-free Focus sessions, and lets people you trust encourage y
 
 ## What Resolve does
 
-| | |
+| Feature | What it does |
 | --- | --- |
 | **Website blocking for your group** | Your accountability group decides which websites its members' browsers block. Admins manage the list; members can add websites but cannot see it. Essential services such as Gmail and Microsoft 365 always stay reachable, and blocking keeps working offline. |
 | **On-device image blurring** | Optional. An AI model packaged inside the extension checks images and video frames in your browser and blurs explicit ones. Nothing is uploaded. Three sensitivity levels. |
