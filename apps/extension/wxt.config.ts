@@ -80,7 +80,9 @@ export default defineConfig({
   }),
   manifest: ({ browser, mode }) => ({
     name: 'Resolve',
-    description: 'In development: privacy-first browser protection and voluntary accountability.',
+    // Shown on the browser's extensions page (Chrome allows up to 132 characters).
+    description:
+      'Take every thought captive. Group website blocking, on-device media blurring, Focus Mode and voluntary accountability.',
     permissions: [
       'identity',
       'declarativeNetRequest',
