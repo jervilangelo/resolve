@@ -127,6 +127,18 @@ describe('navigation reporter', () => {
     expect(t.reports).toHaveLength(1);
   });
 
+  it('treats Resolve’s own blocked page as part of the same blocked visit', async () => {
+    const t = setup();
+    t.pageLoaded('https://news.example/');
+    t.advance(AUTOMATIC_NAVIGATION_WINDOW_MS + 1);
+    await t.blockedVisit('https://blocked.example/');
+    expect(t.reports).toHaveLength(1);
+    t.cooldowns.clear();
+    t.reporter.onCommitted({ tabId: 1, frameId: 0, url: 'chrome-extension://abc/blocked.html' });
+    await t.blockedVisit('https://blocked.example/'); // Back onto the blocked entry
+    expect(t.reports).toHaveLength(1);
+  });
+
   it('does not report pop-ups, restored tabs, reloads of a block page or startup restores', async () => {
     const t = setup();
     t.reporter.onCreatedNavigationTarget(1); // opened by another page

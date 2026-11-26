@@ -5,6 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
+import { coveredBy } from '@resolve/domain-policy';
 import { z } from 'zod';
 import type { PrivateStore } from './private-store';
 
@@ -341,6 +342,14 @@ export function createFocus(deps: FocusDeps) {
         await deps.store.set(KEY, next);
         return report(next);
       });
+    },
+
+    /** Whether a running session blocks `host` (read-only; used to pick the page to show). */
+    async covers(host: string): Promise<boolean> {
+      const settings = await current();
+      if (!isActive(settings, deps.now())) return false;
+      const { domains, except } = focusDomains(settings);
+      return !except.some((d) => coveredBy(host, d)) && domains.some((d) => coveredBy(host, d));
     },
 
     /** Startup, worker wake, the end alarm and permission changes: expire or restore. */

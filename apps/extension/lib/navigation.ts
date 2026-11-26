@@ -184,6 +184,8 @@ export function createNavigationReporter(deps: ReporterDeps) {
     /** A page loaded in the tab: the tab is now the person's own again. */
     onCommitted(details: NavigationDetails): void {
       if (details.frameId !== 0) return;
+      // Resolve's own blocked page replacing the error page: still the same blocked visit.
+      if (/^(chrome|moz)-extension:/.test(details.url)) return;
       const state = tab(details.tabId);
       // Only web pages that could redirect on their own start the automatic-navigation window;
       // a new tab page the person is typing into does not.

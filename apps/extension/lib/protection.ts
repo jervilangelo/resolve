@@ -6,7 +6,7 @@
  */
 
 import type { RuleSnapshot } from '@resolve/contracts';
-import { ESSENTIAL_DOMAINS, normalizeDomain } from '@resolve/domain-policy';
+import { ESSENTIAL_DOMAINS, coveredBy, normalizeDomain } from '@resolve/domain-policy';
 import { z } from 'zod';
 import type { PrivateStore } from './private-store';
 
@@ -233,6 +233,26 @@ export function createProtection(deps: {
         });
       queue = run;
       await run;
+    },
+
+    /**
+     * Which installed group rule blocks `host` (read-only, from the local snapshot of the rules
+     * actually installed, so it works offline and during a group switch); null when no group rule
+     * blocks it or it is exempt as essential.
+     */
+    async blockedBy(host: string): Promise<'nonNegotiable' | 'additional' | null> {
+      const meta = await readMeta();
+      if (!meta) return null;
+      for (const [kind, id] of [
+        ['nonNegotiable', GROUP_RULE_IDS.nonNegotiable],
+        ['additional', GROUP_RULE_IDS.additional],
+      ] as const) {
+        const rule = meta.rules.find((r) => r.id === id);
+        if (!rule) continue;
+        if (rule.condition.excludedRequestDomains.some((d) => coveredBy(host, d))) continue;
+        if (rule.condition.requestDomains.some((d) => coveredBy(host, d))) return kind;
+      }
+      return null;
     },
 
     /**

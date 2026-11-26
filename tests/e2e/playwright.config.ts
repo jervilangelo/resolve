@@ -28,6 +28,7 @@ export default defineConfig({
         'extension-alerts.spec.ts',
         'media-filter.spec.ts',
         'focus-mode.spec.ts',
+        'blocked-pages.spec.ts',
       ],
     },
   ],

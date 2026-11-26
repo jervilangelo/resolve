@@ -260,3 +260,23 @@ describe('review regressions', () => {
     expect(t.group()).toEqual([]);
   });
 });
+
+describe('blockedBy', () => {
+  it('names the installed group rule covering a host, exempting essentials', async () => {
+    const t = setup({
+      [GROUP_A]: snapshot(GROUP_A, 1, ['google.com', 'nn.example'], ['add.example']),
+    });
+    t.select(GROUP_A);
+    await t.protection.sync();
+    const before = JSON.stringify(t.all());
+    expect(await t.protection.blockedBy('www.nn.example')).toBe('nonNegotiable');
+    expect(await t.protection.blockedBy('add.example')).toBe('additional');
+    expect(await t.protection.blockedBy('mail.google.com')).toBeNull();
+    expect(await t.protection.blockedBy('other.example')).toBeNull();
+    expect(JSON.stringify(t.all())).toBe(before);
+    // Signed out (or no group): nothing installed, nothing matched.
+    t.select(null);
+    await t.protection.sync();
+    expect(await t.protection.blockedBy('nn.example')).toBeNull();
+  });
+});

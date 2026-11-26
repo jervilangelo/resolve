@@ -155,13 +155,89 @@ const onTabUpdated = (tabId: number, change: { discarded?: boolean }) => {
   if (change.discarded === true) reporter?.onTabDiscarded(tabId);
 };
 
+const BLOCKED_BY_CLIENT = 'net::ERR_BLOCKED_BY_CLIENT';
+const BLOCK_PAGES = ['/blocked.html', '/focus.html?from=block'] as const;
+
+/**
+ * Per tab, in memory only: the host whose block Resolve's page replaced, while that page is still
+ * showing. Never stored or sent anywhere.
+ */
+const swappedFrom = new Map<number, string>();
+/** Per tab, in memory only: the URL of its latest top-level navigation. */
+const latestNavigation = new Map<number, string>();
+
+/**
+ * After the browser has already blocked a top-level navigation (the site never loaded), shows
+ * Resolve's page for it: "Access Blocked" when the installed group rules cover the host (group
+ * restrictions take precedence), otherwise the Focus page when a running Focus session covers it.
+ * The block rules themselves are untouched, and the page URL carries nothing about the site.
+ */
+async function showBlockedPage(
+  details: Parameters<NavigationReporter['onErrorOccurred']>[0],
+): Promise<void> {
+  if (details.frameId !== 0 || details.error !== BLOCKED_BY_CLIENT) return;
+  if (details.documentLifecycle !== undefined && details.documentLifecycle !== 'active') return;
+  const host = URL.canParse(details.url) ? new URL(details.url).hostname : '';
+  if (!host) return;
+  const group = protection ? await protection.blockedBy(host) : null;
+  const page = group ? BLOCK_PAGES[0] : (await focus.covers(host)) ? BLOCK_PAGES[1] : null;
+  if (!page) return;
+  // The person may have moved on while this was being decided: never override a newer page.
+  if (latestNavigation.get(details.tabId) !== details.url) return;
+  // Back from Resolve's page lands on the blocked entry again: step past it instead of trapping
+  // the person in a loop. With nothing earlier in the history, show the page again.
+  if (swappedFrom.get(details.tabId) === host) {
+    swappedFrom.delete(details.tabId);
+    try {
+      await browser.tabs.goBack(details.tabId);
+      return;
+    } catch {
+      // No earlier entry.
+    }
+  }
+  await browser.tabs.update(details.tabId, { url: browser.runtime.getURL(page) });
+  swappedFrom.set(details.tabId, host);
+}
+
+const onBlockedNavigation = (details: Parameters<NavigationReporter['onErrorOccurred']>[0]) => {
+  void showBlockedPage(details).catch(() => undefined);
+};
+
+const onSwapNavigate = (details: { tabId: number; frameId: number; url: string }) => {
+  if (details.frameId === 0) latestNavigation.set(details.tabId, details.url);
+};
+
+const onSwapTabRemoved = (tabId: number) => {
+  latestNavigation.delete(tabId);
+  swappedFrom.delete(tabId);
+};
+
+/** Forgets a swap once the tab shows anything other than Resolve's page. */
+const onSwapCommitted = (details: { tabId: number; frameId: number; url: string }) => {
+  if (details.frameId !== 0) return;
+  const own = BLOCK_PAGES.some((p) => details.url === browser.runtime.getURL(p));
+  if (!own) swappedFrom.delete(details.tabId);
+};
+
 /**
  * Listens only while the optional permission is granted (the API is absent otherwise). Safe to
  * call again after a re-grant: each listener is attached at most once to the current API object.
  */
 function listenForBlockedVisits(): void {
   const api = (browser as Partial<typeof browser>).webNavigation;
-  if (!reporter || !api) return;
+  if (!api) return;
+  // Resolve's blocked pages use the navigation error only; they need no account.
+  if (!api.onErrorOccurred.hasListener(onBlockedNavigation)) {
+    api.onErrorOccurred.addListener(onBlockedNavigation);
+  }
+  if (!api.onBeforeNavigate.hasListener(onSwapNavigate)) {
+    api.onBeforeNavigate.addListener(onSwapNavigate);
+  }
+  if (!api.onCommitted.hasListener(onSwapCommitted)) api.onCommitted.addListener(onSwapCommitted);
+  if (!browser.tabs.onRemoved.hasListener(onSwapTabRemoved)) {
+    browser.tabs.onRemoved.addListener(onSwapTabRemoved);
+  }
+  if (!reporter) return;
   if (!api.onBeforeNavigate.hasListener(onBeforeNavigate)) {
     api.onBeforeNavigate.addListener(onBeforeNavigate);
   }

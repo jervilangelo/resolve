@@ -9,7 +9,7 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-25 · **Current:** Phase 11 (Focus Mode) complete; Phase 10 complete (limited beta live on production);
+**Last updated:** 2026-11-26 · **Current:** Phase 11 (Focus Mode) complete; Phase 10 complete (limited beta live on production);
 owner revisions done; production on https://getresolved.site with alerts from
 "Resolve" <no-reply@getresolved.site>; store submission and Phase 11 (Focus Mode) next
 
@@ -153,7 +153,16 @@ owner revisions done; production on https://getresolved.site with alerts from
 
 ## Next steps
 
-- Done locally (2026-11-26, not pushed; owner asked not to push): Focus Mode timer revision
+- Done (2026-11-26): two blocked-page experiences. Group restrictions show "Access Blocked"
+  (blocked.html: randomized reflection and verified KJV/Puritan quotation from
+  lib/encouragement.ts, no repeat of the last one, "Choose to Walk Away", no bypass); Focus-only
+  blocks show the Focus page with time left. Block rules are unchanged: after the browser reports
+  `ERR_BLOCKED_BY_CLIENT` the tab is moved to the page (group takes precedence; no site in the URL;
+  Back steps past the blocked entry). Limitation: needs the optional `webNavigation` permission,
+  which today is granted only with blocked-visit alerts; otherwise the browser's own block page
+  shows. Not released (needs a version bump and an owner request).
+
+- Done (2026-11-26, pushed; 0.3.0 released): Focus Mode timer revision
   (extension 0.3.0): timed sessions (15/25/30/45/60 or 5–240 custom minutes) with a persisted
   deadline, an end alarm plus a deadline check on every worker start and status read, automatic
   expiry, two-step early exit (exact phrase, then Yes/No), compact popup states, pages refreshed
@@ -253,6 +262,9 @@ owner revisions done; production on https://getresolved.site with alerts from
 
 ## Open decisions for the owner
 
+- Blocked pages without alerts: add a separate "Show Resolve's blocked page" setting that requests
+  `webNavigation` on its own, with alerts tracked by a separate flag (changes alert opt-in
+  internals)? Until then the pages show only for users who enabled alerts.
 
 - Phase order: roadmap (Phase 4 next) vs. handbook (on-device AI blur next). Currently following the
   roadmap.

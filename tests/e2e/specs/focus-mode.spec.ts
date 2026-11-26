@@ -213,9 +213,9 @@ test('the Focus page is branded, never names the site, and offers no way to turn
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/focus.html`);
   await expect(page.getByRole('heading', { level: 1, name: 'Focus Mode is On' })).toBeVisible();
-  await expect(page.getByText('You’ve chosen to limit distractions.')).toBeVisible();
+  await expect(page.getByText('Is this worth breaking your focus for?')).toBeVisible();
   await expect(page.getByRole('img', { name: 'Resolve' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Close this tab' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close this Tab' })).toBeVisible();
   await expect(page.getByRole('switch')).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('http');
 });

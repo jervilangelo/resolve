@@ -276,3 +276,19 @@ describe('Focus Mode sessions', () => {
     expect(all.domains).toEqual(expect.arrayContaining(none.domains));
   });
 });
+
+describe('covers', () => {
+  it('matches only the running session’s sites, never the exceptions', async () => {
+    const f = fakes();
+    const focus = f.make();
+    expect(await focus.covers('www.facebook.com')).toBe(false);
+    await focus.start(25, { youtube: true, netflix: false, twitch: false });
+    expect(await focus.covers('www.facebook.com')).toBe(true);
+    expect(await focus.covers('m.youtube.com')).toBe(true);
+    expect(await focus.covers('accounts.youtube.com')).toBe(false);
+    expect(await focus.covers('netflix.com')).toBe(false);
+    expect(await focus.covers('casino.example')).toBe(false);
+    f.advance(26 * MIN);
+    expect(await focus.covers('www.facebook.com')).toBe(false);
+  });
+});

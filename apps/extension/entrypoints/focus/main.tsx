@@ -5,7 +5,11 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
+import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
+import { send } from '@/lib/client';
+import { formatRemaining } from '@/lib/focus-ui';
+import { leaveTab } from '@/lib/leave-tab';
 import { mount } from '@/lib/mount';
 
 const primary =
@@ -13,19 +17,46 @@ const primary =
 const secondary =
   'rounded-full border px-5 py-2.5 text-sm font-medium transition-[background-color,transform] hover:bg-muted active:scale-[0.98]';
 
-async function closeTab() {
-  const tab = await browser.tabs.getCurrent();
-  if (tab?.id !== undefined) await browser.tabs.remove(tab.id);
-  else window.close();
+/** Time left in the running session, from the background (null when unknown or ended). */
+function useRemaining(): number | null {
+  const [endsAt, setEndsAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const refresh = () => {
+      send({ type: 'focus/get' }).then(
+        (state) => {
+          setEndsAt(state.session?.endsAt ?? null);
+        },
+        () => undefined,
+      );
+    };
+    refresh();
+    // Ended early, or a new session started, from the popup or settings.
+    const onMessage = (message: unknown) => {
+      if ((message as { type?: unknown } | null)?.type === 'focus/changed') refresh();
+    };
+    browser.runtime.onMessage.addListener(onMessage);
+    const tick = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => {
+      browser.runtime.onMessage.removeListener(onMessage);
+      clearInterval(tick);
+    };
+  }, []);
+  return endsAt === null || endsAt <= now ? null : endsAt - now;
 }
 
 /** Shown instead of a website blocked by Focus Mode. It never names the site. */
 function FocusPage() {
-  const fromOpenTab = new URLSearchParams(window.location.search).get('from') === 'open';
-  const canGoBack = window.history.length > 1 && !fromOpenTab;
+  // Reached by moving an open or blocked tab here: going back would only return to the site.
+  const fromSwap = new URLSearchParams(window.location.search).has('from');
+  const canGoBack = window.history.length > 1 && !fromSwap;
+  const remaining = useRemaining();
+
   return (
     <main className="bg-background grid min-h-dvh place-items-center px-6 py-16">
-      <div className="w-full max-w-md text-center">
+      <div className="w-full max-w-lg text-center">
         <img
           src="/brand/horizontal-compact-light.svg"
           alt="Resolve"
@@ -41,13 +72,27 @@ function FocusPage() {
           height={34}
           className="rs-only-dark mx-auto h-8 w-auto"
         />
-        <h1 className="font-display mt-12 text-4xl leading-tight">Focus Mode is On</h1>
-        <p className="text-muted-foreground mt-4 text-lg">
-          You’ve chosen to limit distractions. Stay focused on what matters.
+        <h1 className="font-display mt-12 text-4xl leading-tight sm:text-5xl">Focus Mode is On</h1>
+        <p
+          className="text-muted-foreground mt-3 h-6 text-sm tabular-nums"
+          aria-live="off"
+          role="timer"
+        >
+          {remaining !== null && `${formatRemaining(remaining)} left`}
         </p>
+        <p className="mt-6 text-lg">
+          You committed this time to what matters. Don’t let a moment of distraction take it away.
+        </p>
+        <p className="font-display mt-8 text-2xl">Is this worth breaking your focus for?</p>
+        <figure className="text-muted-foreground mt-6">
+          <blockquote className="italic">
+            “Redeeming the time, because the days are evil.”
+          </blockquote>
+          <figcaption className="mt-1 text-sm">— Ephesians 5:16 (KJV)</figcaption>
+        </figure>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <button type="button" className={primary} onClick={() => void closeTab()}>
-            Close this tab
+          <button type="button" className={primary} onClick={() => void leaveTab()}>
+            Close this Tab
           </button>
           {canGoBack && (
             <button
@@ -57,12 +102,12 @@ function FocusPage() {
                 window.history.back();
               }}
             >
-              Go back
+              Go Back
             </button>
           )}
         </div>
         <p className="text-muted-foreground mt-10 text-sm">
-          You can turn Focus Mode off from the Resolve extension.
+          If this is an emergency, you can end Focus Mode from the Resolve extension.
         </p>
       </div>
     </main>
