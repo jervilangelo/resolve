@@ -178,3 +178,15 @@ test('the landing page features Focus Mode with a link to its tutorial steps', a
     '/tutorial#focus',
   );
 });
+
+test('the Support page invites partners and sponsors by email', async ({ page }) => {
+  await page.goto('/support');
+  await expect(page.getByRole('heading', { name: 'Partner with Resolve' })).toBeVisible();
+  const link = page.getByRole('link', { name: 'deleonangelojervil@gmail.com' });
+  await expect(link).toHaveAttribute(
+    'href',
+    'mailto:deleonangelojervil@gmail.com?subject=Resolve%20Partnership%20or%20Sponsorship',
+  );
+  // The donation options stay in place.
+  await expect(page.getByRole('heading', { name: 'Donate with GCash' })).toBeVisible();
+});

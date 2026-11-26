@@ -8,9 +8,12 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { CheckIcon, HeartIcon } from '@/components/icons';
+import { CheckIcon, HeartIcon, MailIcon } from '@/components/icons';
 import { PageHero } from '@/components/prose-page';
 import { CONTACT_EMAIL, GCASH_QR } from '@/lib/site';
+
+const PARTNER_EMAIL = 'deleonangelojervil@gmail.com';
+const PARTNER_MAILTO = `mailto:${PARTNER_EMAIL}?subject=Resolve%20Partnership%20or%20Sponsorship`;
 
 export const metadata: Metadata = {
   title: 'Support Resolve',
@@ -62,6 +65,23 @@ export default function SupportPage() {
             </a>
             .
           </p>
+          <section aria-labelledby="partner" className="bg-card rounded-2xl border p-6">
+            <h2 id="partner" className="flex items-center gap-2 font-semibold">
+              <MailIcon width={18} height={18} />
+              Partner with Resolve
+            </h2>
+            <p className="mt-3 leading-relaxed">
+              If you’d like to partner with me on Resolve or sponsor its development, I’d love to
+              hear from you. Email me at{' '}
+              <a
+                href={PARTNER_MAILTO}
+                className="font-medium break-words underline underline-offset-4"
+              >
+                {PARTNER_EMAIL}
+              </a>
+              .
+            </p>
+          </section>
         </div>
 
         <section aria-labelledby="donate" className="bg-card rounded-2xl border p-6">
