@@ -198,6 +198,27 @@ describe('navigation reporter', () => {
     expect(t.reports).toHaveLength(2);
   });
 
+  it('never reports a visit Focus Mode blocked, including essential sites the group exempts', async () => {
+    // Focus blocks are plain ERR_BLOCKED_BY_CLIENT (without site access) for sites that are not
+    // on the group's non-negotiable list, or are exempt from it as essential services.
+    const t = setup({
+      ...RULE,
+      domains: [...RULE.domains, 'facebook.com'],
+      exempt: [...RULE.exempt, 'facebook.com', 'youtube.com'],
+    });
+    for (const url of [
+      'https://www.facebook.com/',
+      'https://www.youtube.com/watch?v=1',
+      'https://www.instagram.com/',
+      'https://x.com/home',
+      'https://www.reddit.com/r/all',
+    ]) {
+      t.advance(60_000);
+      await t.blockedVisit(url, { documentLifecycle: 'active' });
+    }
+    expect(t.reports).toHaveLength(0);
+  });
+
   it('does nothing without an active rule', async () => {
     const t = setup(null);
     await t.blockedVisit('https://blocked.example/');

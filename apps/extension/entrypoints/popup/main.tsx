@@ -9,6 +9,7 @@ import { browser } from 'wxt/browser';
 import { AccountPanel } from '@/components/account-panel';
 import { BrandHeader } from '@/components/brand-header';
 import { FeatureStatus } from '@/components/feature-status';
+import { FocusPanel } from '@/components/focus-panel';
 import { mount } from '@/lib/mount';
 
 function Popup() {
@@ -16,6 +17,9 @@ function Popup() {
     <div className="w-80">
       <BrandHeader />
       <main className="space-y-4 p-4">
+        <div className="rounded-xl border p-3">
+          <FocusPanel />
+        </div>
         <AccountPanel />
         <section aria-labelledby="popup-protection" className="space-y-2">
           <h2 id="popup-protection" className="text-sm font-semibold">

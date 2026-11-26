@@ -10,6 +10,7 @@ import { AccountPanel } from '@/components/account-panel';
 import { AlertsPanel } from '@/components/alerts-panel';
 import { BrandHeader } from '@/components/brand-header';
 import { FeatureStatus } from '@/components/feature-status';
+import { FocusPanel } from '@/components/focus-panel';
 import { MediaFilterPanel } from '@/components/media-filter-panel';
 import { mount } from '@/lib/mount';
 
@@ -33,6 +34,9 @@ function Options() {
         <Card id="account" title="Account and group">
           <AccountPanel />
         </Card>
+        <section aria-label="Focus Mode" className="bg-card rounded-2xl border p-5">
+          <FocusPanel />
+        </section>
         <Card id="media-filter" title="Media blurring">
           <MediaFilterPanel />
         </Card>

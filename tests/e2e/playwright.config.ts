@@ -23,7 +23,12 @@ export default defineConfig({
     // Extension pages need a persistent Chromium context; see fixtures/extension.ts.
     {
       name: 'extension',
-      testMatch: ['extension.spec.ts', 'extension-alerts.spec.ts', 'media-filter.spec.ts'],
+      testMatch: [
+        'extension.spec.ts',
+        'extension-alerts.spec.ts',
+        'media-filter.spec.ts',
+        'focus-mode.spec.ts',
+      ],
     },
   ],
   webServer: {

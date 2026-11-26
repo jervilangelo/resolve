@@ -48,6 +48,24 @@ export const FAQ: { id: string; title: string; items: FaqItem[] }[] = [
     ],
   },
   {
+    id: 'focus',
+    title: 'Focus Mode',
+    items: [
+      {
+        q: 'What is Focus Mode?',
+        a: 'A switch in the Resolve extension. While it is on, Facebook, Instagram, X, TikTok and Reddit are blocked in that browser, and optionally YouTube, Netflix and Twitch. Turn it off whenever you like.',
+      },
+      {
+        q: 'Does Focus Mode tell my group or partners anything?',
+        a: 'No. Focus Mode is personal and stays in your browser: it sends nothing to Resolve and never triggers an accountability alert.',
+      },
+      {
+        q: 'Does Focus Mode change my group’s blocked websites?',
+        a: 'No. Your group’s restrictions keep working exactly as before, whether Focus Mode is on or off.',
+      },
+    ],
+  },
+  {
     id: 'websites',
     title: 'Website restrictions',
     items: [

@@ -50,6 +50,7 @@ Cognito (the worker looks them up at send time and does not keep them).
 | Session                    | Extension-origin IndexedDB              | Tokens, email, active group (unreachable by content scripts)  | Until sign-out                      |
 | Group rules cache          | Extension-origin IndexedDB              | Compiled block rules for the active group                     | Until group switch or sign-out      |
 | Media filter settings      | Extension-origin IndexedDB              | On/off, sensitivity, fallback                                 | Until changed                       |
+| Focus Mode settings        | Extension-origin IndexedDB              | On/off and the three optional sites (no visits, no history)   | Until changed                       |
 | Media verdict cache        | Worker and page memory only             | Scores per image URL (worker), verdicts per URL (page)        | Until the worker or page goes away  |
 | Navigation tracking        | Worker memory only                      | Per tab: host a navigation started at, last page host and time, last blocked host and time | Until the tab closes or the worker stops |
 | Alert cooldowns            | Extension-origin IndexedDB              | Per sign-in and group: time of the last report (no URL)       | 10 minutes (expired entries dropped) |

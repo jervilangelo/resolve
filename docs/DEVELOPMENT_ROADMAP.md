@@ -190,7 +190,17 @@
 
 ## Phase 11 — Focus Mode (post-launch v1.1)
 
-**Status:** Planned for after Phase 10; not part of the initial MVP.
+**Status:** Implemented 2026-11-26 (extension 0.2.0).
+
+**Implementation notes:** `apps/extension/lib/focus.ts` holds the service-domain map and controller.
+Focus owns declarativeNetRequest rule IDs 100000–100999 and only ever touches that range. Its rule
+blocks group-exempt services (essential exemptions are scoped to group rules), while a group block
+on the same request still wins, so group blocks and Trigger A reporting are unchanged.
+accounts.youtube.com stays reachable for Google sign-in, and Messenger is not covered. With site
+access (asked once) blocked visits redirect to the branded `focus.html`; otherwise the browser's
+block page is shown. Verified by unit tests and real-browser Playwright specs in Chromium, Microsoft
+Edge and Brave; the Firefox build uses the same rules with a plain block page and is not
+browser-tested.
 
 **Goal:** Provide a straightforward, voluntary way to reduce distracting browsing. Users simply turn Focus Mode **On** or **Off**; there are no activity/purpose categories.
 

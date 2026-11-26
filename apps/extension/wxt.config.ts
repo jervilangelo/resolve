@@ -8,6 +8,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
+import { ALL_FOCUS_PATTERNS } from './lib/focus';
 
 const icons = {
   16: 'icon/icon-16.png',
@@ -96,6 +97,9 @@ export default defineConfig({
       optional_host_permissions: ['<all_urls>'],
       // Requested only when the user turns on alerts for blocked visits (Trigger A).
       optional_permissions: ['webNavigation'],
+      // Focus Mode redirects blocked sites to its own page (with site access, see lib/focus.ts).
+      // Visible to these sites only (a redirect needs it); use_dynamic_url would break redirects.
+      web_accessible_resources: [{ resources: ['focus.html'], matches: ALL_FOCUS_PATTERNS }],
     }),
     // Development and beta builds carry a fixed public key so their unpacked extension IDs (and
     // therefore their registered Cognito callbacks) are stable. Store builds get their ID from

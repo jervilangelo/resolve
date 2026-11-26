@@ -9,7 +9,7 @@ Proprietary source code. See LICENSE.
 Where development stopped and what comes next. Read this first when resuming; update it before
 pausing. Phase numbers follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
-**Last updated:** 2026-11-25 · **Current:** Phase 10 complete (limited beta live on production);
+**Last updated:** 2026-11-25 · **Current:** Phase 11 (Focus Mode) complete; Phase 10 complete (limited beta live on production);
 owner revisions done; production on https://getresolved.site with alerts from
 "Resolve" <no-reply@getresolved.site>; store submission and Phase 11 (Focus Mode) next
 
@@ -152,6 +152,10 @@ owner revisions done; production on https://getresolved.site with alerts from
 - **Checks:** `pnpm check`, `pnpm build`, `pnpm e2e`, `pnpm integration` all passing at pause.
 
 ## Next steps
+
+- Done (2026-11-26): Phase 11 Focus Mode (extension 0.2.0): one switch, five fixed and three
+  optional sites, branded Focus page, local settings, isolated rule range; see the roadmap.
+  Next: publish a 0.2.0 release when the owner approves.
 
 0. **Owner revisions (2026-11-25)**, in order:
    - Done (2026-11-25): custom domain `getresolved.site` live: Route 53 zone (production

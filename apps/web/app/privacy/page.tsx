@@ -35,6 +35,11 @@ export default function PrivacyPage() {
             that same image again from the site that served it, without your cookies.
           </li>
           <li>
+            <strong>Focus Mode.</strong> Whether it is on and which optional sites it blocks are
+            kept in your browser only. Focus Mode never records or sends the sites you try to visit,
+            and it never alerts anyone.
+          </li>
+          <li>
             <strong>The pages you visit.</strong> The extension blocks your group&apos;s websites
             inside your browser. If you turn on accountability alerts, it looks at page addresses
             briefly, on your device only, to recognise a blocked visit. Addresses are never stored

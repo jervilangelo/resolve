@@ -11,6 +11,7 @@ import { createAccount } from '@/lib/account';
 import { createAuth } from '@/lib/auth';
 import { config } from '@/lib/config';
 import { z } from 'zod';
+import { ALL_FOCUS_PATTERNS, FOCUS_PAGE, type FocusRule, createFocus } from '@/lib/focus';
 import { createFilterController } from '@/lib/media/controller';
 import { createMediaEngine } from '@/lib/media/engine';
 import {
@@ -192,6 +193,40 @@ browser.runtime.onStartup.addListener(() => {
   reporter?.onBrowserStartup();
 });
 
+const focusAccess = () => browser.permissions.contains({ origins: ALL_FOCUS_PATTERNS });
+
+// Typed as always present, but absent where the browser lacks declarativeNetRequest.
+const dnrApi = (browser as { declarativeNetRequest?: typeof browser.declarativeNetRequest })
+  .declarativeNetRequest;
+
+const focus = createFocus({
+  dnr: dnrApi
+    ? {
+        getRules: () => dnrApi.getDynamicRules(),
+        update: (removeRuleIds: number[], addRules: FocusRule[]) =>
+          dnrApi.updateDynamicRules({ removeRuleIds, addRules }),
+      }
+    : null,
+  store: privateStore,
+  hasSiteAccess: focusAccess,
+  // Rules apply to new navigations only; tabs already on a newly blocked site move to the page.
+  closeOpenTabs: async (patterns, except) => {
+    if (!(await focusAccess())) return;
+    // `from=open`: going back would only return to the blocked site, so the page hides "Go back".
+    const page = `${browser.runtime.getURL(FOCUS_PAGE)}?from=open`;
+    const excepted = (url = '') => {
+      const host = URL.canParse(url) ? new URL(url).hostname : '';
+      return except.some((d) => host === d || host.endsWith(`.${d}`));
+    };
+    const tabs = await browser.tabs.query({ url: patterns });
+    await Promise.allSettled(
+      tabs
+        .filter((tab) => tab.id !== undefined && !excepted(tab.url))
+        .map((tab) => browser.tabs.update(tab.id, { url: page })),
+    );
+  },
+});
+
 const filter = createFilterController({
   store: privateStore,
   supported: supportsMediaFilter(),
@@ -229,6 +264,8 @@ const handlers: {
     account?.setActiveGroup(request.groupId) ?? Promise.resolve(unconfigured),
   'filter/get': () => filter.state(),
   'filter/set': (request) => filter.update(request.settings),
+  'focus/get': () => focus.state(),
+  'focus/set': (request) => focus.update(request.settings),
 };
 
 /** The only requests content scripts (which run inside web pages) can make. */
@@ -259,6 +296,16 @@ function handle(request: Request): Promise<unknown> {
 }
 
 export default defineBackground(() => {
+  // Focus Mode is local and needs no account: restore its rules on every worker start, and switch
+  // between the Focus page and a plain block when site access is granted or withdrawn.
+  void focus.reconcile().catch(() => undefined);
+  // Any site-access change can add or remove access to the Focus sites (e.g. <all_urls>).
+  const onFocusAccess = (change: { origins?: string[] }) => {
+    if (change.origins?.length) void focus.reconcile().catch(() => undefined);
+  };
+  browser.permissions.onAdded.addListener(onFocusAccess);
+  browser.permissions.onRemoved.addListener(onFocusAccess);
+
   if (account) {
     // Created only when missing: re-creating on every worker wake would restart the countdown,
     // and frequent wakes could then postpone syncing indefinitely.
