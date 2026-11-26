@@ -53,7 +53,7 @@ export const FAQ: { id: string; title: string; items: FaqItem[] }[] = [
     items: [
       {
         q: 'What is Focus Mode?',
-        a: 'A switch in the Resolve extension. While it is on, Facebook, Instagram, X, TikTok and Reddit are blocked in that browser, and optionally YouTube, Netflix and Twitch. Turn it off whenever you like.',
+        a: 'A timed session in the Resolve extension. Choose how long (5 to 240 minutes) and start: until the time is up, Facebook, Instagram, X, TikTok and Reddit are blocked in that browser, and optionally YouTube, Netflix and Twitch. It ends by itself; ending it early takes two deliberate steps.',
       },
       {
         q: 'Does Focus Mode tell my group or partners anything?',

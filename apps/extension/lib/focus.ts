@@ -48,16 +48,47 @@ export const SERVICES: Record<Service, { name: string; domains: string[]; except
   twitch: { name: 'Twitch', domains: ['twitch.tv'] },
 };
 
+/** Session length limits, in minutes. */
+export const FOCUS_MINUTES = { min: 5, max: 240, presets: [15, 25, 30, 45, 60] } as const;
+
+const optionalSchema = z.strictObject({
+  youtube: z.boolean(),
+  netflix: z.boolean(),
+  twitch: z.boolean(),
+});
+export type FocusOptional = z.infer<typeof optionalSchema>;
+
+export const focusMinutesSchema = z.number().int().min(FOCUS_MINUTES.min).max(FOCUS_MINUTES.max);
+
+/** A timed session: its deadline is the single source of truth for whether Focus is on. */
+export const focusSessionSchema = z.strictObject({
+  startedAt: z.number(),
+  endsAt: z.number(),
+  minutes: focusMinutesSchema,
+});
+export type FocusSession = z.infer<typeof focusSessionSchema>;
+
 export const focusSettingsSchema = z.strictObject({
-  enabled: z.boolean(),
-  optional: z.strictObject({ youtube: z.boolean(), netflix: z.boolean(), twitch: z.boolean() }),
+  optional: optionalSchema,
+  /** The last chosen duration, offered again next time. */
+  minutes: focusMinutesSchema,
+  session: focusSessionSchema.nullable(),
 });
 export type FocusSettings = z.infer<typeof focusSettingsSchema>;
 
 export const DEFAULT_FOCUS: FocusSettings = {
-  enabled: false,
   optional: { youtube: false, netflix: false, twitch: false },
+  minutes: 25,
+  session: null,
 };
+
+/** Settings saved by 0.2.0 (an untimed switch). An active one becomes a 60-minute session. */
+const legacySchema = z.object({ enabled: z.boolean(), optional: optionalSchema });
+
+/** True while the session's deadline has not passed. */
+export function isActive(settings: FocusSettings, now: number): boolean {
+  return settings.session !== null && now < settings.session.endsAt;
+}
 
 /**
  * What the browser is actually enforcing: `on` (rules installed as configured), `off`, or
@@ -67,6 +98,8 @@ export type FocusEnforcement = 'on' | 'off' | 'error';
 
 export interface FocusState {
   settings: FocusSettings;
+  /** The running session, or null (an expired one is never reported as running). */
+  session: FocusSession | null;
   enforcement: FocusEnforcement;
   /** Blocked visits show Resolve's Focus page (needs site access); otherwise the browser's page. */
   focusPage: boolean;
@@ -102,12 +135,20 @@ export interface FocusDeps {
   hasSiteAccess(): Promise<boolean>;
   /** Sends already-open tabs on blocked sites (not `except` hosts) to the Focus page. */
   closeOpenTabs?(patterns: string[], except: string[]): Promise<void>;
+  now(): number;
+  /** Wakes the background at the deadline (null clears it); a missed wake is caught by reconcile. */
+  scheduleEnd(at: number | null): Promise<void>;
+  /** Tells open extension pages that Focus changed (e.g. it expired), so they refresh. */
+  notify?(): void;
 }
 
 const KEY = 'focus';
 
 /** The domains blocked for the given settings, sorted and unique. */
-export function focusDomains(settings: FocusSettings): { domains: string[]; except: string[] } {
+export function focusDomains(settings: { optional: FocusOptional }): {
+  domains: string[];
+  except: string[];
+} {
   const services: Service[] = [
     ...MANDATORY_SERVICES,
     ...OPTIONAL_SERVICES.filter((s) => settings.optional[s]),
@@ -129,8 +170,12 @@ export function matchPatterns(domains: readonly string[]): string[] {
 /** Every domain Focus could ever block: what site access is requested for. */
 export const ALL_FOCUS_PATTERNS = matchPatterns(Object.values(SERVICES).flatMap((s) => s.domains));
 
-export function compileFocusRules(settings: FocusSettings, focusPage: boolean): FocusRule[] {
-  if (!settings.enabled) return [];
+export function compileFocusRules(
+  settings: FocusSettings,
+  focusPage: boolean,
+  now: number,
+): FocusRule[] {
+  if (!isActive(settings, now)) return [];
   const { domains, except } = focusDomains(settings);
   return [
     {
@@ -153,7 +198,7 @@ const inRange = (id: number) => id >= FOCUS_RANGE.min && id <= FOCUS_RANGE.max;
 export function createFocus(deps: FocusDeps) {
   let queue: Promise<unknown> = Promise.resolve();
 
-  /** Runs updates one at a time, so rapid toggling always ends in the last requested state. */
+  /** Runs changes one at a time, so repeated clicks and timers never interleave. */
   function serial<T>(work: () => Promise<T>): Promise<T> {
     const next = queue.then(work, work);
     queue = next.catch(() => undefined);
@@ -161,15 +206,33 @@ export function createFocus(deps: FocusDeps) {
   }
 
   async function settings(): Promise<FocusSettings> {
-    const parsed = focusSettingsSchema.safeParse(await deps.store.get(KEY));
-    return parsed.success ? parsed.data : DEFAULT_FOCUS;
+    const raw = await deps.store.get(KEY);
+    const parsed = focusSettingsSchema.safeParse(raw);
+    if (parsed.success) return parsed.data;
+    const legacy = legacySchema.safeParse(raw);
+    if (!legacy.success) return DEFAULT_FOCUS;
+    const now = deps.now();
+    const migrated: FocusSettings = {
+      optional: legacy.data.optional,
+      minutes: 60,
+      session: legacy.data.enabled
+        ? { startedAt: now, endsAt: now + 60 * 60_000, minutes: 60 }
+        : null,
+    };
+    // Saved once, so the deadline is fixed rather than moving with every read.
+    await deps.store.set(KEY, migrated);
+    return migrated;
   }
 
-  async function enforcement(wanted: FocusSettings, focusPage: boolean): Promise<FocusEnforcement> {
+  async function enforcement(
+    wanted: FocusSettings,
+    focusPage: boolean,
+    now: number,
+  ): Promise<FocusEnforcement> {
     if (!deps.dnr) return 'off';
     const installed = (await deps.dnr.getRules()).filter((r) => inRange(r.id));
-    if (!wanted.enabled) return installed.length === 0 ? 'off' : 'error';
-    const expected = compileFocusRules(wanted, focusPage);
+    const expected = compileFocusRules(wanted, focusPage, now);
+    if (expected.length === 0) return installed.length === 0 ? 'off' : 'error';
     const shape = (r: InstalledRule | FocusRule) =>
       JSON.stringify({
         action: r.action.type,
@@ -184,50 +247,106 @@ export function createFocus(deps: FocusDeps) {
       : 'error';
   }
 
-  /** Brings the browser's Focus rules in line with the stored settings (and nothing else). */
+  /** Brings the browser's Focus rules and the end-of-session alarm in line with the settings. */
   async function apply(wanted: FocusSettings): Promise<void> {
-    if (!deps.dnr) return;
+    const now = deps.now();
+    const endsAt = isActive(wanted, now) ? (wanted.session?.endsAt ?? null) : null;
+    await deps.scheduleEnd(endsAt).catch(() => undefined);
+    if (!deps.dnr) {
+      deps.notify?.();
+      return;
+    }
     const focusPage = await deps.hasSiteAccess().catch(() => false);
     const existing = (await deps.dnr.getRules()).map((r) => r.id).filter(inRange);
     // A failure leaves the previous rules in place; state() then reports the mismatch.
-    await deps.dnr.update(existing, compileFocusRules(wanted, focusPage)).catch(() => undefined);
+    await deps.dnr
+      .update(existing, compileFocusRules(wanted, focusPage, now))
+      .catch(() => undefined);
+    deps.notify?.();
   }
 
-  async function state(): Promise<FocusState> {
-    const wanted = await settings();
+  /** The stored settings, with a session whose deadline passed cleared (idempotent expiry). */
+  async function current(now = deps.now()): Promise<FocusSettings> {
+    const stored = await settings();
+    if (stored.session && !isActive(stored, now)) {
+      const ended = { ...stored, session: null };
+      await deps.store.set(KEY, ended);
+      return ended;
+    }
+    return stored;
+  }
+
+  /** One clock reading for the whole report, so a deadline cannot pass halfway through it. */
+  async function report(wanted: FocusSettings, now = deps.now()): Promise<FocusState> {
     const focusPage = await deps.hasSiteAccess().catch(() => false);
     return {
       settings: wanted,
-      enforcement: await enforcement(wanted, focusPage),
+      session: isActive(wanted, now) ? wanted.session : null,
+      enforcement: await enforcement(wanted, focusPage, now),
       focusPage,
       supported: deps.dnr !== null,
     };
   }
 
   return {
-    state,
-
-    /** Saves new settings and enforces them; reports what the browser actually does afterwards. */
-    update(next: FocusSettings): Promise<FocusState> {
+    /** Checks the clock against the deadline (lifting expired rules), then reports. */
+    state(): Promise<FocusState> {
       return serial(async () => {
-        const previous = await settings();
-        await deps.store.set(KEY, next);
-        await apply(next);
-        const turnedOn = next.enabled && !previous.enabled;
-        const added = OPTIONAL_SERVICES.some((s) => next.optional[s] && !previous.optional[s]);
-        if (next.enabled && (turnedOn || added) && deps.closeOpenTabs) {
-          await deps
-            .closeOpenTabs(matchPatterns(focusDomains(next).domains), focusDomains(next).except)
-            .catch(() => undefined);
-        }
-        return state();
+        const now = deps.now();
+        const stored = await settings();
+        const wanted = await current(now);
+        if (stored.session && !wanted.session) await apply(wanted);
+        return report(wanted, now);
       });
     },
 
-    /** Startup, worker wake and permission changes: restore the intended rules. */
+    /** Starts a session. While one is running nothing changes (no restart, no duplicate). */
+    start(minutes: number, optional: FocusOptional): Promise<FocusState> {
+      return serial(async () => {
+        const stored = await current();
+        if (stored.session) return report(stored);
+        const length = focusMinutesSchema.parse(minutes);
+        const now = deps.now();
+        const next: FocusSettings = {
+          optional,
+          minutes: length,
+          session: { startedAt: now, endsAt: now + length * 60_000, minutes: length },
+        };
+        await deps.store.set(KEY, next);
+        await apply(next);
+        if (deps.closeOpenTabs) {
+          const { domains, except } = focusDomains(next);
+          await deps.closeOpenTabs(matchPatterns(domains), except).catch(() => undefined);
+        }
+        return report(next);
+      });
+    },
+
+    /** Ends the running session now; the extension's two-step "End early" flow ends here. */
+    end(): Promise<FocusState> {
+      return serial(async () => {
+        const next = { ...(await current()), session: null };
+        await deps.store.set(KEY, next);
+        await apply(next);
+        return report(next);
+      });
+    },
+
+    /** Optional sites and the default duration change only between sessions. */
+    configure(optional: FocusOptional, minutes: number): Promise<FocusState> {
+      return serial(async () => {
+        const stored = await current();
+        if (stored.session) return report(stored);
+        const next = { ...stored, optional, minutes: focusMinutesSchema.parse(minutes) };
+        await deps.store.set(KEY, next);
+        return report(next);
+      });
+    },
+
+    /** Startup, worker wake, the end alarm and permission changes: expire or restore. */
     reconcile(): Promise<void> {
       return serial(async () => {
-        await apply(await settings());
+        await apply(await current());
       });
     },
   };

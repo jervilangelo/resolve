@@ -13,8 +13,11 @@ const GROUP_RULES = [
   { id: 2, action: { type: 'block' }, condition: { requestDomains: ['casino.example'] } },
   { id: 3, action: { type: 'block' }, condition: { requestDomains: ['news.example'] } },
 ];
+const NONE = { youtube: false, netflix: false, twitch: false };
+const ALL = { youtube: true, netflix: true, twitch: true };
+const MIN = 60_000;
 
-function fakes({ access = true, failUpdates = false } = {}) {
+function fakes({ access = true, failUpdates = false, failAlarms = false } = {}) {
   const data = new Map<string, unknown>();
   const store: PrivateStore = {
     get: (k) => Promise.resolve(data.get(k)),
@@ -39,12 +42,17 @@ function fakes({ access = true, failUpdates = false } = {}) {
     condition: { requestDomains?: string[]; excludedRequestDomains?: string[] };
     rule?: FocusRule;
   }[] = [...GROUP_RULES];
-  const state = { failUpdates, access, updates: 0 };
+  const state = {
+    failUpdates,
+    failAlarms,
+    access,
+    clock: 1_000_000_000_000,
+    alarm: null as number | null,
+  };
   const dnr = {
     getRules: () =>
       Promise.resolve(rules.map((r) => ({ id: r.id, action: r.action, condition: r.condition }))),
     update: (remove: number[], add: FocusRule[]) => {
-      state.updates += 1;
       if (state.failUpdates) return Promise.reject(new Error('quota'));
       rules = [
         ...rules.filter((r) => !remove.includes(r.id)),
@@ -53,27 +61,45 @@ function fakes({ access = true, failUpdates = false } = {}) {
       return Promise.resolve();
     },
   };
-  const focusRule = () => rules.find((r) => r.id === FOCUS_RULE_ID)?.rule;
   const make = () =>
-    createFocus({ dnr, store, hasSiteAccess: () => Promise.resolve(state.access) });
-  return { make, focusRule, rules: () => rules, state, data };
+    createFocus({
+      dnr,
+      store,
+      hasSiteAccess: () => Promise.resolve(state.access),
+      now: () => state.clock,
+      scheduleEnd: (at) => {
+        if (state.failAlarms) return Promise.reject(new Error('alarms unavailable'));
+        state.alarm = at;
+        return Promise.resolve();
+      },
+    });
+  return {
+    make,
+    state,
+    data,
+    rules: () => rules,
+    focusRule: () => rules.find((r) => r.id === FOCUS_RULE_ID)?.rule,
+    advance: (ms: number) => (state.clock += ms),
+  };
 }
 
-const ON = { ...DEFAULT_FOCUS, enabled: true };
-
-describe('Focus Mode', () => {
-  it('is off by default and installs nothing', async () => {
+describe('Focus Mode sessions', () => {
+  it('is off by default, offers 25 minutes and installs nothing', async () => {
     const f = fakes();
     const state = await f.make().state();
+    expect(state.session).toBeNull();
     expect(state.settings).toEqual(DEFAULT_FOCUS);
     expect(state.enforcement).toBe('off');
     expect(f.focusRule()).toBeUndefined();
   });
 
-  it('blocks the five mandatory services, with their alternate domains, when on', async () => {
+  it('starts a 25-minute session: blocks the five sites, sets the deadline and the alarm', async () => {
     const f = fakes();
-    const state = await f.make().update(ON);
+    const start = f.state.clock;
+    const state = await f.make().start(25, NONE);
+    expect(state.session).toEqual({ startedAt: start, endsAt: start + 25 * MIN, minutes: 25 });
     expect(state.enforcement).toBe('on');
+    expect(f.state.alarm).toBe(start + 25 * MIN);
     const domains = f.focusRule()?.condition.requestDomains ?? [];
     for (const d of [
       'facebook.com',
@@ -85,65 +111,137 @@ describe('Focus Mode', () => {
     ]) {
       expect(domains).toContain(d);
     }
-    for (const d of ['youtube.com', 'netflix.com', 'twitch.tv', 'messenger.com', 't.co']) {
+    for (const d of ['youtube.com', 'netflix.com', 'twitch.tv', 'messenger.com']) {
       expect(domains).not.toContain(d);
     }
-    expect(f.focusRule()?.condition.resourceTypes).toEqual(['main_frame']);
+    expect(f.focusRule()?.priority).toBe(1);
   });
 
-  it('adds and removes optional services immediately while on', async () => {
+  it('includes the optional sites chosen at start', async () => {
     const f = fakes();
-    const focus = f.make();
-    await focus.update(ON);
-    await focus.update({ ...ON, optional: { youtube: true, netflix: false, twitch: true } });
-    let domains = f.focusRule()?.condition.requestDomains ?? [];
+    await f.make().start(15, { youtube: true, netflix: false, twitch: true });
+    const domains = f.focusRule()?.condition.requestDomains ?? [];
     expect(domains).toEqual(expect.arrayContaining(['youtube.com', 'youtu.be', 'twitch.tv']));
     expect(domains).not.toContain('netflix.com');
-    // Google sign-in passes through accounts.youtube.com; it is never blocked.
     expect(f.focusRule()?.condition.excludedRequestDomains).toEqual(['accounts.youtube.com']);
-    await focus.update({ ...ON, optional: { youtube: false, netflix: false, twitch: true } });
-    domains = f.focusRule()?.condition.requestDomains ?? [];
-    expect(domains).not.toContain('youtube.com');
   });
 
-  it('turning off removes only the Focus rule; group rules stay exactly as they were', async () => {
+  it('rejects durations outside 5–240 whole minutes', async () => {
+    const focus = fakes().make();
+    await expect(focus.start(4, NONE)).rejects.toThrow();
+    await expect(focus.start(241, NONE)).rejects.toThrow();
+    await expect(focus.start(12.5, NONE)).rejects.toThrow();
+  });
+
+  it('never starts a second session or changes settings while one runs', async () => {
     const f = fakes();
     const focus = f.make();
-    await focus.update({ ...ON, optional: { youtube: true, netflix: true, twitch: true } });
-    expect(f.rules().filter((r) => r.id < 100_000)).toEqual(GROUP_RULES);
-    const state = await focus.update({ ...DEFAULT_FOCUS });
+    const results = await Promise.all([
+      focus.start(25, NONE),
+      focus.start(60, ALL),
+      focus.configure(ALL, 45),
+    ]);
+    const endsAt = results[0].session?.endsAt;
+    expect(results.map((r) => r.session?.endsAt)).toEqual([endsAt, endsAt, endsAt]);
+    expect(results[2].settings.minutes).toBe(25);
+    expect(f.focusRule()?.condition.requestDomains).not.toContain('youtube.com');
+  });
+
+  it('expires at the deadline, removing only its own rule', async () => {
+    const f = fakes();
+    const focus = f.make();
+    await focus.start(25, NONE);
+    f.advance(25 * MIN - 1000);
+    expect((await focus.state()).session).not.toBeNull();
+    f.advance(1000);
+    await focus.reconcile();
+    const state = await focus.state();
+    expect(state.session).toBeNull();
     expect(state.enforcement).toBe('off');
+    expect(f.rules()).toEqual(GROUP_RULES);
+    expect(f.state.alarm).toBeNull();
+  });
+
+  it('expires on the next look after the computer slept past the deadline', async () => {
+    const f = fakes();
+    const focus = f.make();
+    await focus.start(30, NONE);
+    f.advance(3 * 60 * MIN);
+    expect((await focus.state()).session).toBeNull();
     expect(f.rules()).toEqual(GROUP_RULES);
   });
 
-  it('blocks group-exempt services such as Facebook and YouTube (no essential exclusions)', async () => {
+  it('restores a running session after a restart with its original deadline', async () => {
     const f = fakes();
-    await f.make().update({ ...ON, optional: { youtube: true, netflix: false, twitch: false } });
-    const rule = f.focusRule();
-    expect(rule?.condition.requestDomains).toEqual(
-      expect.arrayContaining(['facebook.com', 'youtube.com']),
-    );
-    expect(rule?.condition.excludedRequestDomains).not.toContain('facebook.com');
-    // Priority 1: a group block on the same site always wins, so group alerts are unchanged.
-    expect(rule?.priority).toBe(1);
+    const first = await f.make().start(45, NONE);
+    f.advance(10 * MIN);
+    f.rules().splice(0, f.rules().length, ...GROUP_RULES);
+    f.state.alarm = null;
+    const restarted = f.make();
+    await restarted.reconcile();
+    const state = await restarted.state();
+    expect(state.session?.endsAt).toBe(first.session?.endsAt);
+    expect(state.enforcement).toBe('on');
+    expect(f.state.alarm).toBe(first.session?.endsAt);
+    expect([...f.data.keys()]).toEqual(['focus']);
   });
 
-  it('shows the Focus page with site access, and falls back to a plain block without it', async () => {
+  it('lifts Focus when the browser restarts after the deadline', async () => {
+    const f = fakes();
+    await f.make().start(15, NONE);
+    f.advance(20 * MIN);
+    const restarted = f.make();
+    await restarted.reconcile();
+    expect(f.rules()).toEqual(GROUP_RULES);
+    expect((await restarted.state()).session).toBeNull();
+  });
+
+  it('ends early on request, removing only its own rule, and keeps the choices', async () => {
+    const f = fakes();
+    const focus = f.make();
+    await focus.start(60, ALL);
+    const ended = await focus.end();
+    expect(ended.session).toBeNull();
+    expect(ended.enforcement).toBe('off');
+    expect(f.rules()).toEqual(GROUP_RULES);
+    expect(f.state.alarm).toBeNull();
+    expect((await focus.end()).session).toBeNull();
+    expect(ended.settings.optional).toEqual(ALL);
+  });
+
+  it('still expires on time when alarms fail', async () => {
+    const f = fakes({ failAlarms: true });
+    const focus = f.make();
+    expect((await focus.start(25, NONE)).enforcement).toBe('on');
+    f.advance(26 * MIN);
+    expect((await focus.state()).session).toBeNull();
+    expect(f.rules()).toEqual(GROUP_RULES);
+  });
+
+  it('reports a failed rule update as an error, never as on', async () => {
+    const f = fakes({ failUpdates: true });
+    const state = await f.make().start(25, NONE);
+    expect(state.session).not.toBeNull();
+    expect(state.enforcement).toBe('error');
+    expect(f.rules()).toEqual(GROUP_RULES);
+  });
+
+  it('shows the Focus page with site access and a plain block without it', async () => {
     const withAccess = fakes({ access: true });
-    await withAccess.make().update(ON);
+    await withAccess.make().start(25, NONE);
     expect(withAccess.focusRule()?.action).toEqual({
       type: 'redirect',
       redirect: { extensionPath: '/focus.html' },
     });
     const without = fakes({ access: false });
-    await without.make().update(ON);
+    await without.make().start(25, NONE);
     expect(without.focusRule()?.action).toEqual({ type: 'block' });
   });
 
-  it('reports an error when a Focus page redirect is left without site access', async () => {
+  it('reports an error when a redirect is left without site access, until reconciled', async () => {
     const f = fakes({ access: true });
     const focus = f.make();
-    await focus.update(ON);
+    await focus.start(25, NONE);
     f.state.access = false;
     expect((await focus.state()).enforcement).toBe('error');
     await focus.reconcile();
@@ -151,45 +249,30 @@ describe('Focus Mode', () => {
     expect((await focus.state()).enforcement).toBe('on');
   });
 
-  it('restores its rules after a browser restart from local settings', async () => {
+  it('turns an active 0.2.0 switch into a 60-minute session on upgrade', async () => {
     const f = fakes();
-    await f.make().update(ON);
-    // A restart: the browser kept no dynamic rules, the settings survived in the local store.
-    f.rules().splice(0, f.rules().length, ...GROUP_RULES);
-    const restarted = f.make();
-    await restarted.reconcile();
-    expect((await restarted.state()).enforcement).toBe('on');
-    expect(f.focusRule()?.condition.requestDomains).toContain('x.com');
-    expect([...f.data.keys()]).toEqual(['focus']);
-  });
-
-  it('reports a failed update as an error instead of claiming it is on', async () => {
-    const f = fakes({ failUpdates: true });
-    const state = await f.make().update(ON);
-    expect(state.settings.enabled).toBe(true);
-    expect(state.enforcement).toBe('error');
-    expect(f.rules()).toEqual(GROUP_RULES);
-  });
-
-  it('ends in the last requested state when toggled rapidly', async () => {
-    const f = fakes();
+    f.data.set('focus', {
+      enabled: true,
+      optional: { youtube: true, netflix: false, twitch: false },
+    });
     const focus = f.make();
-    const results = await Promise.all([
-      focus.update(ON),
-      focus.update(DEFAULT_FOCUS),
-      focus.update(ON),
-      focus.update(DEFAULT_FOCUS),
-    ]);
-    expect(results.at(-1)?.enforcement).toBe('off');
+    await focus.reconcile();
+    const state = await focus.state();
+    expect(state.session?.minutes).toBe(60);
+    expect(state.enforcement).toBe('on');
+    expect(f.focusRule()?.condition.requestDomains).toContain('youtube.com');
+    // The migrated deadline is saved once: it does not move with later reads, and it expires.
+    const endsAt = state.session?.endsAt;
+    f.advance(30 * MIN);
+    expect((await focus.state()).session?.endsAt).toBe(endsAt);
+    f.advance(31 * MIN);
+    expect((await focus.state()).session).toBeNull();
     expect(f.rules()).toEqual(GROUP_RULES);
   });
 
   it('keeps the mandatory list fixed regardless of optional choices', () => {
-    const off = focusDomains({
-      ...ON,
-      optional: { youtube: false, netflix: false, twitch: false },
-    });
-    const all = focusDomains({ ...ON, optional: { youtube: true, netflix: true, twitch: true } });
-    expect(all.domains).toEqual(expect.arrayContaining(off.domains));
+    const none = focusDomains({ optional: NONE });
+    const all = focusDomains({ optional: ALL });
+    expect(all.domains).toEqual(expect.arrayContaining(none.domains));
   });
 });

@@ -194,6 +194,8 @@ browser.runtime.onStartup.addListener(() => {
 });
 
 const focusAccess = () => browser.permissions.contains({ origins: ALL_FOCUS_PATTERNS });
+const FOCUS_END_ALARM = 'focus-end';
+let focusEndTimer: ReturnType<typeof setTimeout> | undefined;
 
 // Typed as always present, but absent where the browser lacks declarativeNetRequest.
 const dnrApi = (browser as { declarativeNetRequest?: typeof browser.declarativeNetRequest })
@@ -209,6 +211,23 @@ const focus = createFocus({
     : null,
   store: privateStore,
   hasSiteAccess: focusAccess,
+  notify: () => {
+    // No page open is the normal case; nothing to deliver then.
+    browser.runtime.sendMessage({ type: 'focus/changed' }).catch(() => undefined);
+  },
+  now: () => Date.now(),
+  // The alarm survives worker suspension and restarts; while the worker is awake a timer also
+  // ends the session on the second (alarms may run up to a minute late).
+  scheduleEnd: async (at) => {
+    clearTimeout(focusEndTimer);
+    await browser.alarms.clear(FOCUS_END_ALARM);
+    if (at === null) return;
+    await browser.alarms.create(FOCUS_END_ALARM, { when: at });
+    focusEndTimer = setTimeout(
+      () => void focus.reconcile().catch(() => undefined),
+      Math.max(0, at - Date.now()) + 50,
+    );
+  },
   // Rules apply to new navigations only; tabs already on a newly blocked site move to the page.
   closeOpenTabs: async (patterns, except) => {
     if (!(await focusAccess())) return;
@@ -265,7 +284,9 @@ const handlers: {
   'filter/get': () => filter.state(),
   'filter/set': (request) => filter.update(request.settings),
   'focus/get': () => focus.state(),
-  'focus/set': (request) => focus.update(request.settings),
+  'focus/start': (request) => focus.start(request.minutes, request.optional),
+  'focus/end': () => focus.end(),
+  'focus/configure': (request) => focus.configure(request.optional, request.minutes),
 };
 
 /** The only requests content scripts (which run inside web pages) can make. */
@@ -299,6 +320,9 @@ export default defineBackground(() => {
   // Focus Mode is local and needs no account: restore its rules on every worker start, and switch
   // between the Focus page and a plain block when site access is granted or withdrawn.
   void focus.reconcile().catch(() => undefined);
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === FOCUS_END_ALARM) void focus.reconcile().catch(() => undefined);
+  });
   // Any site-access change can add or remove access to the Focus sites (e.g. <all_urls>).
   const onFocusAccess = (change: { origins?: string[] }) => {
     if (change.origins?.length) void focus.reconcile().catch(() => undefined);

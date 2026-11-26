@@ -190,7 +190,12 @@
 
 ## Phase 11 — Focus Mode (post-launch v1.1)
 
-**Status:** Implemented 2026-11-26 (extension 0.2.0).
+**Status:** Implemented 2026-11-26 (extension 0.2.0). Timer revision 2026-11-26 (owner
+request, extension 0.3.0): Focus Mode is now a timed session (presets 15/25/30/45/60 or 5–240
+custom minutes) that ends by itself at a persisted deadline (alarm plus a deadline check on every
+worker start and status read). Ending early takes two steps: typing exactly
+`Yes, this is an emergency.`, then confirming **Yes — End Focus Mode** (or **No — Keep
+Focusing**). The rule range, isolation and the five + three sites are unchanged.
 
 **Implementation notes:** `apps/extension/lib/focus.ts` holds the service-domain map and controller.
 Focus owns declarativeNetRequest rule IDs 100000–100999 and only ever touches that range. Its rule

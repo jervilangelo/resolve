@@ -153,6 +153,12 @@ owner revisions done; production on https://getresolved.site with alerts from
 
 ## Next steps
 
+- Done locally (2026-11-26, not pushed; owner asked not to push): Focus Mode timer revision
+  (extension 0.3.0): timed sessions (15/25/30/45/60 or 5–240 custom minutes) with a persisted
+  deadline, an end alarm plus a deadline check on every worker start and status read, automatic
+  expiry, two-step early exit (exact phrase, then Yes/No), compact popup states, pages refreshed
+  when Focus changes. Next: push and publish 0.3.0 when the owner says so.
+
 - Done (2026-11-26): Phase 11 Focus Mode (extension 0.2.0): one switch, five fixed and three
   optional sites, branded Focus page, local settings, isolated rule range; see the roadmap.
   Next: publish a 0.2.0 release when the owner approves.

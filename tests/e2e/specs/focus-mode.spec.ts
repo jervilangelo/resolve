@@ -51,19 +51,25 @@ async function withLocalSites<T>(
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- chrome.* inside the extension */
 declare const chrome: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const OFF = { enabled: false, optional: { youtube: false, netflix: false, twitch: false } };
-const ON = { ...OFF, enabled: true };
+const NONE = { youtube: false, netflix: false, twitch: false };
+type Optional = typeof NONE;
 
 async function worker(context: BrowserContext): Promise<Worker> {
   return context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
 }
 
-/** Changes Focus settings through the extension's own message channel (no permission prompt). */
-async function setFocus(page: Page, settings: typeof OFF) {
+/** Starts a session through the extension's own message channel (no permission prompt). */
+async function startFocus(page: Page, optional: Optional = NONE, minutes = 25) {
   return page.evaluate(
-    (s) => chrome.runtime.sendMessage({ type: 'focus/set', settings: s }),
-    settings,
-  ) as Promise<{ enforcement: string }>;
+    ([o, m]) => chrome.runtime.sendMessage({ type: 'focus/start', minutes: m, optional: o }),
+    [optional, minutes] as const,
+  ) as Promise<{ enforcement: string; session: { endsAt: number } | null }>;
+}
+
+async function endFocus(page: Page) {
+  return page.evaluate(() => chrome.runtime.sendMessage({ type: 'focus/end' })) as Promise<{
+    enforcement: string;
+  }>;
 }
 
 /**
@@ -123,7 +129,7 @@ test('Focus Mode blocks its sites alongside group rules and turns off without to
     expect(await blocked(context, url('www.facebook.com'))).toBe(false);
     expect(await blocked(context, url('casino.example'))).toBe(true);
 
-    expect((await setFocus(ui, ON)).enforcement).toBe('on');
+    expect((await startFocus(ui)).enforcement).toBe('on');
     for (const address of [
       url('www.facebook.com'),
       url('m.facebook.com'),
@@ -149,7 +155,8 @@ test('Focus Mode blocks its sites alongside group rules and turns off without to
     // The group rule keeps working while Focus is on.
     expect(await blocked(context, url('casino.example'))).toBe(true);
 
-    await setFocus(ui, { ...ON, optional: { youtube: true, netflix: false, twitch: true } });
+    await endFocus(ui);
+    await startFocus(ui, { youtube: true, netflix: false, twitch: true });
     expect(await blocked(context, url('www.youtube.com') + 'watch?v=x')).toBe(true);
     expect(await blocked(context, url('youtu.be') + 'x')).toBe(true);
     expect(await blocked(context, url('www.twitch.tv'))).toBe(true);
@@ -157,7 +164,7 @@ test('Focus Mode blocks its sites alongside group rules and turns off without to
     // Google sign-in passes through accounts.youtube.com; it stays reachable.
     expect(await blocked(context, url('accounts.youtube.com'))).toBe(false);
 
-    expect((await setFocus(ui, OFF)).enforcement).toBe('off');
+    expect((await endFocus(ui)).enforcement).toBe('off');
     expect(await blocked(context, url('www.facebook.com'))).toBe(false);
     expect(await blocked(context, url('www.youtube.com'))).toBe(false);
     // Group protection is untouched: its rule is still installed and still blocks.
@@ -182,26 +189,18 @@ test('Focus Mode sends no network requests and the popup shows the enforced stat
   });
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
-  await expect(popup.getByText('Focus Mode is Off')).toBeVisible();
-  await expect(popup.getByRole('switch', { name: 'Focus Mode' })).toHaveAttribute(
-    'aria-checked',
-    'false',
-  );
+  await expect(popup.getByRole('button', { name: /Start Focus · 25 min/ })).toBeVisible();
   for (const name of ['YouTube', 'Netflix', 'Twitch']) {
-    await expect(popup.getByRole('switch', { name: `Also block ${name}` })).toHaveAttribute(
-      'aria-checked',
+    await expect(popup.getByRole('button', { name: `Also block ${name}` })).toHaveAttribute(
+      'aria-pressed',
       'false',
     );
   }
 
-  await setFocus(popup, ON);
+  await startFocus(popup);
   await popup.reload();
-  await expect(popup.getByText('Focus Mode is On')).toBeVisible();
-  await expect(popup.getByRole('switch', { name: 'Focus Mode' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await setFocus(popup, OFF);
+  await expect(popup.getByRole('timer')).toHaveText(/^2[45]:\d\d$/);
+  await endFocus(popup);
   // Nothing about Focus Mode leaves the browser (the API and Cognito hosts are the only ones
   // the extension can contact; neither is called for Focus).
   expect(requests).toEqual([]);
@@ -263,8 +262,8 @@ test('with site access, blocked sites and already-open tabs show the Focus page'
     const ui = await context.newPage();
     await ui.goto(`chrome-extension://${extensionId}/popup.html`);
     const state = (await ui.evaluate(
-      (s) => chrome.runtime.sendMessage({ type: 'focus/set', settings: s }),
-      ON,
+      (s) => chrome.runtime.sendMessage({ type: 'focus/start', ...s }),
+      { minutes: 25, optional: NONE },
     )) as { enforcement: string; focusPage: boolean };
     expect(state).toMatchObject({ enforcement: 'on', focusPage: true });
     await expect(open).toHaveURL(/^chrome-extension:\/\/[a-p]{32}\/focus\.html\?from=open$/);
@@ -295,18 +294,15 @@ test('Focus Mode stays on, and keeps blocking, after the browser restarts', asyn
     const extensionId = new URL(sw.url()).host;
     const ui = await context.newPage();
     await ui.goto(`chrome-extension://${extensionId}/popup.html`);
-    await setFocus(ui, { ...ON, optional: { youtube: false, netflix: true, twitch: false } });
+    await startFocus(ui, { youtube: false, netflix: true, twitch: false }, 60);
     await context.close();
 
     context = await launch();
     sw = await worker(context);
     const popup = await context.newPage();
     await popup.goto(`chrome-extension://${extensionId}/popup.html`);
-    await expect(popup.getByText('Focus Mode is On')).toBeVisible();
-    await expect(popup.getByRole('switch', { name: 'Also block Netflix' })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
+    // The session survived the restart with its deadline: still running, close to 60 minutes.
+    await expect(popup.getByRole('timer')).toHaveText(/^5\d:\d\d$/);
     const domains = (await sw.evaluate(() =>
       chrome.declarativeNetRequest
         .getDynamicRules()
@@ -319,4 +315,153 @@ test('Focus Mode stays on, and keeps blocking, after the browser restarts', asyn
   } finally {
     rmSync(profile, { recursive: true, force: true });
   }
+});
+
+test('the popup starts a session, counts down, and ends early only after both steps', async ({
+  context,
+  extensionId,
+}) => {
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  // Skip the one-time site-access prompt (a native dialog Playwright cannot answer).
+  await popup.evaluate(() => {
+    localStorage.setItem('focusAccessAsked', '1');
+  });
+  await popup.reload();
+
+  await popup.getByRole('button', { name: '15', exact: true }).click();
+  await popup.getByRole('button', { name: 'Also block YouTube' }).click();
+  await expect(popup.getByRole('button', { name: 'Also block YouTube' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await popup.getByRole('button', { name: /Start Focus · 15 min/ }).click();
+  const timer = popup.getByRole('timer');
+  await expect(timer).toHaveText(/^1[45]:\d\d$/);
+  const first = await timer.textContent();
+  await popup.waitForTimeout(2200);
+  expect(await timer.textContent()).not.toBe(first);
+  await expect(popup.getByRole('progressbar')).toBeVisible();
+
+  // Step 1: only the exact phrase continues (pasting is blocked, so it is typed).
+  await popup.getByRole('button', { name: 'End early' }).click();
+  await expect(popup.getByText('Is this an emergency?')).toBeVisible();
+  const phrase = popup.getByLabel('Is this an emergency?');
+  const proceed = popup.getByRole('button', { name: 'Continue' });
+  for (const wrong of [
+    'yes, this is an emergency.',
+    'Yes, this is an emergency',
+    'Yes this is an emergency.',
+  ]) {
+    await phrase.fill(wrong);
+    await expect(proceed).toBeDisabled();
+  }
+  await phrase.fill('Yes, this is an emergency.');
+  await expect(proceed).toBeEnabled();
+  await proceed.click();
+
+  // Step 2: No returns to the running countdown.
+  await expect(popup.getByText('Are you sure you want to end Focus Mode early?')).toBeVisible();
+  await popup.getByRole('button', { name: 'No — Keep Focusing' }).click();
+  await expect(popup.getByRole('button', { name: 'End early' })).toBeVisible();
+  await expect(timer).toHaveText(/^1[45]:\d\d$/);
+
+  // Back through both steps; Yes ends it, and the setup view returns with the choices kept.
+  await popup.getByRole('button', { name: 'End early' }).click();
+  await popup.getByLabel('Is this an emergency?').fill('Yes, this is an emergency.');
+  await popup.getByRole('button', { name: 'Continue' }).click();
+  await popup.getByRole('button', { name: 'Yes — End Focus Mode' }).click();
+  await expect(popup.getByRole('button', { name: /Start Focus · 15 min/ })).toBeVisible();
+  await expect(popup.getByRole('button', { name: 'Also block YouTube' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  const sw = await worker(context);
+  const ids = (await sw.evaluate(() =>
+    chrome.declarativeNetRequest
+      .getDynamicRules()
+      .then((r: { id: number }[]) => r.map((x) => x.id)),
+  )) as number[];
+  expect(ids.filter((id) => id >= 100_000)).toEqual([]);
+});
+
+test('a session ends by itself at its deadline, with no popup open, and while ending early', async ({
+  context,
+  extensionId,
+}) => {
+  const sw = await worker(context);
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  await page.evaluate(() => {
+    localStorage.setItem('focusAccessAsked', '1');
+  });
+  await page.reload();
+  const focusRules = () =>
+    sw.evaluate(() =>
+      chrome.declarativeNetRequest
+        .getDynamicRules()
+        .then((r: { id: number }[]) => r.filter((x) => x.id >= 100_000).length),
+    ) as Promise<number>;
+
+  /** Moves the running session's stored deadline a few seconds ahead (5 minutes is the floor). */
+  const shortenTo = (ms: number) =>
+    sw.evaluate(async (delay) => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const open = indexedDB.open('resolve', 1);
+        open.onsuccess = () => {
+          resolve(open.result);
+        };
+        open.onerror = () => {
+          reject(new Error('indexedDB open failed'));
+        };
+      });
+      const store = () => db.transaction('private', 'readwrite').objectStore('private');
+      const value = await new Promise<{ session: { endsAt: number } }>((resolve) => {
+        const get = store().get('focus');
+        get.onsuccess = () => {
+          resolve(get.result as { session: { endsAt: number } });
+        };
+      });
+      const endsAt = Date.now() + delay;
+      value.session.endsAt = endsAt;
+      await new Promise((resolve) => {
+        store().put(value, 'focus').onsuccess = resolve;
+      });
+      await chrome.alarms.create('focus-end', { when: endsAt });
+    }, ms);
+
+  // 1. The alarm ends it with the popup closed.
+  await startFocus(page);
+  await page.close();
+  expect(await focusRules()).toBe(1);
+  await shortenTo(3000);
+  await expect.poll(focusRules, { timeout: 15_000 }).toBe(0);
+
+  // 2. Expiry while the user is on step 1 of ending early dismisses the steps.
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await startFocus(popup);
+  await popup.reload();
+  await popup.getByRole('button', { name: 'End early' }).click();
+  await expect(popup.getByText('Is this an emergency?')).toBeVisible();
+  await shortenTo(3000);
+  await expect(popup.getByRole('button', { name: /Start Focus/ })).toBeVisible({ timeout: 15_000 });
+  await expect(popup.getByText('Is this an emergency?')).toHaveCount(0);
+  expect(await focusRules()).toBe(0);
+});
+
+test('a custom duration starts with a single click on Start', async ({ context, extensionId }) => {
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await popup.evaluate(() => {
+    localStorage.setItem('focusAccessAsked', '1');
+  });
+  await popup.reload();
+  await popup.getByRole('button', { name: 'Custom' }).click();
+  const input = popup.getByLabel('Custom duration in minutes');
+  await input.fill('4');
+  await expect(popup.getByRole('button', { name: /Start Focus/ })).toBeDisabled();
+  await input.fill('90');
+  await popup.getByRole('button', { name: /Start Focus · 90 min/ }).click();
+  await expect(popup.getByRole('timer')).toHaveText(/^(90:00|89:\d\d)$/);
 });

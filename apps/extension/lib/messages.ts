@@ -7,7 +7,7 @@
 
 import { groupIdSchema, groupRoleSchema } from '@resolve/contracts';
 import { z } from 'zod';
-import { focusSettingsSchema } from './focus';
+import { focusMinutesSchema, focusSessionSchema, focusSettingsSchema } from './focus';
 import { filterSettingsSchema } from './media/protocol';
 
 /**
@@ -26,7 +26,17 @@ export const requestSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('alerts/get') }),
   z.strictObject({ type: z.literal('filter/set'), settings: filterSettingsSchema }),
   z.strictObject({ type: z.literal('focus/get') }),
-  z.strictObject({ type: z.literal('focus/set'), settings: focusSettingsSchema }),
+  z.strictObject({
+    type: z.literal('focus/start'),
+    minutes: focusMinutesSchema,
+    optional: focusSettingsSchema.shape.optional,
+  }),
+  z.strictObject({ type: z.literal('focus/end') }),
+  z.strictObject({
+    type: z.literal('focus/configure'),
+    minutes: focusMinutesSchema,
+    optional: focusSettingsSchema.shape.optional,
+  }),
 ]);
 export type Request = z.infer<typeof requestSchema>;
 
@@ -134,6 +144,7 @@ export type AlertsStatus = z.infer<typeof alertsStatusSchema>;
 /** Focus Mode as the popup and options page show it: the settings and what is enforced. */
 export const focusStateSchema = z.strictObject({
   settings: focusSettingsSchema,
+  session: focusSessionSchema.nullable(),
   enforcement: z.enum(['on', 'off', 'error']),
   focusPage: z.boolean(),
   supported: z.boolean(),
@@ -150,7 +161,9 @@ export interface ResponseMap {
   'alerts/get': AlertsStatus;
   'filter/set': FilterStateMessage;
   'focus/get': z.infer<typeof focusStateSchema>;
-  'focus/set': z.infer<typeof focusStateSchema>;
+  'focus/start': z.infer<typeof focusStateSchema>;
+  'focus/end': z.infer<typeof focusStateSchema>;
+  'focus/configure': z.infer<typeof focusStateSchema>;
 }
 
 export const responseSchemas = {
@@ -164,7 +177,9 @@ export const responseSchemas = {
   'alerts/get': alertsStatusSchema,
   'filter/set': filterStateSchema,
   'focus/get': focusStateSchema,
-  'focus/set': focusStateSchema,
+  'focus/start': focusStateSchema,
+  'focus/end': focusStateSchema,
+  'focus/configure': focusStateSchema,
 } as const;
 
 export function parseRequest(message: unknown): Request | null {
