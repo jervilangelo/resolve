@@ -7,7 +7,8 @@
 
 'use client';
 
-import { useActionState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useActionState, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -121,6 +122,52 @@ export function DeleteAccountForm() {
       <Button type="submit" variant="destructive" loading={pending}>
         Delete my account
       </Button>
+    </form>
+  );
+}
+
+/** Opens an invite link pasted from a message; the invite page does the rest. */
+export function JoinGroupForm() {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <form
+      className="max-w-lg space-y-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const raw = new FormData(event.currentTarget).get('link');
+        const text = typeof raw === 'string' ? raw.trim() : '';
+        const token = text.includes('#') ? text.slice(text.indexOf('#') + 1) : text;
+        if (!/^[A-Za-z0-9_-]{16,}$/.test(token)) {
+          setError(
+            'That doesn’t look like a Resolve invite link. Copy the whole link and try again.',
+          );
+          return;
+        }
+        setError(null);
+        router.push(`/invite#${token}`);
+      }}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1 space-y-2">
+          <Label htmlFor="join-link">Invite link</Label>
+          <Input
+            id="join-link"
+            name="link"
+            placeholder="https://getresolved.site/invite#…"
+            autoComplete="off"
+            required
+          />
+        </div>
+        <Button type="submit" variant="outline">
+          Open invite
+        </Button>
+      </div>
+      {error && (
+        <p role="alert" className="text-destructive text-sm">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

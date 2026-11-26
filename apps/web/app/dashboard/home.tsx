@@ -10,6 +10,9 @@
 import type { GroupRole, SharingMode } from '@resolve/contracts';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { ArrowRightIcon, CheckIcon, DownloadIcon, UsersIcon } from '@/components/icons';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { type ExtensionStatus, useExtensionStatus } from '@/lib/extension-status';
 import { cn } from '@/lib/utils';
 
@@ -89,7 +92,7 @@ export function checklistItems(groups: HomeGroup[], extension: ExtensionStatus):
     sharingGroup?.sharing
       ? {
           id: 'sharing',
-          title: 'Accountability sharing',
+          title: 'Accountability alerts',
           state: 'done',
           detail:
             sharingGroup.sharing.receiving === 0
@@ -98,14 +101,14 @@ export function checklistItems(groups: HomeGroup[], extension: ExtensionStatus):
         }
       : {
           id: 'sharing',
-          title: 'Accountability sharing',
+          title: 'Accountability alerts',
           state: 'todo',
           detail: firstGroup
-            ? 'Your alerts are private. Choose who may receive them in your group.'
+            ? 'Alerts are off. Turn them on in your group and choose your partners.'
             : 'Available once you are in a group.',
           ...(firstGroup && {
             action: {
-              label: 'Choose who',
+              label: 'Set up alerts',
               href: `/dashboard/groups/${firstGroup.groupId}?tab=accountability`,
             },
           }),
@@ -118,35 +121,186 @@ const STRENGTH = ['Not set up', 'Weak', 'Fair', 'Strong'] as const;
 function StateMark({ state }: { state: ItemState }) {
   if (state === 'done') {
     return (
-      <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" className="shrink-0">
-        <circle cx="10" cy="10" r="9" className="fill-foreground" />
-        <path
-          d="m6 10.2 2.6 2.6L14 7.4"
-          fill="none"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="stroke-background"
-        />
-      </svg>
+      <span className="bg-foreground text-background grid size-6 shrink-0 place-items-center rounded-full">
+        <CheckIcon width={14} height={14} strokeWidth={2.4} />
+      </span>
     );
   }
   return (
-    <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" className="shrink-0">
-      <circle
-        cx="10"
-        cy="10"
-        r="8.25"
-        fill="none"
-        strokeWidth="1.5"
-        strokeDasharray={state === 'checking' ? '3 3' : undefined}
-        className="stroke-muted-foreground"
-      />
-    </svg>
+    <span
+      className={cn(
+        'size-6 shrink-0 rounded-full border-2',
+        state === 'checking' ? 'border-muted-foreground/40 border-dashed' : 'border-border',
+      )}
+    />
   );
 }
 
-function Panel({
+type Tone = 'good' | 'warn' | 'off';
+
+function Status({ tone, children }: { tone: Tone; children: ReactNode }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
+        tone === 'good' &&
+          'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
+        tone === 'warn' && 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
+        tone === 'off' && 'bg-muted text-muted-foreground',
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'size-1.5 rounded-full',
+          tone === 'good' ? 'bg-emerald-600' : tone === 'warn' ? 'bg-amber-500' : 'bg-slate-400',
+        )}
+      />
+      {children}
+    </span>
+  );
+}
+
+function ago(ms: number) {
+  const minutes = Math.max(0, Math.round((Date.now() - ms) / 60_000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${String(minutes)} min ago`;
+  return `${String(Math.round(minutes / 60))} h ago`;
+}
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-3">
+      <dt className="text-muted-foreground text-sm">{label}</dt>
+      <dd className="text-right text-sm">{children}</dd>
+    </div>
+  );
+}
+
+/** What the Resolve extension in this browser is doing right now. */
+function BrowserCard({ extension, groups }: { extension: ExtensionStatus; groups: HomeGroup[] }) {
+  if (extension.state === 'checking') {
+    return (
+      <Card title="This browser" className="lg:col-span-7">
+        <div role="status" className="text-muted-foreground flex items-center gap-3 py-6 text-sm">
+          <Spinner />
+          Looking for the Resolve extension…
+        </div>
+      </Card>
+    );
+  }
+  if (extension.state === 'absent') {
+    return (
+      <Card
+        title="This browser"
+        className="lg:col-span-7"
+        aside={<Status tone="off">Not connected</Status>}
+      >
+        <div className="flex flex-col items-start gap-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-muted-foreground max-w-sm text-sm">
+            The Resolve extension isn’t installed in this browser, or this browser can’t talk to it.
+            Protection runs through the extension.
+          </p>
+          <Button asChild>
+            <Link href="/downloads">
+              <DownloadIcon />
+              Get the extension
+            </Link>
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+  const d = extension.details;
+  const active = d?.activeGroupId ? groups.find((g) => g.groupId === d.activeGroupId) : undefined;
+  const blocking: [Tone, string] = !d
+    ? ['off', 'Update the extension to see this']
+    : d.protection === 'on'
+      ? ['good', `On${d.syncedAt ? ` · synced ${ago(d.syncedAt)}` : ''}`]
+      : d.protection === 'idle'
+        ? ['good', 'On · no websites listed yet']
+        : d.protection === 'stale'
+          ? ['warn', 'On · list out of date']
+          : d.protection === 'starting'
+            ? ['warn', 'Turning on…']
+            : d.protection === 'error'
+              ? ['warn', 'Not working · open the extension']
+              : ['off', 'Off'];
+  const media: [Tone, string] = !d
+    ? extension.mediaBlur
+      ? ['good', 'On']
+      : ['off', 'Off']
+    : d.media === 'on'
+      ? ['good', 'On']
+      : d.media === 'needsAccess'
+        ? ['warn', 'Needs site access']
+        : d.media === 'unsupported'
+          ? ['off', 'Not supported']
+          : ['off', 'Off'];
+  const alerts: [Tone, string] = !d
+    ? ['off', '—']
+    : d.alerts === 'on'
+      ? ['good', 'On']
+      : d.alerts === 'inactive'
+        ? ['warn', 'On, but inactive']
+        : d.alerts === 'unsupported'
+          ? ['off', 'Not supported']
+          : ['off', 'Off'];
+
+  return (
+    <Card
+      title="This browser"
+      className="lg:col-span-7"
+      aside={
+        extension.signedIn ? (
+          <Status tone="good">Connected</Status>
+        ) : (
+          <Status tone="warn">Signed out</Status>
+        )
+      }
+    >
+      {!extension.signedIn ? (
+        <p className="text-muted-foreground py-2 text-sm">
+          The extension is installed but signed out. Open it from your browser’s toolbar and sign in
+          with this account.
+        </p>
+      ) : (
+        <dl className="divide-y">
+          <Row label="Active group">
+            {active ? (
+              <Link
+                href={`/dashboard/groups/${active.groupId}`}
+                className="font-medium underline-offset-4 hover:underline"
+              >
+                {active.name}
+              </Link>
+            ) : !d ? (
+              <span className="text-muted-foreground">Update the extension to see this</span>
+            ) : d.activeGroupId ? (
+              <span className="text-muted-foreground">A group on another account</span>
+            ) : (
+              <span className="text-muted-foreground">None · choose one in the extension</span>
+            )}
+          </Row>
+          <Row label="Website blocking">
+            <Status tone={blocking[0]}>{blocking[1]}</Status>
+          </Row>
+          <Row label="Media blurring">
+            <Status tone={media[0]}>{media[1]}</Status>
+          </Row>
+          <Row label="Blocked-visit alerts">
+            <Status tone={alerts[0]}>{alerts[1]}</Status>
+          </Row>
+        </dl>
+      )}
+      <p className="text-muted-foreground mt-3 text-xs">
+        Change these in the extension’s popup and settings{d ? ` · version ${d.version}` : ''}.
+      </p>
+    </Card>
+  );
+}
+
+function Card({
   title,
   aside,
   className,
@@ -157,14 +311,14 @@ function Panel({
   className?: string;
   children: ReactNode;
 }) {
-  const id = `panel-${title.toLowerCase().replace(/[^a-z]+/g, '-')}`;
+  const id = `card-${title.toLowerCase().replace(/[^a-z]+/g, '-')}`;
   return (
     <section
       aria-labelledby={id}
-      className={cn('bg-muted/60 flex flex-col rounded-2xl p-5', className)}
+      className={cn('bg-card flex flex-col rounded-2xl border p-5 sm:p-6', className)}
     >
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 id={id} className="text-sm font-semibold">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 id={id} className="font-semibold">
           {title}
         </h2>
         {aside}
@@ -178,316 +332,216 @@ function Checklist({ items }: { items: ChecklistItem[] }) {
   const checking = items.some((i) => i.state === 'checking');
   const score = items.filter((i) => i.state === 'done').length;
   return (
-    <Panel
+    <Card
       title="Resolve checklist"
-      className="lg:col-span-9"
+      className="lg:col-span-5"
       aside={
-        <p className="text-muted-foreground text-sm tabular-nums">
-          {checking ? 'Checking…' : `${String(score)} of ${String(items.length)}`}
-        </p>
+        <span className="text-sm font-semibold">
+          {checking ? '—' : STRENGTH[score]}
+          <span className="text-muted-foreground font-normal tabular-nums">
+            {checking ? '' : ` · ${String(score)}/${String(items.length)}`}
+          </span>
+        </span>
       }
     >
-      <div className="mb-5 flex items-center gap-4">
-        <div
-          role="meter"
-          aria-label="Setup strength"
-          aria-valuemin={0}
-          aria-valuemax={items.length}
-          aria-valuenow={score}
-          aria-valuetext={`${STRENGTH[score] ?? ''}: ${String(score)} of ${String(items.length)} set up`}
-          className="flex flex-1 gap-1.5"
-        >
-          {items.map((item, i) => (
-            <span
-              key={item.id}
-              className={cn('h-1.5 flex-1 rounded-full', i < score ? 'bg-foreground' : 'bg-border')}
-            />
-          ))}
-        </div>
-        <p className="min-w-16 text-right text-sm font-semibold">
-          {checking ? '—' : STRENGTH[score]}
-        </p>
-      </div>
-      <ul className="space-y-2">
-        {items.map((item) => (
-          <li
+      <div
+        role="meter"
+        aria-label="Setup strength"
+        aria-valuemin={0}
+        aria-valuemax={items.length}
+        aria-valuenow={score}
+        aria-valuetext={`${STRENGTH[score] ?? ''}: ${String(score)} of ${String(items.length)} set up`}
+        className="mb-4 flex gap-1.5"
+      >
+        {items.map((item, i) => (
+          <span
             key={item.id}
-            className="bg-card flex flex-col gap-3 rounded-xl border px-4 py-3.5 sm:flex-row sm:items-center"
-          >
-            <div className="flex min-w-0 flex-1 items-start gap-3">
-              <StateMark state={item.state} />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">
-                  {item.title}
-                  <span className="sr-only">
-                    {item.state === 'done' ? ' (done)' : item.state === 'todo' ? ' (to do)' : ''}
-                  </span>
-                </p>
-                <p className="text-muted-foreground text-sm">{item.detail}</p>
-              </div>
-            </div>
-            {item.action && item.state === 'todo' && (
-              <Link
-                href={item.action.href}
-                className="hover:bg-muted ml-8 shrink-0 self-start rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors sm:ml-0 sm:self-center"
-              >
-                {item.action.label}
-              </Link>
+            className={cn(
+              'h-1.5 flex-1 rounded-full transition-colors',
+              i < score ? 'bg-foreground' : 'bg-border',
             )}
+          />
+        ))}
+      </div>
+      <ul className="space-y-1">
+        {items.map((item) => (
+          <li key={item.id} className="flex items-start gap-3 rounded-xl py-2.5">
+            <StateMark state={item.state} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">
+                {item.title}
+                <span className="sr-only">
+                  {item.state === 'done' ? ' (done)' : item.state === 'todo' ? ' (to do)' : ''}
+                </span>
+              </p>
+              <p className="text-muted-foreground text-sm">{item.detail}</p>
+              {item.action && item.state === 'todo' && (
+                <Link
+                  href={item.action.href}
+                  className="mt-1.5 inline-flex items-center gap-1 text-sm font-medium underline-offset-4 hover:underline"
+                >
+                  {item.action.label}
+                  <ArrowRightIcon width={14} height={14} />
+                </Link>
+              )}
+            </div>
           </li>
         ))}
       </ul>
-      <p className="text-muted-foreground mt-4 text-xs">
-        Three of three is strong. Media blurring is checked in the browser you are using now.
-      </p>
-    </Panel>
-  );
-}
-
-function BrowserPanel({ extension }: { extension: ExtensionStatus }) {
-  const line =
-    extension.state === 'checking'
-      ? { title: 'Checking…', text: 'Looking for the Resolve extension in this browser.' }
-      : extension.state === 'absent'
-        ? {
-            title: 'No extension found',
-            text: 'Resolve works through its extension for Chrome, Edge and Brave on a computer.',
-          }
-        : {
-            title: extension.signedIn ? 'Extension signed in' : 'Extension signed out',
-            text: extension.signedIn
-              ? `Blurring is ${extension.mediaBlur ? 'on' : 'off'}. Choose your active group in the extension's popup.`
-              : 'Open the Resolve extension and sign in with this account to protect this browser.',
-          };
-  return (
-    <Panel title="This browser" className="lg:col-span-3">
-      <div className="bg-card flex flex-1 flex-col rounded-xl border p-4">
-        <p className="text-base font-semibold">{line.title}</p>
-        <p className="text-muted-foreground mt-1 text-sm">{line.text}</p>
-        <ul className="mt-4 space-y-1.5 border-t pt-4 text-sm">
-          <li>Blocks your group’s websites</li>
-          <li>Blurs images and videos on this device</li>
-          <li>Reports blocked visits only if you share</li>
-        </ul>
-        <Link
-          href="/getting-started"
-          className="mt-auto pt-4 text-sm font-medium underline underline-offset-4"
-        >
-          {extension.state === 'absent' ? 'Install the extension' : 'Getting started'}
-        </Link>
-      </div>
-    </Panel>
+    </Card>
   );
 }
 
 function sharingLabel(sharing: HomeGroup['sharing']) {
-  if (!sharing) return '—';
-  if (sharing.mode === 'PRIVATE') return 'Private';
-  return sharing.mode === 'EVERYONE' ? 'Shared with everyone' : 'Shared with selected';
+  if (!sharing) return 'Alerts: —';
+  if (sharing.mode === 'PRIVATE') return 'Alerts off';
+  return sharing.mode === 'EVERYONE'
+    ? 'Alerts to everyone who agreed'
+    : 'Alerts to chosen partners';
 }
 
-const GROUP_ROWS = 4;
-
-/** Group rows on the home: all of up to four; otherwise three and an "All N groups" row. */
-function groupRowsShown(count: number) {
-  return count <= GROUP_ROWS ? count : GROUP_ROWS - 1;
-}
-
-/** Rows in the groups panel: its groups plus the create or "All" row (none at exactly four). */
-function groupPanelRows(count: number) {
-  if (count === 0) return 2;
-  return count === GROUP_ROWS ? GROUP_ROWS : groupRowsShown(count) + 1;
-}
-
-function GroupsPanel({ groups }: { groups: HomeGroup[] }) {
+function GroupsCard({ groups, activeId }: { groups: HomeGroup[]; activeId: string | null }) {
   return (
-    <Panel
+    <Card
       title="Your groups"
-      className="lg:col-span-6"
+      className="lg:col-span-7"
       aside={
         groups.length > 0 && (
-          <Link href="/dashboard/groups" className="text-sm underline underline-offset-4">
-            {groups.length > GROUP_ROWS ? `View all ${String(groups.length)}` : 'Manage'}
+          <Link
+            href="/dashboard/groups"
+            className="text-sm font-medium underline-offset-4 hover:underline"
+          >
+            Manage
           </Link>
         )
       }
     >
       {groups.length === 0 ? (
-        <div className="bg-card flex flex-1 flex-col items-start justify-center gap-3 rounded-xl border border-dashed p-4">
-          <p className="text-sm">You are not in a group yet.</p>
-          <Link
-            href="/dashboard/groups"
-            className="bg-primary text-primary-foreground hover:bg-primary-pressed rounded-full px-4 py-2 text-sm font-medium transition-colors"
-          >
-            Create a group
-          </Link>
+        <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed p-5">
+          <p className="font-medium">You’re not in a group yet</p>
+          <p className="text-muted-foreground text-sm">
+            Groups decide which websites are blocked and who your accountability partners can be.
+          </p>
+          <Button asChild size="sm">
+            <Link href="/dashboard/groups">Create or join a group</Link>
+          </Button>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {groups.slice(0, groupRowsShown(groups.length)).map((group) => (
+        <ul className="divide-y">
+          {groups.map((group) => (
             <li key={group.groupId}>
               <Link
                 href={`/dashboard/groups/${group.groupId}`}
-                className="bg-card hover:border-foreground/30 flex h-[63px] items-center justify-between gap-3 rounded-xl border px-4 transition-colors"
+                className="hover:bg-muted/60 -mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-3 transition-colors"
               >
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{group.name}</span>
-                  <span className="text-muted-foreground block text-xs">
-                    {sharingLabel(group.sharing)}
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="bg-muted grid size-9 shrink-0 place-items-center rounded-lg text-sm font-semibold">
+                    {group.name.trim().charAt(0).toUpperCase()}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{group.name}</span>
+                    <span className="text-muted-foreground block text-xs">
+                      {sharingLabel(group.sharing)}
+                    </span>
                   </span>
                 </span>
-                <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium">
-                  {group.role === 'ADMIN' ? 'Admin' : 'Member'}
+                <span className="flex shrink-0 items-center gap-2">
+                  {group.groupId === activeId && <Status tone="good">Active here</Status>}
+                  <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs font-medium">
+                    {group.role === 'ADMIN' ? 'Admin' : 'Member'}
+                  </span>
                 </span>
               </Link>
             </li>
           ))}
-          {groups.length !== GROUP_ROWS && (
-            <li>
-              <Link
-                href={
-                  groups.length > GROUP_ROWS
-                    ? '/dashboard/groups'
-                    : '/dashboard/groups#create-group'
-                }
-                className="hover:border-foreground/30 flex h-[63px] flex-col justify-center rounded-xl border border-dashed px-4 transition-colors"
-              >
-                <span className="text-sm font-semibold">
-                  {groups.length > GROUP_ROWS
-                    ? `All ${String(groups.length)} groups`
-                    : 'Create another group'}
-                </span>
-                <span className="text-muted-foreground text-xs">
-                  {groups.length > GROUP_ROWS
-                    ? 'Open the full list'
-                    : 'Or open an invitation link from a group admin'}
-                </span>
-              </Link>
-            </li>
-          )}
         </ul>
       )}
-    </Panel>
+    </Card>
   );
 }
 
-const LEARN = [
-  {
-    href: '/getting-started',
-    title: 'Getting started',
-    text: 'Install, sign in and set up a group.',
-  },
-  { href: '/about', title: 'About Resolve', text: 'What it does, and what it never does.' },
-  { href: '/privacy', title: 'Privacy', text: 'What is stored, and for how long.' },
-  { href: '/support', title: 'Support', text: 'Questions, problems and feedback.' },
-] as const;
-
-function LearnPanel({ rows }: { rows: number }) {
+function QuickActions() {
+  const actions = [
+    {
+      href: '/dashboard/groups#create-group',
+      title: 'Create a group',
+      text: 'Become its admin and invite people.',
+      icon: <UsersIcon />,
+    },
+    {
+      href: '/dashboard/groups#join-group',
+      title: 'Join with an invite link',
+      text: 'Paste a link a group admin sent you.',
+      icon: <ArrowRightIcon />,
+    },
+    {
+      href: '/downloads',
+      title: 'Download the extension',
+      text: 'Chrome, Edge and Brave.',
+      icon: <DownloadIcon />,
+    },
+  ];
   return (
-    <Panel title="Learn" className="lg:col-span-6">
+    <Card title="Quick actions" className="lg:col-span-5">
       <ul className="space-y-2">
-        {LEARN.slice(0, rows).map((item) => (
-          <li key={item.href}>
+        {actions.map((a) => (
+          <li key={a.href}>
             <Link
-              href={item.href}
-              className="bg-card hover:border-foreground/30 flex h-[63px] flex-col justify-center rounded-xl border px-4 transition-colors"
+              href={a.href}
+              className="hover:border-foreground/25 flex items-center gap-3 rounded-xl border p-3 transition-colors"
             >
-              <span className="text-sm font-semibold">{item.title}</span>
-              <span className="text-muted-foreground text-xs">{item.text}</span>
+              <span className="bg-muted grid size-9 shrink-0 place-items-center rounded-lg">
+                {a.icon}
+              </span>
+              <span>
+                <span className="block text-sm font-semibold">{a.title}</span>
+                <span className="text-muted-foreground block text-xs">{a.text}</span>
+              </span>
             </Link>
           </li>
         ))}
       </ul>
-    </Panel>
-  );
-}
-
-function Tile({ label, value, caption }: { label: string; value: string; caption: string }) {
-  return (
-    <div className="bg-card flex min-h-32 flex-col rounded-2xl border p-4 lg:col-span-3">
-      <p className="text-muted-foreground text-sm">{label}</p>
-      <p className="mt-2 text-2xl tabular-nums">{value}</p>
-      <p className="text-muted-foreground mt-auto pt-2 text-xs">{caption}</p>
-    </div>
+    </Card>
   );
 }
 
 function headline(name: string, score: number, checking: boolean) {
-  if (checking) return `${name}, here is your Resolve.`;
+  if (checking) return `Welcome, ${name}.`;
   if (score === 3) return `${name}, your setup is strong.`;
   if (score === 2) return `${name}, one step to go.`;
   return `${name}, let’s finish setting up.`;
 }
 
-/** The signed-in home: the setup checklist first, then the groups and what to read next. */
+/** The signed-in home: this browser's protection first, then setup and groups. */
 export function HomeScreen({ name, groups }: { name: string; groups: HomeGroup[] }) {
   const extension = useExtensionStatus();
   const items = checklistItems(groups, extension);
   const checking = items.some((i) => i.state === 'checking');
   const score = items.filter((i) => i.state === 'done').length;
-  const admins = groups.filter((g) => g.role === 'ADMIN').length;
-  const known = groups.filter((g) => g.sharing);
-  const sharing = known.filter((g) => g.sharing?.mode !== 'PRIVATE');
-  const partners = known.reduce((sum, g) => sum + (g.sharing?.receiving ?? 0), 0);
+  const activeId =
+    extension.state === 'present' && extension.signedIn
+      ? (extension.details?.activeGroupId ?? null)
+      : null;
 
   return (
-    <div className="space-y-12">
-      <header className="space-y-3">
-        <h1 className="font-display text-3xl leading-tight sm:text-[2.5rem]">
+    <div className="space-y-8">
+      <header className="space-y-2">
+        <h1 className="font-display text-3xl leading-tight sm:text-4xl">
           {headline(name, score, checking)}
         </h1>
-        <p className="text-muted-foreground text-base">
-          {checking
-            ? 'Checking this browser for the Resolve extension…'
-            : `${String(score)} of 3 setup steps done${
-                groups.length > 0
-                  ? ` · ${String(groups.length)} ${groups.length === 1 ? 'group' : 'groups'}`
-                  : ''
-              }.`}
+        <p className="text-muted-foreground">
+          {groups.length === 0
+            ? 'Start by creating or joining a group.'
+            : `${String(groups.length)} ${groups.length === 1 ? 'group' : 'groups'} · ${String(score)} of 3 setup steps done`}
         </p>
       </header>
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-12">
-        <Tile
-          label="Groups"
-          value={String(groups.length)}
-          caption={
-            groups.length === 0
-              ? 'Create or join one'
-              : groups.length === 1
-                ? (groups[0]?.name ?? '')
-                : 'you belong to'
-          }
-        />
-        <Tile
-          label="Groups you admin"
-          value={String(admins)}
-          caption={admins === 0 ? 'Admins manage the list' : 'You manage their websites'}
-        />
-        <Tile
-          label="Sharing alerts in"
-          value={known.length === groups.length ? String(sharing.length) : '—'}
-          caption={
-            sharing.length === 0
-              ? 'Private everywhere'
-              : `of ${String(groups.length)} ${groups.length === 1 ? 'group' : 'groups'}`
-          }
-        />
-        <Tile
-          label="Partners receiving"
-          value={known.length === groups.length ? String(partners) : '—'}
-          caption={partners === 0 ? 'No one has agreed yet' : 'agreed to get your alerts'}
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-12">
+      <div className="grid gap-5 lg:grid-cols-12">
+        <BrowserCard extension={extension} groups={groups} />
         <Checklist items={items} />
-        <BrowserPanel extension={extension} />
       </div>
-
-      <div className="grid gap-4 lg:grid-cols-12">
-        <GroupsPanel groups={groups} />
-        <LearnPanel rows={groupPanelRows(groups.length)} />
+      <div className="grid items-start gap-5 lg:grid-cols-12">
+        <GroupsCard groups={groups} activeId={activeId} />
+        <QuickActions />
       </div>
     </div>
   );

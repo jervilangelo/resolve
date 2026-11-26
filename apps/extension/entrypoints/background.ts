@@ -301,10 +301,29 @@ export default defineBackground(() => {
     browser.runtime.onMessageExternal.addListener((message: unknown, sender, sendResponse) => {
       if (!isDashboardOrigin(sender.origin, config?.dashboardUrl)) return;
       if (!dashboardRequestSchema.safeParse(message).success) return;
-      void (async (): Promise<DashboardStatus> => ({
-        signedIn: Boolean(await auth?.session()),
-        mediaBlur: (await filter.status()).status === 'on',
-      }))().then(sendResponse, () => {
+      void (async (): Promise<DashboardStatus> => {
+        // Each lookup falls back on its own, so one failure never hides the whole answer.
+        const safe = <T>(work: () => Promise<T>, fallback: T) => work().catch(() => fallback);
+        const session = await safe(async () => (await auth?.session()) ?? null, null);
+        const active = session?.activeGroupId ?? null;
+        const media = await safe(async () => (await filter.status()).status, 'off' as const);
+        const guard = await safe(
+          async () =>
+            (await protection?.status(active)) ?? { state: 'off' as const, syncedAt: null },
+          { state: 'error' as const, syncedAt: null },
+        );
+        const alerts = await safe(async () => (await alertsStatus()).state, 'off' as const);
+        return {
+          signedIn: Boolean(session),
+          mediaBlur: media === 'on',
+          version: browser.runtime.getManifest().version,
+          activeGroupId: session ? active : null,
+          protection: guard.state,
+          syncedAt: guard.syncedAt,
+          media,
+          alerts,
+        };
+      })().then(sendResponse, () => {
         sendResponse(undefined);
       });
       return true;

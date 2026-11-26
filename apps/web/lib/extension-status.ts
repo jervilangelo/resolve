@@ -19,10 +19,48 @@ import { publicEnv } from './env';
  *   does not let pages talk to extensions);
  * - otherwise its answer.
  */
+export interface BrowserDetails {
+  version: string;
+  activeGroupId: string | null;
+  protection: 'off' | 'starting' | 'idle' | 'on' | 'stale' | 'error';
+  syncedAt: number | null;
+  media: 'off' | 'on' | 'needsAccess' | 'unsupported';
+  alerts: 'on' | 'off' | 'inactive' | 'unsupported';
+}
+
 export type ExtensionStatus =
   | { state: 'checking' }
   | { state: 'absent' }
-  | { state: 'present'; signedIn: boolean; mediaBlur: boolean };
+  | {
+      state: 'present';
+      signedIn: boolean;
+      mediaBlur: boolean;
+      /** Absent from extension versions before 0.1.1. */
+      details: BrowserDetails | null;
+    };
+
+const PROTECTION = ['off', 'starting', 'idle', 'on', 'stale', 'error'] as const;
+const MEDIA = ['off', 'on', 'needsAccess', 'unsupported'] as const;
+const ALERTS = ['on', 'off', 'inactive', 'unsupported'] as const;
+
+function pick<T extends string>(value: unknown, allowed: readonly T[]): T | null {
+  return allowed.find((a) => a === value) ?? null;
+}
+
+function details(r: Record<string, unknown>): BrowserDetails | null {
+  const protection = pick(r.protection, PROTECTION);
+  const media = pick(r.media, MEDIA);
+  const alerts = pick(r.alerts, ALERTS);
+  if (!protection || !media || !alerts || typeof r.version !== 'string') return null;
+  return {
+    version: r.version,
+    activeGroupId: typeof r.activeGroupId === 'string' ? r.activeGroupId : null,
+    protection,
+    syncedAt: typeof r.syncedAt === 'number' ? r.syncedAt : null,
+    media,
+    alerts,
+  };
+}
 
 interface ChromeRuntime {
   sendMessage(id: string, message: unknown, callback: (response: unknown) => void): void;
@@ -51,12 +89,13 @@ function ask(rt: ChromeRuntime, id: string): Promise<ExtensionStatus | null> {
           resolve(null);
           return;
         }
-        const { signedIn, mediaBlur } = response as Record<string, unknown>;
+        const record = response as Record<string, unknown>;
+        const { signedIn, mediaBlur } = record;
         if (typeof signedIn !== 'boolean' || typeof mediaBlur !== 'boolean') {
           resolve(null);
           return;
         }
-        resolve({ state: 'present', signedIn, mediaBlur });
+        resolve({ state: 'present', signedIn, mediaBlur, details: details(record) });
       });
     } catch {
       clearTimeout(timer);

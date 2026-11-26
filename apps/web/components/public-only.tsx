@@ -10,10 +10,10 @@
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-/** Public-site chrome (header, footer); the dashboard and the landing page have their own. */
+/** Public-site chrome (header, footer); the dashboard has its own shell. */
 export function PublicOnly({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (pathname === '/' || pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
+  if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
     return null;
   }
   return children;

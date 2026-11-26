@@ -178,6 +178,17 @@ owner revisions done; production on https://getresolved.site with alerts from
      accountability as option cards with shorter copy, consistent selects; extension popup
      merged into one live "Protection" list, options page as cards with details behind
      disclosures and blurring options shown once blurring is on.
+   - Done (2026-11-26): full redesign. Public site: new header/footer, landing (features, steps,
+     privacy, download and FAQ teasers), About (three features + short privacy), FAQ (/faq),
+     Download (/downloads, latest stable GitHub release; shows "no public release yet" while the
+     beta is a draft), Support Resolve (/support, donation with a GCash QR placeholder: set
+     GCASH_QR in apps/web/lib/site.ts). Removed: the alert preview demo, the Jonathan Edwards
+     portrait, the support-page help promises, and the privacy "Who is responsible" section (owner
+     request); contact is resolved.site@gmail.com. Dashboard: home with "This browser" status
+     (extension 0.1.1 reports active group, blocking/sync, blurring, alerts), checklist, groups and
+     quick actions; join by pasted invite link; alerts as an explicit opt-in (off by default,
+     explanation first, partners and consent shown, one-step turn-off); blocked websites split into
+     non-negotiable and additional; role badges.
    - Not possible: the Cognito sign-in placeholder (owner chose to keep Cognito's page).
 1. Owner, before inviting testers: check self sign-up with a real inbox and a manual run in Google
    Chrome stable (docs/release/BETA_RELEASE_RECORD.md); publish the draft GitHub release (beta zip)

@@ -6,70 +6,89 @@
  */
 
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
-import { Contact, ProsePage, Section } from '@/components/prose-page';
+import { CheckIcon, HeartIcon } from '@/components/icons';
+import { PageHero } from '@/components/prose-page';
+import { CONTACT_EMAIL, GCASH_QR } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Support',
-  description: 'Help with Resolve, feedback and reporting a problem.',
+  title: 'Support Resolve',
+  description: 'Resolve is free. Voluntary donations help keep it available.',
 };
 
 export default function SupportPage() {
   return (
-    <ProsePage
-      title="Support"
-      intro={
-        <p>
-          New to Resolve? Start with <Link href="/getting-started">getting started</Link>. For
-          anything else, email <Contact />.
-        </p>
-      }
-    >
-      <Section title="Common questions">
-        <ul>
-          <li>
-            <strong>The extension says it cannot reach the background service.</strong> Reload the
-            extension from your browser&apos;s extensions page, then reopen the popup.
-          </li>
-          <li>
-            <strong>A website is blocked that should not be.</strong> Ask a group admin to remove or
-            reclassify it. Essential services such as Gmail, YouTube and Microsoft 365 always stay
-            reachable.
-          </li>
-          <li>
-            <strong>New blocks are not applying yet.</strong> The extension checks for changes every
-            15 minutes. Reselecting your group in the popup checks right away.
-          </li>
-          <li>
-            <strong>Too many or too few images are blurred.</strong> Change the sensitivity in the
-            extension&apos;s settings. The model makes mistakes; it is a support, not a guarantee.
-          </li>
-          <li>
-            <strong>I did not receive an alert.</strong> Alerts reach only members who agreed to
-            receive them, at most once every ten minutes per member, and not every blocked visit
-            produces one (for example, ones a page or ad caused). Check your spam folder too.
-          </li>
-          <li>
-            <strong>Deleting your account.</strong> Use &ldquo;Delete account&rdquo; on your{' '}
-            <Link href="/dashboard/profile">profile</Link>.
-          </li>
-        </ul>
-      </Section>
+    <>
+      <PageHero
+        wide
+        title="Help keep Resolve available"
+        intro={
+          <p>
+            Resolve is an independently maintained project. It stays available as long as I can give
+            it the time and resources it needs.
+          </p>
+        }
+      />
+      <div className="mx-auto grid max-w-6xl items-start gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[1fr_380px]">
+        <div className="space-y-8">
+          <div className="space-y-4 text-lg leading-relaxed">
+            <p>
+              If Resolve has helped you and you would like to support its development and
+              maintenance, you can give a voluntary donation through GCash.
+            </p>
+            <p className="text-muted-foreground">Every contribution is appreciated.</p>
+          </div>
+          <ul className="space-y-3">
+            {[
+              'Completely optional: Resolve stays free with or without a donation.',
+              'Donations never unlock features; there are no paid tiers or subscriptions.',
+              'Donations do not buy a support plan or guarantee future availability.',
+            ].map((line) => (
+              <li key={line} className="flex gap-3">
+                <CheckIcon className="text-muted-foreground mt-0.5 shrink-0" />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-muted-foreground text-sm">
+            Questions about Resolve itself? Start with the{' '}
+            <Link href="/faq" className="underline underline-offset-4">
+              FAQ
+            </Link>
+            , or email{' '}
+            <a href={`mailto:${CONTACT_EMAIL}`} className="underline underline-offset-4">
+              {CONTACT_EMAIL}
+            </a>
+            .
+          </p>
+        </div>
 
-      <Section title="Beta feedback">
-        <p>
-          Feedback is welcome by email at <Contact />. Please never include websites you visited,
-          screenshots of pages, or other people&apos;s information. Describe what you did and what
-          you expected instead.
-        </p>
-      </Section>
-
-      <Section title="Reporting a security or privacy problem">
-        <p>
-          Email <Contact /> with &ldquo;Security&rdquo; in the subject. Please give us a chance to
-          fix the problem before sharing it publicly.
-        </p>
-      </Section>
-    </ProsePage>
+        <section aria-labelledby="donate" className="bg-card rounded-2xl border p-6">
+          <h2 id="donate" className="flex items-center gap-2 font-semibold">
+            <HeartIcon width={18} height={18} />
+            Donate with GCash
+          </h2>
+          {GCASH_QR ? (
+            <>
+              <Image
+                src={GCASH_QR.src}
+                width={GCASH_QR.width}
+                height={GCASH_QR.height}
+                alt="GCash QR code for donations to Resolve"
+                className="mt-5 h-auto w-full rounded-xl"
+              />
+              <p className="text-muted-foreground mt-4 text-sm">
+                Scan with the GCash app. Check the recipient’s name before you send.
+              </p>
+            </>
+          ) : (
+            <div className="text-muted-foreground mt-5 grid aspect-square place-items-center rounded-xl border-2 border-dashed p-6 text-center text-sm">
+              The GCash QR code will appear here soon.
+            </div>
+          )}
+        </section>
+      </div>
+    </>
   );
 }

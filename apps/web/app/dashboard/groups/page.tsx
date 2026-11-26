@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { randomBytes } from 'node:crypto';
 import { PageTitle, SettingsRow } from '@/components/settings-row';
 import { api } from '@/lib/api';
-import { CreateGroupForm } from '../forms';
+import { CreateGroupForm, JoinGroupForm } from '../forms';
 
 export const metadata: Metadata = { title: 'Groups' };
 
@@ -71,6 +71,13 @@ export default async function GroupsPage({
             ))}
           </ul>
         )}
+      </SettingsRow>
+      <SettingsRow
+        id="join-group"
+        title="Join a group"
+        description="Paste an invite link a group admin sent you."
+      >
+        <JoinGroupForm />
       </SettingsRow>
       <SettingsRow
         id="create-group"

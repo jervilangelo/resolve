@@ -112,23 +112,17 @@ export default async function GroupPage({
             id="blocked"
             title="Blocked websites"
             description={
-              <>
-                <p>
-                  {isAdmin
-                    ? 'Non-negotiable websites are blocked and can lead to an accountability alert (once sharing is set up). Additional websites are blocked without alerts.'
-                    : 'Add a website to block for everyone in this group. It takes effect immediately.'}
-                </p>
-                <p>
-                  {isAdmin
-                    ? 'Members can add additional websites; only admins can see or change this list.'
-                    : 'The full list is visible to admins only.'}
-                </p>
-                <p className="text-xs">
-                  The list is private in the dashboard and API, but browsers must hold the rules to
-                  enforce them, so a technically skilled member could still inspect or infer blocked
-                  websites.
-                </p>
-              </>
+              isAdmin ? (
+                <>
+                  <p>Every member’s browser blocks these websites, including their subdomains.</p>
+                  <p>Members can add websites too, but only admins can see or change the list.</p>
+                </>
+              ) : (
+                <>
+                  <p>Add a website for everyone in this group to block. It applies right away.</p>
+                  <p>Only admins can see the full list.</p>
+                </>
+              )
             }
           >
             <div className="space-y-4">
@@ -149,43 +143,73 @@ export default async function GroupPage({
                   />
                 </div>
               </details>
-              {domains && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium">
-                    On the list{' '}
-                    <span className="text-muted-foreground font-normal tabular-nums">
-                      {String(domains.items.length)}
-                    </span>
-                  </h3>
-                  {domains.items.length === 0 ? (
-                    <p className="bg-card rounded-xl border border-dashed px-4 py-3 text-sm">
-                      No websites blocked yet. Add the first one above.
-                    </p>
-                  ) : (
-                    <ul className={list + ' text-sm'}>
-                      {domains.items.map((entry) => (
-                        <li
-                          key={entry.domain}
-                          className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="font-medium break-all">{entry.domain}</p>
-                            <p className="text-muted-foreground text-xs">
-                              {entry.type === 'NON_NEGOTIABLE' ? 'Non-negotiable' : 'Additional'} ·
-                              added {new Date(entry.createdAt).toLocaleDateString('en', dateFormat)}
-                            </p>
-                          </div>
-                          <DomainActions
-                            groupId={groupId}
-                            domain={entry.domain}
-                            type={entry.type}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
+              {domains &&
+                (domains.items.length === 0 ? (
+                  <p className="bg-card rounded-xl border border-dashed px-4 py-6 text-center text-sm">
+                    No websites blocked yet. Add the first one above.
+                  </p>
+                ) : (
+                  (['NON_NEGOTIABLE', 'ADDITIONAL'] as const).map((type) => {
+                    const entries = domains.items.filter((entry) => entry.type === type);
+                    return (
+                      <div key={type} className="space-y-2">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <h3 className="text-sm font-semibold">
+                            {type === 'NON_NEGOTIABLE' ? 'Non-negotiable' : 'Additional'}{' '}
+                            <span className="text-muted-foreground font-normal tabular-nums">
+                              {String(entries.length)}
+                            </span>
+                          </h3>
+                          <p className="text-muted-foreground text-xs">
+                            {type === 'NON_NEGOTIABLE'
+                              ? 'Blocked · a deliberate visit can alert partners'
+                              : 'Blocked · never sends alerts'}
+                          </p>
+                        </div>
+                        {entries.length === 0 ? (
+                          <p className="text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-sm">
+                            None yet.
+                          </p>
+                        ) : (
+                          <ul className={list + ' text-sm'}>
+                            {entries.map((entry) => (
+                              <li
+                                key={entry.domain}
+                                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                              >
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <span
+                                    aria-hidden="true"
+                                    className={
+                                      type === 'NON_NEGOTIABLE'
+                                        ? 'size-2 shrink-0 rounded-full bg-amber-500'
+                                        : 'size-2 shrink-0 rounded-full bg-slate-400'
+                                    }
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="font-medium break-all">{entry.domain}</p>
+                                    <p className="text-muted-foreground text-xs">
+                                      Added{' '}
+                                      {new Date(entry.createdAt).toLocaleDateString(
+                                        'en',
+                                        dateFormat,
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                                <DomainActions
+                                  groupId={groupId}
+                                  domain={entry.domain}
+                                  type={entry.type}
+                                />
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })
+                ))}
               {audit && audit.items.length > 0 && (
                 <details className="text-sm">
                   <summary className="cursor-pointer font-medium">Recent changes</summary>
@@ -270,15 +294,25 @@ export default async function GroupPage({
                         {name.trim().charAt(0).toUpperCase()}
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {name}
-                          {self && member.displayName && (
-                            <span className="text-muted-foreground font-normal"> (you)</span>
-                          )}
+                        <p className="flex items-center gap-2 text-sm font-medium">
+                          <span className="truncate">
+                            {name}
+                            {self && member.displayName && (
+                              <span className="text-muted-foreground font-normal"> (you)</span>
+                            )}
+                          </span>
+                          <span
+                            className={
+                              member.role === 'ADMIN'
+                                ? 'bg-primary text-primary-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium'
+                                : 'bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium'
+                            }
+                          >
+                            {member.role === 'ADMIN' ? 'Admin' : 'Member'}
+                          </span>
                         </p>
                         <p className="text-muted-foreground text-xs">
-                          {member.role === 'ADMIN' ? 'Admin' : 'Member'} · joined{' '}
-                          {new Date(member.joinedAt).toLocaleDateString('en', dateFormat)}
+                          Joined {new Date(member.joinedAt).toLocaleDateString('en', dateFormat)}
                         </p>
                       </div>
                     </div>

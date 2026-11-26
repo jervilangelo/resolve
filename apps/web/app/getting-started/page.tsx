@@ -70,7 +70,7 @@ export default function GettingStartedPage() {
           <li>Resolve is a supporting tool and can be bypassed; it is not a guarantee.</li>
           <li>Each person controls their own sharing; admins cannot change it.</li>
           <li>
-            Questions? See <Link href="/support">support</Link>.
+            Questions? See the <Link href="/faq">FAQ</Link>.
           </li>
         </ul>
       </Section>

@@ -53,16 +53,15 @@ const icons = {
       <path d="M4.5 20.5c.9-3.9 3.8-6.25 7.5-6.25s6.6 2.35 7.5 6.25" />
     </Icon>
   ),
-  guide: (
-    <Icon>
-      <path d="M5 4.5h9.5L19 9v10.5H5z" />
-      <path d="M14.5 4.5V9H19M8.5 13h7M8.5 16.5h5" />
-    </Icon>
-  ),
   about: (
     <Icon>
       <circle cx="12" cy="12" r="8.5" />
       <path d="M12 11v5.5M12 7.75v.5" />
+    </Icon>
+  ),
+  download: (
+    <Icon>
+      <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />
     </Icon>
   ),
   support: (
@@ -79,9 +78,9 @@ const MAIN = [
 ] as const;
 
 const LEARN = [
-  { href: '/getting-started', label: 'Getting started', icon: icons.guide },
+  { href: '/downloads', label: 'Download', icon: icons.download },
+  { href: '/faq', label: 'Help & FAQ', icon: icons.support },
   { href: '/about', label: 'About Resolve', icon: icons.about },
-  { href: '/support', label: 'Support', icon: icons.support },
 ] as const;
 
 /** Shown while the link's page is loading (slow connections), so a click is never silent. */
@@ -142,7 +141,7 @@ function NavLists({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
       </nav>
       <nav aria-labelledby={learnId} className="mt-8">
         <p id={learnId} className="text-muted-foreground mb-2 px-3 text-xs">
-          Learn
+          Help
         </p>
         <ul className="space-y-0.5">
           {LEARN.map((item) => (

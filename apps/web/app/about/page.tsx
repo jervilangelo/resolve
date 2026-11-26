@@ -7,142 +7,93 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ProsePage, Section } from '@/components/prose-page';
+import type { ReactNode } from 'react';
+import { EyeOffIcon, LockIcon, ShieldIcon, UsersIcon } from '@/components/icons';
+import { PageHero } from '@/components/prose-page';
 
 export const metadata: Metadata = {
   title: 'About',
-  description: 'Why Resolve exists, what it does and does not do, and the commitments behind it.',
+  description: 'What Resolve is for and how its three features work.',
 };
 
-// From the project README ("Why Resolve?", "About Resolve", "Our commitments"), in the present
-// tense where the beta now does what the README planned.
+function Feature({
+  icon,
+  title,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="bg-card rounded-2xl border p-6 sm:p-8">
+      <div className="bg-muted mb-5 grid size-11 place-items-center rounded-xl">{icon}</div>
+      <h2 className="text-xl font-semibold">{title}</h2>
+      <ul className="text-muted-foreground mt-4 space-y-2.5 leading-relaxed">{children}</ul>
+    </section>
+  );
+}
+
 export default function AboutPage() {
   return (
-    <ProsePage
-      title="About Resolve"
-      intro={
-        <p>
-          Resolve is a privacy-focused browser protection and accountability tool that helps
-          believers set healthier digital boundaries: on-device media blurring, website blocking
-          chosen by your group, and accountability that only reaches people you choose and who
-          agree.
-        </p>
-      }
-    >
-      <Section title="Why “Resolve”?">
-        <p>
-          The name draws inspiration from Jonathan Edwards’s <em>Resolutions</em> (1722). The
-          tagline, “Take every thought captive”, comes from 2 Corinthians 10:5: taking every thought
-          captive to obey Christ. Resolve is a practical aid to accountability, not a substitute for
-          spiritual formation, the work of the Holy Spirit, or trusted relationships.
-        </p>
-      </Section>
+    <>
+      <PageHero
+        wide
+        title="About Resolve"
+        intro={
+          <p>
+            Resolve helps Christians guard what they see online and invite trusted friends into the
+            fight, in the spirit of 2 Corinthians 10:5: “take every thought captive to obey Christ.”
+            It is a supporting tool, never a replacement for the local church.
+          </p>
+        }
+      />
+      <div className="mx-auto max-w-6xl space-y-6 px-5 py-14 sm:px-8">
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Feature icon={<ShieldIcon width={22} height={22} />} title="Website protection">
+            <li>Your accountability group sets the websites its members’ browsers block.</li>
+            <li>Admins manage the group’s restrictions.</li>
+            <li>Members can add more websites to block, but cannot see or change the list.</li>
+          </Feature>
+          <Feature icon={<EyeOffIcon width={22} height={22} />} title="On-device AI protection">
+            <li>Images and supported video frames are analysed on your own device.</li>
+            <li>Potentially explicit content can be blurred automatically.</li>
+            <li>Your browsing media is never uploaded for analysis.</li>
+          </Feature>
+          <Feature icon={<UsersIcon width={22} height={22} />} title="Voluntary accountability">
+            <li>Accountability alerts are off by default; only you can turn them on.</li>
+            <li>You choose your accountability partners, and each of them must agree.</li>
+            <li>
+              Once on, a deliberate attempt to visit a website your group’s admins marked
+              non-negotiable may alert those partners. Websites members add never do.
+            </li>
+            <li>
+              Leaving or being removed from a group may also alert them, under the same consent.
+            </li>
+          </Feature>
+        </div>
 
-      <Section title="What it is for">
-        <p>
-          Resolve is for believers who want to take their thoughts captive and walk in greater
-          faithfulness to Christ, especially online, where temptation can be private, persistent and
-          hard to resist. Its central purpose is mutual accountability among fellow believers:
-          making it easier for trusted brothers and sisters in Christ to encourage, exhort, pray for
-          and support one another.
-        </p>
-        <p>
-          God has given the local church and the fellowship of believers as means of encouragement
-          and care (Hebrews 3:12–13; Galatians 6:1–2; James 5:16). We encourage every believer to
-          join, take part faithfully in, and be accountable within a sound local church, where
-          pastors, elders and fellow members know and care for them personally. Resolve is only a
-          supporting tool, never a replacement for membership, discipleship, pastoral oversight,
-          fellowship or accountability in the local church. Accountability should be voluntary,
-          gracious and respectful, and never used to shame or control someone.
-        </p>
-      </Section>
-
-      <Section title="A tool, not the mortifier of sin">
-        <p>
-          No browser extension, blocked website or automated email can put sin to death on anyone’s
-          behalf. Mortification is the believer’s responsibility by the Spirit and through God’s
-          grace (Romans 8:13). Resolve can help remove opportunities for temptation, encourage
-          vigilance and invite the support of fellow believers. It must never become a substitute
-          for repentance, prayer, Scripture, personal responsibility, pastoral care or dependence on
-          Christ.
-        </p>
-      </Section>
-
-      <Section title="What Resolve does">
-        <ul>
-          <li>
-            <strong>Blurs images and videos on your device</strong>, if you turn it on. A model
-            packaged with the extension checks media inside your browser; nothing is uploaded for
-            checking, and media that cannot be checked stays blurred by default.
-          </li>
-          <li>
-            <strong>Blocks the websites your group chooses.</strong> Admins keep a confidential list
-            of non-negotiable and additional websites; members can add websites but cannot see the
-            list. Essential services always stay reachable.
-          </li>
-          <li>
-            <strong>Sends accountability alerts only with consent.</strong> You choose who may
-            receive alerts about you (private by default), and each of them must agree to receive
-            them. Admins cannot change either choice.
-          </li>
-        </ul>
-      </Section>
-
-      <Section title="When an alert is sent">
-        <p>There are only two kinds of alert:</p>
-        <ul>
-          <li>
-            A deliberate visit to a website on your group’s non-negotiable list, which the extension
-            blocks. Media blurring, ordinary browsing, background page requests and the additional
-            list never send an alert.
-          </li>
-          <li>Leaving, or being removed from, a group.</li>
-        </ul>
-        <p>
-          Alerts never name the website and never include screenshots, recordings, addresses or
-          browsing history. They say what kind of event happened, and that a browser-reported visit
-          is not proof of intent. Private sharing sends no alerts at all.
-        </p>
-      </Section>
-
-      <Section title="Free, without ads">
-        <p>
-          Resolve is free to use and free of advertising: protection and accountability without
-          monetising attention or browsing habits. It is independently maintained and sustained as
-          resources allow, so continued availability and future features cannot be guaranteed. A
-          voluntary donation option may be added later; it would never unlock features or be
-          required to use Resolve.
-        </p>
-      </Section>
-
-      <Section title="Our commitments">
-        <ul>
-          <li>
-            <strong>Consent before disclosure:</strong> you choose your sharing, and recipients must
-            agree to receive alerts.
-          </li>
-          <li>
-            <strong>Privacy by design:</strong> no screenshots or recordings, as little event data
-            as possible, no selling of browsing data, and no uploading of web media for AI checks.
-          </li>
-          <li>
-            <strong>Accessible by intention:</strong> no advertising and no paid tiers.
-          </li>
-          <li>
-            <strong>Honest limitations:</strong> the extension can be turned off or removed, it does
-            not cover other browsers or devices, and the AI makes mistakes in both directions.
-            Resolve is support, not a guarantee.
-          </li>
-          <li>
-            <strong>Faithful stewardship:</strong> security, transparency and reliability as
-            resources allow.
-          </li>
-        </ul>
-        <p>
-          Read the <Link href="/privacy">privacy policy</Link> for exactly what is stored, or{' '}
-          <Link href="/getting-started">get started</Link>.
-        </p>
-      </Section>
-    </ProsePage>
+        <section className="bg-muted/50 grid gap-6 rounded-2xl p-6 sm:p-8 md:grid-cols-[auto_1fr]">
+          <div className="bg-card grid size-11 place-items-center rounded-xl">
+            <LockIcon width={22} height={22} />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold">Privacy, briefly</h2>
+            <ul className="text-muted-foreground mt-4 grid gap-2.5 leading-relaxed md:grid-cols-2">
+              <li>Accounts and groups run on AWS-managed services with security controls.</li>
+              <li>Image and video analysis is designed to run on your device.</li>
+              <li>Alerts never include your browsing history or the addresses you visit.</li>
+              <li>
+                Read the{' '}
+                <Link href="/privacy" className="underline underline-offset-4">
+                  privacy policy
+                </Link>{' '}
+                for exactly what is stored.
+              </li>
+            </ul>
+          </div>
+        </section>
+      </div>
+    </>
   );
 }

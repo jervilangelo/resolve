@@ -62,6 +62,8 @@ test.describe('accessibility (WCAG 2.1 A/AA, axe)', () => {
       '/support',
       '/getting-started',
       '/about',
+      '/faq',
+      '/downloads',
     ]) {
       test(`${path} in ${scheme} mode has no violations`, async ({ page }) => {
         // Reduced motion: contrast is measured on the settled page, not mid-animation.
@@ -81,7 +83,9 @@ test('public information pages render and are linked from every page', async ({ 
   for (const [label, heading] of [
     ['About', 'About Resolve'],
     ['Getting started', 'Getting started'],
-    ['Support', 'Support'],
+    ['FAQ', 'Frequently asked questions'],
+    ['Download', 'Download Resolve'],
+    ['Support Resolve', 'Help keep Resolve available'],
     ['Privacy', 'Privacy policy'],
     ['Terms', 'Terms of use'],
   ] as const) {

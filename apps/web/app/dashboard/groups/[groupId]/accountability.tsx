@@ -10,6 +10,7 @@
 import type { AccountabilityView, SharingMode } from '@resolve/contracts';
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
 import { saveSharing, setAcceptAll, setSenderConsent } from './actions';
@@ -18,24 +19,6 @@ interface Person {
   userId: string;
   name: string;
 }
-
-const MODES: { value: SharingMode; label: string; detail: string }[] = [
-  {
-    value: 'PRIVATE',
-    label: 'Private',
-    detail: 'No one gets alerts about you.',
-  },
-  {
-    value: 'SELECTED',
-    label: 'Selected members',
-    detail: 'Only people you choose, once they agree.',
-  },
-  {
-    value: 'EVERYONE',
-    label: 'Everyone',
-    detail: 'Every member who agrees.',
-  },
-];
 
 function ProblemText({ message }: { message: string | null }) {
   if (!message) return null;
@@ -46,7 +29,7 @@ function ProblemText({ message }: { message: string | null }) {
   );
 }
 
-/** Who may receive the caller's alerts. Only the caller can change this; admins cannot. */
+/** Who may receive the caller's alerts: off by default, turned on only by an explicit choice. */
 function SharingForm({
   groupId,
   view,
@@ -56,102 +39,238 @@ function SharingForm({
   view: AccountabilityView;
   others: Person[];
 }) {
-  const [mode, setMode] = useState<SharingMode>(view.sharing.mode);
-  const [chosen, setSelected] = useState<string[]>(view.sharing.recipientIds);
-  // Only members still in the group count; someone who left drops out of the choice.
-  const selected = chosen.filter((id) => others.some((person) => person.userId === id));
+  const on = view.sharing.mode !== 'PRIVATE';
+  const [editing, setEditing] = useState(false);
+  const [mode, setMode] = useState<'SELECTED' | 'EVERYONE'>(
+    view.sharing.mode === 'EVERYONE' ? 'EVERYONE' : 'SELECTED',
+  );
+  const [chosen, setChosen] = useState<string[]>(view.sharing.recipientIds);
+  const [confirmOff, setConfirmOff] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
-  const dirty =
-    mode !== view.sharing.mode ||
-    (mode === 'SELECTED' &&
-      [...selected].sort().join() !== [...view.sharing.recipientIds].sort().join());
+  const selected = chosen.filter((id) => others.some((p) => p.userId === id));
+  const canSave = mode === 'EVERYONE' || selected.length > 0;
 
-  function save() {
+  function save(next: SharingMode, ids: string[], message: string, after?: () => void) {
     setError(null);
     start(async () => {
-      const result = await saveSharing(groupId, mode, mode === 'SELECTED' ? selected : []);
-      if (result.error) setError(result.error);
-      else toast('Sharing saved.');
+      const result = await saveSharing(groupId, next, ids);
+      if (result.error) {
+        setError(result.error);
+        setConfirmOff(false);
+        return;
+      }
+      toast(message);
+      setEditing(false);
+      after?.();
     });
   }
 
+  const statusPill = (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
+        on
+          ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200'
+          : 'bg-muted text-muted-foreground',
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn('size-1.5 rounded-full', on ? 'bg-emerald-600' : 'bg-slate-400')}
+      />
+      {on ? 'On' : 'Off'}
+    </span>
+  );
+
   return (
     <div className="space-y-4">
-      <fieldset disabled={pending}>
-        <legend className="mb-3 text-sm font-medium">Who may get alerts about you</legend>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {MODES.map((option) => (
-            <label
-              key={option.value}
-              className={cn(
-                'bg-card relative flex cursor-pointer flex-col gap-0.5 rounded-xl border p-3.5 transition-[border-color,box-shadow]',
-                'has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-[3px]',
-                mode === option.value
-                  ? 'border-foreground ring-foreground ring-1'
-                  : 'hover:border-foreground/30',
-              )}
-            >
-              <input
-                type="radio"
-                name="sharing-mode"
-                className="sr-only"
-                checked={mode === option.value}
-                onChange={() => {
-                  setMode(option.value);
-                }}
-              />
-              <span className="text-sm font-semibold">{option.label}</span>
-              <span className="text-muted-foreground text-xs">{option.detail}</span>
-            </label>
-          ))}
+      <div className="bg-card flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+        <div>
+          <p className="flex items-center gap-2 font-semibold">
+            Accountability alerts {statusPill}
+          </p>
+          <p className="text-muted-foreground mt-0.5 text-sm">
+            {on
+              ? view.sharing.mode === 'EVERYONE'
+                ? 'Everyone in this group who agrees may receive your alerts.'
+                : 'The partners you chose may receive your alerts, once they agree.'
+              : 'No one receives alerts about you. This is the default.'}
+          </p>
         </div>
-      </fieldset>
-
-      {mode === 'SELECTED' && (
-        <fieldset className="bg-card space-y-2 rounded-xl border p-3.5" disabled={pending}>
-          <legend className="sr-only">Choose members</legend>
-          <p className="text-sm font-medium">Choose members</p>
-          {others.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              Nobody else is in this group yet. Invite someone first.
-            </p>
-          ) : (
-            others.map((person) => (
-              <label key={person.userId} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(person.userId)}
-                  onChange={(event) => {
-                    setSelected((current) =>
-                      event.target.checked
-                        ? [...current, person.userId]
-                        : current.filter((id) => id !== person.userId),
-                    );
+        {!editing && (
+          <div className="flex gap-2">
+            {on ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEditing(true);
+                  }}
+                >
+                  Change partners
+                </Button>
+                <ConfirmDialog
+                  open={confirmOff}
+                  onOpenChange={setConfirmOff}
+                  pending={pending}
+                  title="Turn off accountability alerts?"
+                  description="No one in this group will receive alerts about you. You can turn them on again at any time."
+                  confirmLabel="Turn off"
+                  trigger={
+                    <Button size="sm" variant="outline">
+                      Turn off
+                    </Button>
+                  }
+                  onConfirm={() => {
+                    save('PRIVATE', [], 'Accountability alerts turned off.', () => {
+                      setConfirmOff(false);
+                    });
                   }}
                 />
-                <span>{person.name}</span>
-              </label>
-            ))
+              </>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditing(true);
+                }}
+              >
+                Turn on alerts
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {editing && (
+        <div className="bg-card rs-page space-y-5 rounded-xl border p-4 sm:p-5">
+          {!on && (
+            <div className="bg-muted/70 space-y-2 rounded-lg p-4 text-sm">
+              <p className="font-semibold">Before you turn this on</p>
+              <ul className="text-muted-foreground list-disc space-y-1 pl-5">
+                <li>
+                  If you deliberately try to open a website this group’s admins marked
+                  non-negotiable, the partners below may get an email. Websites members added never
+                  send one.
+                </li>
+                <li>Leaving or being removed from this group may also notify them.</li>
+                <li>Alerts never name the website, and nothing is sent until a partner agrees.</li>
+                <li>
+                  The extension must have “Alert my accountability partners” turned on in its
+                  settings.
+                </li>
+              </ul>
+            </div>
           )}
-        </fieldset>
+
+          <fieldset disabled={pending}>
+            <legend className="mb-3 text-sm font-medium">Who may receive them</legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  ['SELECTED', 'Partners I choose', 'Only the members you pick below.'],
+                  ['EVERYONE', 'Everyone in this group', 'Any member who agrees.'],
+                ] as const
+              ).map(([value, label, detail]) => (
+                <label
+                  key={value}
+                  className={cn(
+                    'relative flex cursor-pointer flex-col gap-0.5 rounded-xl border p-3.5 transition-[border-color,box-shadow]',
+                    'has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-[3px]',
+                    mode === value
+                      ? 'border-foreground ring-foreground ring-1'
+                      : 'hover:border-foreground/30',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="sharing-mode"
+                    className="sr-only"
+                    checked={mode === value}
+                    onChange={() => {
+                      setMode(value);
+                    }}
+                  />
+                  <span className="text-sm font-semibold">{label}</span>
+                  <span className="text-muted-foreground text-xs">{detail}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {mode === 'SELECTED' && (
+            <fieldset disabled={pending} className="space-y-2">
+              <legend className="mb-2 text-sm font-medium">Your partners</legend>
+              {others.length === 0 ? (
+                <p className="text-muted-foreground rounded-lg border border-dashed px-3.5 py-3 text-sm">
+                  No one else is in this group yet. Invite someone first.
+                </p>
+              ) : (
+                <ul className="divide-y rounded-lg border">
+                  {others.map((person) => (
+                    <li key={person.userId}>
+                      <label className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 text-sm">
+                        <input
+                          type="checkbox"
+                          className="accent-foreground size-4"
+                          checked={selected.includes(person.userId)}
+                          onChange={(event) => {
+                            setChosen((current) =>
+                              event.target.checked
+                                ? [...current, person.userId]
+                                : current.filter((id) => id !== person.userId),
+                            );
+                          }}
+                        />
+                        {person.name}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </fieldset>
+          )}
+
+          <ProblemText message={error} />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              loading={pending}
+              disabled={pending || !canSave}
+              onClick={() => {
+                save(
+                  mode,
+                  mode === 'SELECTED' ? selected : [],
+                  on ? 'Partners updated.' : 'Accountability alerts turned on.',
+                );
+              }}
+            >
+              {on ? 'Save partners' : 'Turn on alerts'}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={() => {
+                setEditing(false);
+                setError(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <Button type="button" loading={pending} disabled={pending || !dirty} onClick={save}>
-          Save sharing
-        </Button>
-        {!dirty && <p className="text-muted-foreground text-sm">No changes</p>}
-      </div>
-      <ProblemText message={error} />
+      {!editing && error && <ProblemText message={error} />}
 
-      {view.recipients.length > 0 && (
+      {on && view.recipients.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium">Who would get them</h4>
+          <h4 className="text-sm font-medium">Partners</h4>
           <ul className="bg-card divide-y rounded-xl border text-sm">
             {view.recipients.map((r) => (
-              <li key={r.userId} className="flex items-center justify-between gap-4 px-3 py-2">
+              <li key={r.userId} className="flex items-center justify-between gap-4 px-3.5 py-2.5">
                 <span>{r.displayName ?? 'Unnamed member'}</span>
                 <span
                   className={cn(
@@ -161,12 +280,12 @@ function SharingForm({
                       : 'bg-muted text-muted-foreground',
                   )}
                 >
-                  {r.status === 'receiving' ? 'Agreed' : 'Not yet agreed'}
+                  {r.status === 'receiving' ? 'Agreed' : 'Waiting to agree'}
                 </span>
               </li>
             ))}
           </ul>
-          <p className="text-muted-foreground text-xs">People who haven’t agreed get nothing.</p>
+          <p className="text-muted-foreground text-xs">Partners who haven’t agreed get nothing.</p>
         </div>
       )}
     </div>

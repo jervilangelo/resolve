@@ -29,13 +29,20 @@ export type Request = z.infer<typeof requestSchema>;
 
 /**
  * The one question the Resolve dashboard may ask (from its own origin only, via
- * externally_connectable), for its setup checklist. The answer is two yes/no facts about this
- * browser; nothing about browsing, groups or the account.
+ * externally_connectable), for its checklist and "This browser" status: whether this browser
+ * is signed in, which of the user's groups it protects for, and the state of each protection.
+ * Nothing about browsing.
  */
 export const dashboardRequestSchema = z.strictObject({ type: z.literal('dashboard/status') });
 export const dashboardStatusSchema = z.strictObject({
   signedIn: z.boolean(),
   mediaBlur: z.boolean(),
+  version: z.string(),
+  activeGroupId: z.string().nullable(),
+  protection: z.enum(['off', 'starting', 'idle', 'on', 'stale', 'error']),
+  syncedAt: z.number().nullable(),
+  media: z.enum(['off', 'on', 'needsAccess', 'unsupported']),
+  alerts: z.enum(['on', 'off', 'inactive', 'unsupported']),
 });
 export type DashboardStatus = z.infer<typeof dashboardStatusSchema>;
 

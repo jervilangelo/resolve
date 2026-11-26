@@ -23,11 +23,12 @@ describe('Resolve checklist', () => {
       state: 'present',
       signedIn: true,
       mediaBlur: true,
+      details: null,
     });
     expect(items.map((i) => i.title)).toEqual([
       'Media blurring',
       'Joining a group',
-      'Accountability sharing',
+      'Accountability alerts',
     ]);
     expect(score(items)).toBe(3);
   });
@@ -52,6 +53,7 @@ describe('Resolve checklist', () => {
       state: 'present',
       signedIn: true,
       mediaBlur: false,
+      details: null,
     });
     expect(items[0]?.state).toBe('todo');
     expect(items[2]?.state).toBe('todo');

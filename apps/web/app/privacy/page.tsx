@@ -22,20 +22,10 @@ export default function PrivacyPage() {
       updated="25 November 2026"
       intro={
         <p>
-          Resolve is built so that what you browse stays on your device. Images and video frames are
-          checked on your device, and no browsing history or visited addresses are stored or sent in
-          accountability alerts. To run groups and alerts, Resolve does store a small amount of
-          account and group information, described below.
+          What Resolve stores, what stays on your device, and what accountability alerts contain.
         </p>
       }
     >
-      <Section title="Who is responsible">
-        <p>
-          Resolve is operated by Jervil Angelo De Leon. For any privacy question or request, contact{' '}
-          <Contact />.
-        </p>
-      </Section>
-
       <Section title="What stays on your device">
         <ul>
           <li>
@@ -123,6 +113,12 @@ export default function PrivacyPage() {
         <p>
           We will update this page when what Resolve stores changes, and say so in the release
           notes.
+        </p>
+      </Section>
+
+      <Section title="Questions">
+        <p>
+          Email <Contact />.
         </p>
       </Section>
     </ProsePage>
