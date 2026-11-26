@@ -13,7 +13,7 @@
 
 <br>
 
-<img alt="Status: Planned" src="https://img.shields.io/badge/Status-Planning-64748b?style=flat-square">
+<img alt="Status: In production" src="https://img.shields.io/badge/Status-In%20Production-166534?style=flat-square">
 <img alt="Platform: Browser Extension" src="https://img.shields.io/badge/Platform-Browser%20Extension-334155?style=flat-square">
 <img alt="Privacy: Local AI" src="https://img.shields.io/badge/Privacy-Local%20AI-166534?style=flat-square">
 <img alt="Access: Free, planned" src="https://img.shields.io/badge/Access-Free%20(planned)-475569?style=flat-square">
@@ -24,7 +24,7 @@
 **Resolve** is a privacy-focused browser protection and accountability platform that empowers believers to establish healthier digital boundaries. It integrates **locally processed AI content detection**, **customizable website blocking**, and **consent-based group accountability**, all while keeping personal browsing activity private.
 
 **Repository:** https://github.com/jervilangelo/resolve  
-**Status:** Product and technical planning; features below are **planned**, not claims of an existing implementation.  
+**Status:** Live in production at [getresolved.site](https://getresolved.site/). The architecture, roadmap, and MVP checklist below describe the project’s design and delivery criteria.  
 **Master specification:** [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md) — authoritative functional, security, API, data, and delivery blueprint.
 
 ---
@@ -75,7 +75,7 @@ The name draws inspiration from Jonathan Edwards's *Resolutions* (1722). The tag
 
 ## About Resolve
 
-Resolve is being designed for believers who desire to take their thoughts captive and walk in greater faithfulness to Christ, especially in the digital spaces where temptation can be private, persistent, and difficult to resist. Its central purpose is **mutual accountability among fellow brethren**: to make it easier for trusted brothers and sisters in Christ to encourage, exhort, pray for, and support one another.
+Resolve is designed for believers who desire to take their thoughts captive and walk in greater faithfulness to Christ, especially in the digital spaces where temptation can be private, persistent, and difficult to resist. Its central purpose is **mutual accountability among fellow brethren**: to make it easier for trusted brothers and sisters in Christ to encourage, exhort, pray for, and support one another.
 
 God has given the local church and the fellowship of believers as means of encouragement and care (Hebrews 3:12–13; Galatians 6:1–2; James 5:16). **We encourage every believer to join, participate faithfully in, and be accountable within a sound local church**, where pastors, elders, and fellow members can know and care for them personally. **Resolve is only a supporting tool, never a replacement for membership, discipleship, pastoral oversight, fellowship, or accountability in the local church.** Its optional accountability groups, consent-based notifications, and browser safeguards are intended to make honest conversations and intentional habits easier. Accountability should be voluntary, gracious, respectful, and never used to shame or control someone.
 
@@ -87,7 +87,7 @@ God has given the local church and the fellowship of believers as means of encou
 
 Resolve is **intended to be free to use and free of advertising**. The goal is to make protection and accountability accessible without monetizing attention or browsing habits. The project is independently maintained, and the creator intends to sustain it as resources allow; continued availability and all future features cannot be guaranteed.
 
-Authentication is **planned** through Amazon Cognito, with AWS-managed security controls, encrypted transport (HTTPS/TLS), encryption at rest for applicable backend data, and appropriate access controls. Passwords should be handled by the identity provider rather than stored in the application's own database. These are **design commitments**, not claims that an unlaunched system has already been audited or is invulnerable. **No screenshots, screen recordings, camera recordings, or files from your local machine are sent to other group members or included in notifications.** Resolve does not plan to capture or share your desktop screen or record your activity. Its planned AI blur detection uses **on-device image classification**: a model packaged with the extension examines supported images (and feasible video frames) inside your browser, produces a local classification score, and blurs content when a configured threshold is met. The images and frames are **not uploaded to AWS or sent to fellow group members for classification**. The classification is intended to run without a remote AI inference service, reducing exposure of sensitive media. This is a design goal that must be verified through network tests before release; local processing does not eliminate all security risks, and classification can be inaccurate. Accountability emails must not contain visited URLs, page titles, screenshots, or browsing history.
+Authentication is **planned** through Amazon Cognito, with AWS-managed security controls, encrypted transport (HTTPS/TLS), encryption at rest for applicable backend data, and appropriate access controls. Passwords should be handled by the identity provider rather than stored in the application's own database. These are **design commitments**. **No screenshots, screen recordings, camera recordings, or files from your local machine are sent to other group members or included in notifications.** Resolve does not plan to capture or share your desktop screen or record your activity. Its planned AI blur detection uses **on-device image classification**: a model packaged with the extension examines supported images (and feasible video frames) inside your browser, produces a local classification score, and blurs content when a configured threshold is met. The images and frames are **not uploaded to AWS or sent to fellow group members for classification**. The classification is intended to run without a remote AI inference service, reducing exposure of sensitive media. Network tests are part of the verification criteria for local processing. Local processing does not eliminate all security risks, and classification can be inaccurate. Accountability emails must not contain visited URLs, page titles, screenshots, or browsing history.
 
 ### When accountability notifications are sent
 
