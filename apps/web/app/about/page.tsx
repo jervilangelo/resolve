@@ -8,13 +8,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { EyeOffIcon, LockIcon, ShieldIcon, UsersIcon } from '@/components/icons';
+import { EyeOffIcon, LockIcon, ShieldIcon, TimerIcon, UsersIcon } from '@/components/icons';
 import { PageHero } from '@/components/prose-page';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'About',
-  description: 'What Resolve is for and how its three features work.',
-};
+export const metadata: Metadata = pageMetadata({
+  path: '/about',
+  title: 'About Resolve',
+  description:
+    'Why Resolve exists: a free tool for Christians who want to use the internet faithfully, what it does, its limits, and who built it.',
+});
 
 function Prose({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
@@ -102,7 +105,7 @@ export default function AboutPage() {
       </div>
       <div className="mx-auto max-w-6xl space-y-6 px-5 py-14 sm:px-8">
         <h2 className="font-display text-2xl leading-tight sm:text-3xl">What Resolve does</h2>
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2">
           <Feature icon={<ShieldIcon width={22} height={22} />} title="Website protection">
             <li>Your accountability group sets the websites its members’ browsers block.</li>
             <li>Admins manage the group’s restrictions.</li>
@@ -123,6 +126,11 @@ export default function AboutPage() {
             <li>
               Leaving or being removed from a group may also alert them, under the same consent.
             </li>
+          </Feature>
+          <Feature icon={<TimerIcon width={22} height={22} />} title="Focus Mode">
+            <li>Blocks distracting websites for 5 to 240 minutes while you study, work or read.</li>
+            <li>Ends by itself; ending early takes two deliberate steps.</li>
+            <li>Personal: no account needed, nothing is sent, and no one is alerted.</li>
           </Feature>
         </div>
 

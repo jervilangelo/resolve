@@ -8,11 +8,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Contact, ProsePage, Section } from '@/components/prose-page';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: '/terms',
   title: 'Terms of use',
-  description: 'The terms for using Resolve.',
-};
+  description: 'The terms for using Resolve, the free browser extension and dashboard.',
+});
 
 export default function TermsPage() {
   return (

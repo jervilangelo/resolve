@@ -11,14 +11,17 @@ import Link from 'next/link';
 import { CheckIcon, HeartIcon, MailIcon } from '@/components/icons';
 import { PageHero } from '@/components/prose-page';
 import { CONTACT_EMAIL, GCASH_QR } from '@/lib/site';
+import { pageMetadata } from '@/lib/seo';
 
 const PARTNER_EMAIL = 'deleonangelojervil@gmail.com';
 const PARTNER_MAILTO = `mailto:${PARTNER_EMAIL}?subject=Resolve%20Partnership%20or%20Sponsorship`;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: '/support',
   title: 'Support Resolve',
-  description: 'Resolve is free. Voluntary donations help keep it available.',
-};
+  description:
+    'Resolve is free. Voluntary donations through GCash help keep it available, and partners and sponsors are welcome.',
+});
 
 export default function SupportPage() {
   return (

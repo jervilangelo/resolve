@@ -190,3 +190,76 @@ test('the Support page invites partners and sponsors by email', async ({ page })
   // The donation options stay in place.
   await expect(page.getByRole('heading', { name: 'Donate with GCash' })).toBeVisible();
 });
+
+const PUBLIC_PAGES = [
+  '/',
+  '/downloads',
+  '/tutorial',
+  '/faq',
+  '/about',
+  '/support',
+  '/privacy',
+  '/terms',
+];
+
+test('public pages have their own canonical URL, title, description and social preview', async ({
+  page,
+}) => {
+  const titles = new Set<string>();
+  for (const path of PUBLIC_PAGES) {
+    await page.goto(path);
+    const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
+    expect(new URL(canonical ?? '').pathname).toBe(path);
+    expect(await page.locator('meta[property="og:url"]').getAttribute('content')).toBe(canonical);
+    const description = await page.locator('meta[name="description"]').getAttribute('content');
+    expect(description?.length ?? 0).toBeGreaterThan(50);
+    expect(description?.length ?? 0).toBeLessThanOrEqual(170);
+    titles.add(await page.title());
+    await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+  }
+  expect(titles.size).toBe(PUBLIC_PAGES.length);
+});
+
+test('the sitemap lists exactly the public pages and robots.txt points to it', async ({
+  request,
+}) => {
+  const sitemap = await request.get('/sitemap.xml');
+  expect(sitemap.status()).toBe(200);
+  const locs = [...(await sitemap.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map(
+    (m) => new URL(m[1] ?? '').pathname,
+  );
+  expect(locs).toEqual(PUBLIC_PAGES);
+  const robots = await (await request.get('/robots.txt')).text();
+  expect(robots).toMatch(/^Sitemap: https?:\/\/[^/]+\/sitemap\.xml$/m);
+  expect(robots).toContain('Disallow: /dashboard');
+});
+
+test('the home page explains Resolve and describes it accurately in structured data', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page).toHaveTitle('Resolve — Free Christian Accountability Browser Extension');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    'The free browser extension for Christians',
+  );
+  await expect(page.getByRole('link', { name: 'Download free' })).toHaveAttribute(
+    'href',
+    '/downloads',
+  );
+  await expect(page.getByRole('link', { name: 'See how it works' })).toHaveAttribute(
+    'href',
+    '/tutorial',
+  );
+  const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+  const data = blocks.flatMap((b) => JSON.parse(b) as { '@type': string; offers?: unknown }[]);
+  expect(data.map((d) => d['@type'])).toEqual(['WebSite', 'SoftwareApplication']);
+  expect(data[1]?.offers).toMatchObject({ price: '0' });
+});
+
+test('pages that are not public are kept out of the index', async ({ page }) => {
+  for (const path of ['/invite', '/auth/error', '/does-not-exist']) {
+    await page.goto(path);
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  }
+});

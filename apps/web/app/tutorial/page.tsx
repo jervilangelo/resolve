@@ -12,12 +12,14 @@ import type { ReactNode } from 'react';
 import { Reveal } from '@/components/landing/reveal';
 import { Button } from '@/components/ui/button';
 import { CONTACT_EMAIL } from '@/lib/site';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Tutorial',
+export const metadata: Metadata = pageMetadata({
+  path: '/tutorial',
+  title: 'Tutorial: install and use Resolve',
   description:
-    'A step-by-step guide to Resolve: install the extension, sign in, blur media, use Focus Mode, set up a group and accountability, and fix common problems.',
-};
+    'Step-by-step guide with screenshots: install Resolve, sign in, blur explicit images, use Focus Mode, set up accountability and fix common problems.',
+});
 
 const SECTIONS = [
   { id: 'get', title: 'Get Resolve' },
@@ -522,7 +524,9 @@ export default function TutorialPage() {
               <li>
                 In the extension’s {b('Settings')}, turn on{' '}
                 {b('Alert my accountability partners about blocked visits')} and allow the browser
-                permission it asks for.
+                permission it asks for. Chrome words it as “read your browsing history”: Resolve
+                uses it only to notice when a blocked website was opened, keeps no history, and
+                never sends which website it was.
               </li>
             </Steps>
             <div className="grid items-start gap-6 sm:grid-cols-2">
@@ -618,6 +622,10 @@ export default function TutorialPage() {
                 [
                   'Resolve disappeared or shows an error on the extensions page.',
                   'The folder it was loaded from was moved or deleted. Unzip the download again into a folder you will keep, then choose Load unpacked again.',
+                ],
+                [
+                  'My browser asks whether to turn off developer-mode extensions.',
+                  'Because Resolve is installed with Load unpacked, some browsers show this reminder. Keep the extensions on: turning them off disables Resolve until you switch it back on from the extensions page.',
                 ],
                 [
                   'Sign-in didn’t finish.',

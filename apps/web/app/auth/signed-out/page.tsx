@@ -9,7 +9,7 @@ import type { Metadata } from 'next';
 import { authConfig } from '@/lib/auth';
 import { logoutUrl } from '@/lib/cognito';
 
-export const metadata: Metadata = { title: 'Signing out' };
+export const metadata: Metadata = { title: 'Signing out', robots: { index: false } };
 export const dynamic = 'force-dynamic';
 
 /**

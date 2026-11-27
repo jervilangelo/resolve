@@ -11,11 +11,14 @@ import { MailIcon } from '@/components/icons';
 import { PageHero } from '@/components/prose-page';
 import { FAQ } from '@/lib/faq';
 import { CONTACT_EMAIL } from '@/lib/site';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: '/faq',
   title: 'FAQ',
-  description: 'Answers about Resolve: browsers, installation, groups, alerts and privacy.',
-};
+  description:
+    'Answers about Resolve: supported browsers, installing, Focus Mode, website blocking, accountability alerts, privacy and your account.',
+});
 
 export default function FaqPage() {
   return (

@@ -14,13 +14,16 @@ import { Toaster } from '@/components/ui/toaster';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { publicEnv } from '@/lib/env';
-
-const description = 'Free browser protection and voluntary accountability for Christians.';
+import { OG_IMAGE, SITE_DESCRIPTION, SITE_NAME } from '@/lib/seo';
 
 export const metadata: Metadata = {
   metadataBase: new URL(publicEnv.NEXT_PUBLIC_SITE_URL),
-  title: { default: 'Resolve — Take every thought captive.', template: '%s · Resolve' },
-  description,
+  title: {
+    default: `${SITE_NAME} — Free Christian Accountability Browser Extension`,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
   manifest: '/site.webmanifest',
   other: { copyright: 'Copyright © Jervil Angelo De Leon. All rights reserved.' },
   icons: {
@@ -31,10 +34,13 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon.png',
   },
   openGraph: {
-    title: 'Resolve',
-    description,
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Resolve' }],
+    type: 'website',
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: [OG_IMAGE],
   },
+  twitter: { card: 'summary_large_image', images: [OG_IMAGE.url] },
 };
 
 export const viewport: Viewport = {

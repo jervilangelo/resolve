@@ -7,7 +7,7 @@
   </picture>
 </a>
 
-<h3>Browser protection and voluntary accountability for Christians</h3>
+<h3>Resolve Browser Extension: free browser protection and voluntary accountability for Christians</h3>
 
 Resolve blocks the websites your group chooses, blurs explicit images on your own device,<br>
 gives you distraction-free Focus sessions, and lets people you trust encourage you.

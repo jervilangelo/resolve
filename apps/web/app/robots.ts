@@ -6,6 +6,7 @@
  */
 
 import type { MetadataRoute } from 'next';
+import { publicEnv } from '@/lib/env';
 
 /**
  * Documented crawlers that collect content for AI training or AI products and say they honour
@@ -39,5 +40,6 @@ export default function robots(): MetadataRoute.Robots {
       // Ordinary search engines may index the public pages, never accounts or invitations.
       { userAgent: '*', allow: '/', disallow: ['/dashboard', '/auth', '/invite'] },
     ],
+    sitemap: new URL('/sitemap.xml', publicEnv.NEXT_PUBLIC_SITE_URL).toString(),
   };
 }

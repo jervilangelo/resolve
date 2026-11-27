@@ -17,7 +17,7 @@ export const FAQ: { id: string; title: string; items: FaqItem[] }[] = [
     items: [
       {
         q: 'What does Resolve do?',
-        a: 'Resolve is a browser extension with an online dashboard. It blocks websites your accountability group chooses, can blur explicit images and videos on your device, and, only if you turn it on, alerts partners you choose who agree to receive alerts.',
+        a: 'Resolve is a browser extension with an online dashboard. It is free. It blocks websites your accountability group chooses, can blur explicit images and videos on your device, offers Focus Mode for distraction-free study or work, and, only if you turn it on, alerts partners you choose who agree to receive alerts.',
       },
       {
         q: 'What does it cost?',

@@ -24,6 +24,47 @@ import { Reveal } from '@/components/landing/reveal';
 import { Button } from '@/components/ui/button';
 import { isSignedIn } from '@/lib/auth';
 import { FAQ } from '@/lib/faq';
+import { PRODUCT_NAME, SITE_DESCRIPTION, SITE_NAME, absoluteUrl, pageMetadata } from '@/lib/seo';
+
+export const metadata = pageMetadata({
+  path: '/',
+  title: 'Resolve — Free Christian Accountability Browser Extension',
+  description: SITE_DESCRIPTION,
+  absoluteTitle: true,
+});
+
+/** Structured data that restates what the page shows: the site's name and the free extension. */
+function structuredData(): string {
+  const url = absoluteUrl('/');
+  return JSON.stringify([
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: SITE_NAME,
+      alternateName: PRODUCT_NAME,
+      url,
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: SITE_NAME,
+      alternateName: PRODUCT_NAME,
+      description: SITE_DESCRIPTION,
+      url,
+      applicationCategory: 'BrowserApplication',
+      operatingSystem: 'Windows, macOS, Linux, ChromeOS',
+      browserRequirements: 'Google Chrome, Microsoft Edge or Brave on a computer',
+      downloadUrl: absoluteUrl('/downloads'),
+      isAccessibleForFree: true,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      author: {
+        '@type': 'Person',
+        name: 'Jervil Angelo De Leon',
+        url: 'https://jervilangelo.online',
+      },
+    },
+  ]).replace(/</g, '\\u003c');
+}
 
 const WRAP = 'mx-auto w-full max-w-6xl px-5 sm:px-8';
 const delay = (ms: number) => ({ ['--rs-delay' as string]: `${String(ms)}ms` }) as CSSProperties;
@@ -64,16 +105,16 @@ const FEATURES: {
 
 const STEPS = [
   {
+    title: 'Install the extension',
+    text: 'Download it free for Chrome, Edge or Brave on a computer. Focus Mode and image blurring work right away.',
+  },
+  {
     title: 'Create your free account',
-    text: 'Sign in to the dashboard and choose a display name.',
+    text: 'Sign in from the extension and choose a display name in the dashboard.',
   },
   {
     title: 'Start or join a group',
-    text: 'Create a group and invite people with a link, or join one you were invited to.',
-  },
-  {
-    title: 'Install the extension',
-    text: 'Add Resolve to Chrome, Edge or Brave and sign in. Your group’s protection applies.',
+    text: 'Create a group and invite people with a link, or join one you were invited to. Its blocked websites apply at once.',
   },
 ];
 
@@ -97,13 +138,14 @@ export default async function HomePage() {
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData() }} />
       <Reveal />
 
       <section aria-labelledby="hero-title" className="relative overflow-hidden">
         <div className={`${WRAP} py-20 text-center sm:py-28`}>
           <div className="mx-auto max-w-3xl">
             <h1 id="hero-title" className="rs-mask">
-              <span className="sr-only">Resolve</span>
+              <span className="sr-only">Resolve: </span>
               <span aria-hidden="true">
                 {(['light', 'dark'] as const).map((theme) => (
                   <Image
@@ -117,29 +159,47 @@ export default async function HomePage() {
                   />
                 ))}
               </span>
+              <span className="text-foreground mt-6 block text-xl font-medium sm:text-2xl">
+                The free browser extension for Christians
+              </span>
             </h1>
             <div className="rs-after-headline">
-              <p className="text-muted-foreground mx-auto mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl">
-                Resolve is a free browser extension and dashboard for Christians. It blocks the
-                websites your group chooses, blurs explicit media on your device, and keeps
-                accountability voluntary.
+              <p className="text-muted-foreground mx-auto mt-4 max-w-2xl text-lg leading-relaxed sm:text-xl">
+                Block the websites your group chooses, blur explicit images on your own device,
+                focus with timed sessions, and invite people you trust to encourage you.
               </p>
               <div className="mt-10 flex flex-wrap justify-center gap-3">
-                <Button asChild size="lg" className="h-12 px-6 text-[15px]">
-                  <Link href="/dashboard" prefetch={false}>
-                    {signedIn ? 'Open your dashboard' : 'Get started free'}
-                    <ArrowRightIcon />
-                  </Link>
-                </Button>
+                {signedIn ? (
+                  <Button asChild size="lg" className="h-12 px-6 text-[15px]">
+                    <Link href="/dashboard" prefetch={false}>
+                      Open your dashboard
+                      <ArrowRightIcon />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button asChild size="lg" className="h-12 px-6 text-[15px]">
+                    <Link href="/downloads">
+                      <DownloadIcon />
+                      Download free
+                    </Link>
+                  </Button>
+                )}
                 <Button asChild size="lg" variant="outline" className="h-12 px-6 text-[15px]">
-                  <Link href="/downloads">
-                    <DownloadIcon />
-                    Download the extension
-                  </Link>
+                  {signedIn ? (
+                    <Link href="/downloads">
+                      <DownloadIcon />
+                      Download the extension
+                    </Link>
+                  ) : (
+                    <Link href="/tutorial">
+                      See how it works
+                      <ArrowRightIcon />
+                    </Link>
+                  )}
                 </Button>
               </div>
               <p className="text-muted-foreground mt-6 text-sm">
-                Free · No ads · Chrome, Edge and Brave
+                Free · No ads · Chrome, Edge and Brave on a computer
               </p>
             </div>
           </div>
@@ -207,13 +267,17 @@ export default async function HomePage() {
               Set up in minutes
             </h2>
             <p className="text-muted-foreground mt-4 text-lg">
-              Your dashboard shows what is left to do, and the extension follows your group
-              automatically.
+              Install first, then sign in. Your dashboard shows what is left to do, and the
+              extension follows your group automatically.
             </p>
             <Button asChild className="mt-8">
-              <Link href="/dashboard" prefetch={false}>
-                {signedIn ? 'Open your dashboard' : 'Create your account'}
-              </Link>
+              {signedIn ? (
+                <Link href="/dashboard" prefetch={false}>
+                  Open your dashboard
+                </Link>
+              ) : (
+                <Link href="/tutorial#install">Follow the install guide</Link>
+              )}
             </Button>
           </div>
           <ol className="space-y-4">

@@ -13,11 +13,14 @@ import { Button } from '@/components/ui/button';
 import { type LatestRelease, latestRelease } from '@/lib/releases';
 import { RELEASES_URL } from '@/lib/site';
 import { cn } from '@/lib/utils';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Download',
-  description: 'Download the Resolve browser extension for Chrome, Edge and Brave.',
-};
+export const metadata: Metadata = pageMetadata({
+  path: '/downloads',
+  title: 'Download Resolve for Chrome, Edge and Brave',
+  description:
+    'Download the free Resolve browser extension for Google Chrome, Microsoft Edge and Brave on a computer. Installing takes about five minutes.',
+});
 
 export const revalidate = 3600;
 
@@ -67,12 +70,18 @@ function BrowserCard({
           <ol className="text-muted-foreground mt-5 list-decimal space-y-1.5 pl-5 text-sm">
             {browser.extensionsPage ? (
               <>
-                <li>Download and unzip the file into a folder you will keep.</li>
+                <li>
+                  Download and unzip the file into a folder you will keep (your browser runs Resolve
+                  from it).
+                </li>
                 <li>
                   Open <code className="text-foreground">{browser.extensionsPage}</code> and turn on
                   Developer mode.
                 </li>
-                <li>Choose “Load unpacked” and select the unzipped folder.</li>
+                <li>
+                  Choose “Load unpacked” and select the unzipped folder (the one that contains
+                  manifest.json).
+                </li>
               </>
             ) : (
               <>
@@ -113,10 +122,21 @@ export default async function DownloadsPage() {
         wide
         title="Download Resolve"
         intro={
-          <p>
-            Resolve is officially available. Download the latest release and take the first step
-            toward intentional digital accountability.
-          </p>
+          <>
+            <p>
+              Resolve is free. Install it in Google Chrome, Microsoft Edge or Brave on a computer in
+              about five minutes; no account is needed to try Focus Mode or image blurring. Phones
+              and tablets are not supported yet.
+            </p>
+            <p className="mt-4">
+              <Link
+                href="/tutorial#install"
+                className="text-foreground underline underline-offset-4"
+              >
+                Step-by-step install guide with screenshots
+              </Link>
+            </p>
+          </>
         }
       />
       <div className="mx-auto max-w-6xl space-y-10 px-5 py-14 sm:px-8">
@@ -175,10 +195,46 @@ export default async function DownloadsPage() {
             ))}
           </ul>
           <p className="text-muted-foreground mt-5 text-sm">
-            Resolve is distributed directly from this website and GitHub Releases, for computers
-            (not phones). After installing, sign in from the extension’s popup. Next:{' '}
-            <Link href="/tutorial" className="underline underline-offset-4">
+            Resolve is distributed directly from this website and GitHub Releases, not a browser
+            store, so your browser installs it with Developer mode. After installing, pin it to the
+            toolbar and sign in from its popup. Next:{' '}
+            <Link href="/tutorial#install" className="underline underline-offset-4">
               the step-by-step tutorial
+            </Link>
+            .
+          </p>
+        </section>
+
+        <section aria-labelledby="permissions" className="max-w-3xl">
+          <h2 id="permissions" className="mb-4 text-xl font-semibold">
+            Permissions, in plain language
+          </h2>
+          <ul className="space-y-3 leading-relaxed">
+            <li>
+              <span className="font-medium">Always:</span> blocking websites (your browser may call
+              this “block content on any page”), signing you in, and fetching your group’s list from
+              Resolve’s own servers.
+            </li>
+            <li>
+              <span className="font-medium">Only if you turn on image blurring:</span> access to the
+              pages you visit (“read and change all your data on all websites”) so images can be
+              checked on your computer. Nothing is uploaded.
+            </li>
+            <li>
+              <span className="font-medium">Only if you start Focus Mode and allow it:</span> access
+              to the Focus Mode websites, so their blocked page can be shown.
+            </li>
+            <li>
+              <span className="font-medium">Only if you turn on blocked-visit alerts:</span> the
+              browser’s navigation events (“read your browsing history”), used to notice when a
+              blocked website was opened. Resolve keeps no history and never sends which website it
+              was.
+            </li>
+          </ul>
+          <p className="text-muted-foreground mt-4 text-sm">
+            More detail in the{' '}
+            <Link href="/privacy" className="underline underline-offset-4">
+              privacy policy
             </Link>
             .
           </p>

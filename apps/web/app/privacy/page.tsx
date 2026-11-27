@@ -8,11 +8,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Contact, ProsePage, Section } from '@/components/prose-page';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: '/privacy',
   title: 'Privacy policy',
   description: 'What Resolve stores, what never leaves your device, and your choices.',
-};
+});
 
 /** Based on docs/qa/DATA_INVENTORY.md; keep the two in step. */
 export default function PrivacyPage() {

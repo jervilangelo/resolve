@@ -153,6 +153,14 @@ owner revisions done; production on https://getresolved.site with alerts from
 
 ## Next steps
 
+- In review (2026-11-27, branch `launch-seo`, not deployed): search and launch readiness. Per-page
+  canonical URLs, titles, descriptions and social cards (`apps/web/lib/seo.ts`); `/sitemap.xml`
+  listed in robots.txt; WebSite and SoftwareApplication structured data on the home page; noindex
+  on sign-in pages; clearer home hero (install-first, "Download free"); Download page states
+  computer-only and explains permissions in plain language; tutorial covers the developer-mode
+  prompt and the alerts permission wording; Focus Mode added to About and the FAQ; new social
+  preview image. Next: owner merges and deploys, then verifies the site in Google Search Console.
+
 - Done (2026-11-26): extension 0.4.1 released (Access Blocked wording, Focus page line,
   ownership notices). Docs consolidated: README redesigned (animated logo, verified features,
   privacy, limitations); docs/DEVELOPMENT.md (contributors), docs/RELEASING.md (maintainers,
