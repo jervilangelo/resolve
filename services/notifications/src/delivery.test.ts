@@ -5,7 +5,7 @@
  * See LICENSE for terms and applicable exceptions.
  */
 
-import type { ConsentRecord, OutboxItem, SharingRecord } from '@resolve/contracts';
+import type { AlertTypePrefs, ConsentRecord, OutboxItem, SharingRecord } from '@resolve/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   type DeliveryDeps,
@@ -51,6 +51,7 @@ function setup(item: OutboxItem) {
     ['carol', { acceptAll: true, senders: {} }],
     ['dave', { acceptAll: false, senders: { bob: LATER } }],
   ]);
+  const alertTypes = new Map<string, AlertTypePrefs>();
   const claims = new Map<string, string>();
   const sent: { to: string; subject: string; text: string }[] = [];
   let failNext: Error | null = null;
@@ -64,6 +65,7 @@ function setup(item: OutboxItem) {
     },
     getSharing: (_g, user) => Promise.resolve(sharing.get(user) ?? null),
     getConsent: (_g, user) => Promise.resolve(consents.get(user) ?? null),
+    getAlertTypes: (_g, user) => Promise.resolve(alertTypes.get(user) ?? null),
     claim: (id, user) => {
       if (claims.has(`${id}#${user}`)) return Promise.resolve(false);
       claims.set(`${id}#${user}`, 'claimed');
@@ -109,6 +111,7 @@ function setup(item: OutboxItem) {
     members,
     sharing,
     consents,
+    alertTypes,
     claims,
     sent,
     failWith: (error: Error) => (failNext = error),
@@ -240,5 +243,68 @@ describe('alert emails', () => {
     expect(linky.text).not.toMatch(/evil\.example|phish\.test/);
     const anonymous = alertEmail(navigation({ senderName: null }), 'https://app.example.test');
     expect(anonymous.text).toContain('A member of your accountability group triggered');
+  });
+});
+
+const ON = { removal: true, inactivity: true };
+const OFF = { removal: false, inactivity: false };
+
+describe('installation alerts (§7.4)', () => {
+  const removal = (overrides: Partial<OutboxItem> = {}) =>
+    navigation({
+      kind: 'EXTENSION_REMOVED',
+      occurredAt: '2026-11-24T00:00:00.000Z',
+      recipientIds: ['carol', 'dave'],
+      ...overrides,
+    });
+
+  it('need the sender to share the type and each recipient to have agreed to it', async () => {
+    const t = setup(removal());
+    t.alertTypes.set('bob', { share: ON, receive: OFF });
+    t.alertTypes.set('carol', { share: OFF, receive: ON });
+    t.alertTypes.set('dave', { share: OFF, receive: { removal: false, inactivity: true } });
+    expect(await deliverOutbox('out_1', t.deps)).toEqual({ sent: 1, no_consent: 1 });
+    expect(t.sent.map((m) => m.to)).toEqual(['carol@example.test']);
+  });
+
+  it('re-check at send time: a sender who stopped sharing the type sends nothing', async () => {
+    const t = setup(removal({ kind: 'EXTENSION_INACTIVE' }));
+    t.alertTypes.set('bob', { share: { removal: true, inactivity: false }, receive: OFF });
+    t.alertTypes.set('carol', { share: OFF, receive: ON });
+    expect(await deliverOutbox('out_1', t.deps)).toEqual({ not_shared: 2 });
+    expect(t.sent).toEqual([]);
+  });
+
+  it('re-check the usual consent too: withdrawn after the event, nothing is sent', async () => {
+    const t = setup(removal());
+    t.alertTypes.set('bob', { share: ON, receive: OFF });
+    t.alertTypes.set('carol', { share: OFF, receive: ON });
+    t.consents.set('carol', { acceptAll: false, senders: {} });
+    t.consents.delete('dave');
+    expect(await deliverOutbox('out_1', t.deps)).toEqual({ no_consent: 2 });
+  });
+
+  it('emails give the name, what happened and when: no group, no website', () => {
+    const url = 'https://app.example.test';
+    const removed = alertEmail(removal(), url);
+    expect(removed.subject).toBe('Resolve was removed from a browser');
+    expect(removed.text).toContain(
+      'Resolve was removed from one of Bob’s browsers on 24 November 2026, 00:00 UTC.',
+    );
+    const inactive = alertEmail(
+      removal({ kind: 'EXTENSION_INACTIVE', occurredAt: '2026-11-21T09:30:00.000Z' }),
+      url,
+    );
+    expect(inactive.text).toContain(
+      'Resolve hasn’t checked in from one of Bob’s browsers since 21 November 2026, 09:30 UTC.',
+    );
+    expect(inactive.text).toContain('closed, or the computer is off or offline');
+    for (const email of [removed, inactive]) {
+      expect(email.text).not.toContain('Brothers');
+      expect(email.text).not.toContain(GROUP);
+      expect(email.text).toContain(`${url}/dashboard/groups`);
+    }
+    const anonymous = alertEmail(removal({ senderName: null }), url);
+    expect(anonymous.text).toContain('one of a member of your accountability group’s browsers');
   });
 });

@@ -6,6 +6,7 @@
  */
 
 import type {
+  AlertTypePrefs,
   ConsentRecord,
   DomainType,
   GroupRole,
@@ -107,6 +108,25 @@ export interface RuleState {
 
 export type StoredSharing = SharingRecord;
 export type StoredConsent = ConsentRecord;
+
+/** A member's installation-alert choices in one group (§7.4). */
+export type StoredAlertTypes = AlertTypePrefs;
+
+/** An enrolled browser (§7.4). The token itself is never stored, only its hash. */
+export interface StoredInstallation {
+  userId: string;
+  installationId: string;
+  groupId: string;
+  status: 'ACTIVE' | 'REMOVED';
+  createdAt: string;
+  lastCheckInAt: string;
+}
+
+/** An installation whose check-ins stopped for longer than the grace period. */
+export interface DueInstallation extends StoredInstallation {
+  /** Opaque marker of the check-in it was found with (guards against a racing check-in). */
+  dueKey: string;
+}
 
 /** Writes need the caller to be a member of a live group when they commit. */
 export type AccountabilityWrite = 'saved' | 'not_allowed';
@@ -227,11 +247,61 @@ export interface Store {
    * by deleteUserData outlives the longest token lifetime).
    */
   isDeleted(userId: string): Promise<boolean>;
-  /** Every member's sharing choice and consent in the group (absent = PRIVATE / none). */
+  /** Every member's sharing choice, consent and alert types (absent = PRIVATE / none / off). */
   getAccountability(groupId: string): Promise<{
     sharing: Map<string, StoredSharing>;
     consents: Map<string, StoredConsent>;
+    alertTypes: Map<string, StoredAlertTypes>;
   }>;
+  /** Replaces the caller's own installation-alert choices in the group. */
+  setAlertTypes(
+    groupId: string,
+    userId: string,
+    prefs: StoredAlertTypes,
+    at: string,
+  ): Promise<AccountabilityWrite>;
+
+  /** Enrols a browser for a group the user is a live member of; `dueAt` starts the silence clock. */
+  createInstallation(input: {
+    userId: string;
+    installationId: string;
+    groupId: string;
+    tokenHash: string;
+    now: string;
+    dueAt: string;
+  }): Promise<'created' | 'not_member'>;
+  getInstallation(userId: string, installationId: string): Promise<StoredInstallation | null>;
+  /** Records a check-in and moves the silence deadline; clears an earlier inactivity alert. */
+  checkInInstallation(
+    userId: string,
+    installationId: string,
+    now: string,
+    dueAt: string,
+  ): Promise<'ok' | 'not_found'>;
+  /** Forgets an installation and its token (sign-out, turned off, revoked). */
+  deleteInstallation(userId: string, installationId: string): Promise<void>;
+  /** The installation behind an uninstall-URL token, if the token is known. */
+  findInstallationByToken(tokenHash: string): Promise<StoredInstallation | null>;
+  /**
+   * Marks an active installation as removed (once: a repeated callback changes nothing), takes it
+   * out of the inactivity scan and writes the removal alert, all in one transaction.
+   */
+  markInstallationRemoved(
+    installation: StoredInstallation,
+    now: string,
+    outbox: OutboxItem | undefined,
+  ): Promise<'removed' | 'already'>;
+  /** Active installations whose silence deadline has passed, oldest first. */
+  listDueInstallations(now: string, limit: number): Promise<DueInstallation[]>;
+  /**
+   * Records the inactivity alert for one silent period (outbox item written with it) unless the
+   * installation checked in or was removed since it was found.
+   */
+  markInstallationInactive(
+    installation: DueInstallation,
+    now: string,
+    outbox: OutboxItem | undefined,
+  ): Promise<'marked' | 'changed'>;
   /**
    * Trigger A (§7.1): atomically records the event ID (idempotency), starts the member's cooldown
    * for the group, checks live membership and writes the outbox item.

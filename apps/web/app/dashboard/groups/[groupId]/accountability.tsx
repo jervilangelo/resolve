@@ -7,13 +7,17 @@
 
 'use client';
 
-import type { AccountabilityView, SharingMode } from '@resolve/contracts';
+import {
+  type AccountabilityView,
+  INACTIVITY_GRACE_HOURS,
+  type SharingMode,
+} from '@resolve/contracts';
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
-import { saveSharing, setAcceptAll, setSenderConsent } from './actions';
+import { saveSharing, setAcceptAll, setAlertType, setSenderConsent } from './actions';
 
 interface Person {
   userId: string;
@@ -385,6 +389,84 @@ function ReceivingForm({ groupId, view }: { groupId: string; view: Accountabilit
   );
 }
 
+const ALERT_TYPES = [
+  {
+    type: 'removal',
+    label: 'Resolve removed from a browser',
+    hint: 'When Resolve is removed from one of your enrolled browsers.',
+  },
+  {
+    type: 'inactivity',
+    label: 'Resolve stopped checking in',
+    hint: `When an enrolled browser has not checked in for ${String(INACTIVITY_GRACE_HOURS)} hours.`,
+  },
+] as const;
+
+/** Installation alerts (§7.4): off by default on both sides, chosen per type. */
+function InstallAlertsForm({ groupId, view }: { groupId: string; view: AccountabilityView }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function toggle(side: 'share' | 'receive', type: 'removal' | 'inactivity', on: boolean) {
+    setError(null);
+    start(async () => {
+      const result = await setAlertType(groupId, side, type, on);
+      if (result.error) setError(result.error);
+    });
+  }
+
+  const column = (side: 'share' | 'receive', title: string, note: string) => (
+    <fieldset className="bg-card space-y-2 rounded-xl border p-3.5 text-sm" disabled={pending}>
+      <legend className="sr-only">{title}</legend>
+      <p className="font-medium">{title}</p>
+      <p className="text-muted-foreground text-xs">{note}</p>
+      {ALERT_TYPES.map(({ type, label, hint }) => (
+        <label key={type} className="flex cursor-pointer gap-3 pt-1">
+          <input
+            type="checkbox"
+            className="accent-foreground mt-0.5 size-4"
+            checked={view.alertTypes[side][type]}
+            onChange={(event) => {
+              toggle(side, type, event.target.checked);
+            }}
+          />
+          <span>
+            {label}
+            <span className="text-muted-foreground block text-xs">{hint}</span>
+          </span>
+        </label>
+      ))}
+    </fieldset>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {column(
+          'share',
+          'Share with my partners',
+          view.sharing.mode === 'PRIVATE'
+            ? 'Your alerts are off, so nothing is sent until you turn them on above.'
+            : 'Sent to the same partners as your other alerts, once they agree.',
+        )}
+        {column(
+          'receive',
+          'Receive from people I receive alerts from',
+          'Only from members whose alerts you already agreed to receive.',
+        )}
+      </div>
+      <p className="text-muted-foreground text-xs">
+        A browser takes part only after its owner turns on “Tell my partners if Resolve is removed
+        or stops checking in” in the extension’s settings. Alerts give the person’s name, what
+        happened and when; never a website. A browser that stops checking in may simply be closed,
+        asleep or offline, and a removal made while offline is only noticed later, so treat these as
+        a reason to check in with someone, not as proof.
+      </p>
+      <ProblemText message={error} />
+    </div>
+  );
+}
+
 export function AccountabilityPanel({
   groupId,
   view,
@@ -403,6 +485,10 @@ export function AccountabilityPanel({
       <div className="space-y-3">
         <h3 className="font-semibold">Alerts from others</h3>
         <ReceivingForm groupId={groupId} view={view} />
+      </div>
+      <div className="space-y-3">
+        <h3 className="font-semibold">Removal and check-in alerts</h3>
+        <InstallAlertsForm groupId={groupId} view={view} />
       </div>
     </div>
   );

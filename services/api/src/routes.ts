@@ -14,6 +14,12 @@ import {
   type OutboxItem,
   navigationEventRequestSchema,
   ACCOUNTABILITY_CHANGES_PER_HOUR,
+  type AlertTypePrefs,
+  type CreatedInstallation,
+  createInstallationRequestSchema,
+  installationIdSchema,
+  installationRemovedRequestSchema,
+  updateAlertTypesRequestSchema,
   type AccountabilityView,
   updateReceivingRequestSchema,
   updateSharingRequestSchema,
@@ -58,6 +64,12 @@ import {
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import type { z } from 'zod';
 import { accountabilityView, eligibleRecipients } from './accountability';
+import {
+  installationOutbox,
+  newInstallationId,
+  newInstallationToken,
+  silenceDeadline,
+} from './installations';
 import { requireIdentity } from './auth';
 import type { ApiEnv } from './env';
 import { ApiError, type Route } from './http';
@@ -116,6 +128,13 @@ function pathGroupId(event: APIGatewayProxyEventV2): string {
   if (!result.success) throw new ApiError('NOT_FOUND');
   return result.data;
 }
+
+/** Routes authorised by something other than a sign-in token (none, or an installation token). */
+const TOKEN_ROUTES = new Set([
+  'GET /v1/health',
+  'POST /v1/installations/removed',
+  'POST /v1/installations/revoke',
+]);
 
 /** Routes keyed by API Gateway route key; identical keys are declared in Terraform. */
 export function createRoutes(deps: RouteDeps): Record<string, Route> {
@@ -565,6 +584,99 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
       return ownView(groupId, userId);
     },
 
+    'PUT /v1/groups/{groupId}/accountability/alert-types': async (event) => {
+      // The caller's own installation-alert choices (§7.4): which types they share, and which
+      // they agree to receive. Off by default; unspecified choices stay as they are.
+      const { groupId, userId } = await requireMember(event);
+      const input = parseBody(event, updateAlertTypesRequestSchema);
+      const current = (await ownView(groupId, userId)).body.alertTypes;
+      const next: AlertTypePrefs = {
+        share: { ...current.share, ...input.share },
+        receive: { ...current.receive, ...input.receive },
+      };
+      if (JSON.stringify(next) === JSON.stringify(current)) return ownView(groupId, userId);
+      await chargeAccountabilityChange(userId);
+      const result = await store.setAlertTypes(groupId, userId, next, now().toISOString());
+      if (result === 'not_allowed') throw new ApiError('NOT_FOUND');
+      return ownView(groupId, userId);
+    },
+
+    'POST /v1/extension/installations': async (event) => {
+      // Enrols this browser for installation alerts (§7.4); only the extension can do this.
+      const { userId, clientId } = identity(event);
+      if (!env.RULES_CLIENT_IDS.includes(clientId)) throw new ApiError('FORBIDDEN');
+      const { groupId } = parseBody(event, createInstallationRequestSchema);
+      if (!(await liveMembership(groupId, userId))) throw new ApiError('NOT_FOUND');
+      const at = now();
+      const token = newInstallationToken();
+      const body: CreatedInstallation = { installationId: newInstallationId(), token };
+      const created = await store.createInstallation({
+        userId,
+        installationId: body.installationId,
+        groupId,
+        tokenHash: hashToken(token),
+        now: at.toISOString(),
+        dueAt: silenceDeadline(at),
+      });
+      if (created === 'not_member') throw new ApiError('NOT_FOUND');
+      return { status: 201, body };
+    },
+
+    'POST /v1/extension/installations/{installationId}/checkin': async (event) => {
+      const { userId, clientId } = identity(event);
+      if (!env.RULES_CLIENT_IDS.includes(clientId)) throw new ApiError('FORBIDDEN');
+      const id = installationIdSchema.safeParse(event.pathParameters?.installationId);
+      if (!id.success) throw new ApiError('NOT_FOUND');
+      const installation = await store.getInstallation(userId, id.data);
+      if (installation?.status !== 'ACTIVE') throw new ApiError('NOT_FOUND');
+      // Left the group: the enrolment ends with it (the extension enrols again for a new group).
+      if (!(await liveMembership(installation.groupId, userId))) {
+        await store.deleteInstallation(userId, id.data);
+        throw new ApiError('NOT_FOUND');
+      }
+      const at = now();
+      const result = await store.checkInInstallation(
+        userId,
+        id.data,
+        at.toISOString(),
+        silenceDeadline(at),
+      );
+      if (result === 'not_found') throw new ApiError('NOT_FOUND');
+      return { status: 204, body: undefined };
+    },
+
+    'POST /v1/installations/revoke': async (event) => {
+      // Sign-out, alerts turned off or a group switch. The installation's own token is the
+      // credential, so the extension can still revoke (and retry) after the sign-in has ended.
+      const { token } = parseBody(event, installationRemovedRequestSchema);
+      const installation = await store.findInstallationByToken(hashToken(token));
+      if (installation?.status === 'ACTIVE') {
+        await store.deleteInstallation(installation.userId, installation.installationId);
+      }
+      return { status: 204, body: undefined };
+    },
+
+    'POST /v1/installations/removed': async (event) => {
+      // The uninstall-URL callback, relayed by the website. The token is the only credential: the
+      // extension is gone and cannot sign in. Every request gets the same answer (no oracle).
+      const accepted = { status: 202, body: EVENT_RECEIVED_RESPONSE };
+      const { token } = parseBody(event, installationRemovedRequestSchema);
+      const installation = await store.findInstallationByToken(hashToken(token));
+      if (installation?.status !== 'ACTIVE') return accepted;
+      if (await store.isDeleted(installation.userId)) return accepted;
+      const at = now();
+      const outbox = await installationOutbox(
+        store,
+        installation,
+        'EXTENSION_REMOVED',
+        at.toISOString(),
+        at,
+      );
+      // A repeated callback finds the installation already removed and changes nothing.
+      await store.markInstallationRemoved(installation, at.toISOString(), outbox);
+      return accepted;
+    },
+
     'POST /v1/groups/{groupId}/leave': async (event) => {
       const { groupId, userId, group } = await requireMember(event);
       const result = await depart(groupId, group.name, userId, userId);
@@ -784,7 +896,7 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
   return Object.fromEntries(
     Object.entries(routes).map(([key, route]): [string, Route] => [
       key,
-      key === 'GET /v1/health'
+      TOKEN_ROUTES.has(key)
         ? route
         : async (event, context) => {
             if (await store.isDeleted(identity(event).userId)) {

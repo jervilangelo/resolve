@@ -10,8 +10,10 @@ import { defineBackground } from 'wxt/utils/define-background';
 import { createAccount } from '@/lib/account';
 import { createAuth } from '@/lib/auth';
 import { config } from '@/lib/config';
+import { CHECK_IN_INTERVAL_MINUTES } from '@resolve/contracts';
 import { z } from 'zod';
 import { ALL_FOCUS_PATTERNS, FOCUS_PAGE, type FocusRule, createFocus } from '@/lib/focus';
+import { createInstallation } from '@/lib/installation';
 import { createFilterController } from '@/lib/media/controller';
 import { createMediaEngine } from '@/lib/media/engine';
 import {
@@ -72,6 +74,38 @@ const protection =
     now: () => Date.now(),
   });
 if (account && protection) account.attachProtection(protection);
+
+/** Installation alerts (§7.4): removal reported through the uninstall URL, and check-ins. */
+const apiUrl = config?.apiUrl ?? '';
+const installation =
+  config &&
+  auth &&
+  account &&
+  createInstallation({
+    store: privateStore,
+    session: async () => {
+      const session = await auth.session();
+      return session ? { sid: session.sid, activeGroupId: session.activeGroupId ?? null } : null;
+    },
+    authed: account.authed,
+    post: async (path, body) => {
+      try {
+        const res = await fetch(new URL(path, apiUrl), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    },
+    setUninstallURL: (url) => browser.runtime.setUninstallURL(url),
+    dashboardUrl: config.dashboardUrl,
+    now: () => Date.now(),
+  });
+if (account && installation) account.attachInstallation(installation);
+const CHECK_IN_ALARM = 'installation-checkin';
 
 const ALERT_COOLDOWNS = 'alertCooldowns';
 
@@ -355,6 +389,9 @@ const handlers: {
   'account/signOut': () => account?.signOut() ?? Promise.resolve(unconfigured),
   'protection/retry': () => account?.retryProtection() ?? Promise.resolve(unconfigured),
   'alerts/get': () => alertsStatus(),
+  'installAlerts/get': () => installation?.status() ?? Promise.resolve({ state: 'off' as const }),
+  'installAlerts/set': (request) =>
+    installation?.setEnabled(request.on) ?? Promise.resolve({ state: 'off' as const }),
   'group/setActive': (request) =>
     account?.setActiveGroup(request.groupId) ?? Promise.resolve(unconfigured),
   'filter/get': () => filter.state(),
@@ -418,6 +455,26 @@ export default defineBackground(() => {
     });
     browser.runtime.onStartup.addListener(() => void account.syncActive());
     browser.runtime.onInstalled.addListener(() => void account.syncActive());
+  }
+
+  if (installation) {
+    // Check-ins tell the server this browser still runs Resolve; harmless when not enrolled.
+    void browser.alarms.get(CHECK_IN_ALARM).then(async (existing) => {
+      if (!existing) {
+        await browser.alarms.create(CHECK_IN_ALARM, {
+          periodInMinutes: CHECK_IN_INTERVAL_MINUTES,
+          delayInMinutes: 1,
+        });
+      }
+    });
+    browser.alarms.onAlarm.addListener((alarm) => {
+      if (alarm.name === CHECK_IN_ALARM) void installation.checkIn().catch(() => undefined);
+    });
+    // Every worker start (browser start, re-enabled, updated) checks in if the last one is older
+    // than half an interval, so a browser that was closed or a re-enabled extension resumes at once.
+    void installation
+      .checkIn({ ifOlderThanMs: (CHECK_IN_INTERVAL_MINUTES / 2) * 60_000 })
+      .catch(() => undefined);
   }
 
   // Blocked-visit alerts start as soon as the user grants the optional permission.

@@ -24,6 +24,8 @@ export const requestSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('group/setActive'), groupId: groupIdSchema.nullable() }),
   z.strictObject({ type: z.literal('filter/get') }),
   z.strictObject({ type: z.literal('alerts/get') }),
+  z.strictObject({ type: z.literal('installAlerts/get') }),
+  z.strictObject({ type: z.literal('installAlerts/set'), on: z.boolean() }),
   z.strictObject({ type: z.literal('filter/set'), settings: filterSettingsSchema }),
   z.strictObject({ type: z.literal('focus/get') }),
   z.strictObject({
@@ -141,6 +143,17 @@ export const alertsStatusSchema = z.discriminatedUnion('state', [
 ]);
 export type AlertsStatus = z.infer<typeof alertsStatusSchema>;
 
+/** Installation alerts (removal and inactivity): `on` once this browser is enrolled. */
+export const installAlertsStatusSchema = z.discriminatedUnion('state', [
+  z.strictObject({ state: z.literal('off') }),
+  z.strictObject({ state: z.literal('on'), lastCheckInAt: z.number().nullable() }),
+  z.strictObject({
+    state: z.literal('inactive'),
+    reason: z.enum(['signedOut', 'noGroup', 'offline']),
+  }),
+]);
+export type InstallAlertsStatusMessage = z.infer<typeof installAlertsStatusSchema>;
+
 /** Focus Mode as the popup and options page show it: the settings and what is enforced. */
 export const focusStateSchema = z.strictObject({
   settings: focusSettingsSchema,
@@ -159,6 +172,8 @@ export interface ResponseMap {
   'group/setActive': AccountState;
   'filter/get': FilterStateMessage;
   'alerts/get': AlertsStatus;
+  'installAlerts/get': InstallAlertsStatusMessage;
+  'installAlerts/set': InstallAlertsStatusMessage;
   'filter/set': FilterStateMessage;
   'focus/get': z.infer<typeof focusStateSchema>;
   'focus/start': z.infer<typeof focusStateSchema>;
@@ -175,6 +190,8 @@ export const responseSchemas = {
   'group/setActive': accountStateSchema,
   'filter/get': filterStateSchema,
   'alerts/get': alertsStatusSchema,
+  'installAlerts/get': installAlertsStatusSchema,
+  'installAlerts/set': installAlertsStatusSchema,
   'filter/set': filterStateSchema,
   'focus/get': focusStateSchema,
   'focus/start': focusStateSchema,

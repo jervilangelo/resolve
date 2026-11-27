@@ -106,6 +106,22 @@ const deps: DeliveryDeps = {
     }
     return { acceptAll: item.acceptAll === true, senders };
   },
+  async getAlertTypes(groupId, userId) {
+    const parsed = z
+      .object({
+        shareRemoval: z.boolean().default(false),
+        shareInactivity: z.boolean().default(false),
+        receiveRemoval: z.boolean().default(false),
+        receiveInactivity: z.boolean().default(false),
+      })
+      .safeParse(await get(`GROUP#${groupId}`, `ALERTPREF#${userId}`));
+    if (!parsed.success) return null;
+    const p = parsed.data;
+    return {
+      share: { removal: p.shareRemoval, inactivity: p.shareInactivity },
+      receive: { removal: p.receiveRemoval, inactivity: p.receiveInactivity },
+    };
+  },
   async claim(outboxId, recipientId) {
     const nowSeconds = Math.floor(Date.now() / 1000);
     try {

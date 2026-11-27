@@ -104,8 +104,9 @@ blurring stays in the extension.
 If intent cannot be established, block without notifying. A separate opt-in "blocked connection"
 alert category could be evaluated later, with its own wording ("an automatic connection may have
 caused this"), consent, retention and schema; it must never silently reuse the existing trigger.
-Group departure alerts stay unchanged; no alerts for downtime, uninstall, extension disable,
-blurring, Focus Mode or ordinary DNS traffic without a separate decision.
+Group departure alerts stay unchanged; the extension's opt-in removal and inactivity alerts
+(MASTER_PLAN §7.4) could later cover the desktop service too, but no alerts for blurring, Focus
+Mode or ordinary DNS traffic without a separate decision.
 
 **Eligible desktop event flow (browser-aware source only):** verify the source and policy version;
 reject uncertain or automatic cases; send a minimal authenticated event to a dedicated route (no

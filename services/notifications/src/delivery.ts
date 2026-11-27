@@ -6,7 +6,9 @@
  */
 
 import {
+  type AlertTypePrefs,
   type ConsentRecord,
+  NO_ALERT_TYPES,
   MAX_ALERTS_PER_RECIPIENT_PER_HOUR,
   NO_CONSENT,
   type OutboxItem,
@@ -42,6 +44,8 @@ export interface DeliveryDeps {
   getMembership(groupId: string, userId: string): Promise<{ joinedAt: string } | null>;
   getSharing(groupId: string, userId: string): Promise<SharingRecord | null>;
   getConsent(groupId: string, userId: string): Promise<ConsentRecord | null>;
+  /** The member's installation-alert choices (§7.4); null when never set (all off). */
+  getAlertTypes(groupId: string, userId: string): Promise<AlertTypePrefs | null>;
   /**
    * Claims the (outbox, recipient) pair; false if it was already handled or is in progress. A claim
    * left behind by a run that died (timeout, crash) can be taken over once it is stale.
@@ -106,7 +110,23 @@ async function eligibility(
 
   const consent = (await deps.getConsent(item.groupId, recipientId)) ?? NO_CONSENT;
   const sender = { userId: item.senderId, joinedAt: item.senderJoinedAt };
-  return consentsTo(consent, sender) ? null : 'no_consent';
+  if (!consentsTo(consent, sender)) return 'no_consent';
+
+  // Installation alerts (§7.4): the sender must still share this type, and the recipient must
+  // still have agreed to receive it.
+  const type =
+    item.kind === 'EXTENSION_REMOVED'
+      ? 'removal'
+      : item.kind === 'EXTENSION_INACTIVE'
+        ? 'inactivity'
+        : null;
+  if (type) {
+    const senderTypes = (await deps.getAlertTypes(item.groupId, item.senderId)) ?? NO_ALERT_TYPES;
+    if (!senderTypes.share[type]) return 'not_shared';
+    const recipientTypes = (await deps.getAlertTypes(item.groupId, recipientId)) ?? NO_ALERT_TYPES;
+    if (!recipientTypes.receive[type]) return 'no_consent';
+  }
+  return null;
 }
 
 export interface DeliveryResult {

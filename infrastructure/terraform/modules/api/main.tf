@@ -36,7 +36,17 @@ locals {
     "PUT /v1/groups/{groupId}/accountability/receiving"           = true
     "PUT /v1/groups/{groupId}/accountability/senders/{userId}"    = true
     "DELETE /v1/groups/{groupId}/accountability/senders/{userId}" = true
+    "PUT /v1/groups/{groupId}/accountability/alert-types"         = true
+    "POST /v1/extension/installations"                            = true
+    "POST /v1/extension/installations/{installationId}/checkin"   = true
+    # Installation-token routes (§7.4): the extension may already be removed or signed out, so the
+    # random installation token in the body is the credential, checked by the function.
+    "POST /v1/installations/removed" = false
+    "POST /v1/installations/revoke"  = false
   }
+
+  # The scheduled inactivity check is bundled next to the API (services/api/dist/<handler>).
+  inactivity_source_dir = "${dirname(var.source_dir)}/inactivity"
 }
 
 # Only what the current routes use, scoped by partition-key prefix; widen together with new routes.
@@ -126,6 +136,24 @@ data "aws_iam_policy_document" "table_access" {
     }
   }
   statement {
+    # Installation alerts (§7.4): an enrolled browser and its uninstall-token pointer are written,
+    # read and deleted together (the pointer lives in its own partition).
+    sid = "InstallationItems"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:BatchWriteItem",
+    ]
+    resources = [var.table_arn]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["USER#*", "INSTALLTOKEN#*"]
+    }
+  }
+  statement {
     sid       = "DeleteOwnAccount"
     actions   = ["cognito-idp:AdminDeleteUser"]
     resources = [var.user_pool_arn]
@@ -192,7 +220,7 @@ resource "aws_apigatewayv2_integration" "lambda" {
 }
 
 resource "aws_apigatewayv2_route" "this" {
-  #checkov:skip=CKV_AWS_309:Only GET /v1/health is unauthenticated (by design); every other route uses the JWT authorizer.
+  #checkov:skip=CKV_AWS_309:Health and the two installation-token routes are unauthenticated by design (the token in the body is checked by the function); every other route uses the JWT authorizer.
   for_each           = local.routes
   api_id             = aws_apigatewayv2_api.this.id
   route_key          = each.key
@@ -235,4 +263,76 @@ resource "aws_lambda_permission" "api" {
   function_name = module.function.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.this.execution_arn}/*/*"
+}
+
+# ---- Scheduled inactivity check (§7.4) ------------------------------------------------------------
+
+# Reads overdue installations, the group's members and choices; writes the alert with the mark.
+data "aws_iam_policy_document" "inactivity_access" {
+  statement {
+    sid       = "QueryDueInstallations"
+    actions   = ["dynamodb:Query"]
+    resources = ["${var.table_arn}/index/GSI1"]
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["INSTALL_DUE"]
+    }
+  }
+  statement {
+    sid       = "ReadGroupsAndProfiles"
+    actions   = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:BatchGetItem"]
+    resources = [var.table_arn]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["GROUP#*", "USER#*"]
+    }
+  }
+  statement {
+    sid       = "MarkInstallationAndWriteAlert"
+    actions   = ["dynamodb:UpdateItem", "dynamodb:PutItem"]
+    resources = [var.table_arn]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["USER#*", "OUTBOX#*"]
+    }
+  }
+}
+
+module "inactivity" {
+  source               = "../lambda"
+  permissions_boundary = var.permissions_boundary
+  name                 = "${var.name_prefix}-inactivity"
+  source_dir           = local.inactivity_source_dir
+  policy_json          = data.aws_iam_policy_document.inactivity_access.json
+  log_retention_days   = var.log_retention_days
+  timeout              = 60
+  environment = {
+    STAGE      = var.stage
+    LOG_LEVEL  = "info"
+    TABLE_NAME = var.table_name
+  }
+}
+
+# Hourly: with a 72-hour grace period, an alert goes out between 72 and 73 hours after the last
+# check-in (contracts: INACTIVITY_GRACE_HOURS, INACTIVITY_SCAN_INTERVAL_MINUTES).
+resource "aws_cloudwatch_event_rule" "inactivity" {
+  name                = "${var.name_prefix}-inactivity-check"
+  description         = "Resolve: alert partners about enrolled browsers that stopped checking in"
+  schedule_expression = "rate(1 hour)"
+}
+
+resource "aws_cloudwatch_event_target" "inactivity" {
+  rule = aws_cloudwatch_event_rule.inactivity.name
+  arn  = module.inactivity.function_arn
+}
+
+resource "aws_lambda_permission" "inactivity" {
+  statement_id  = "AllowHourlyInactivityCheck"
+  action        = "lambda:InvokeFunction"
+  function_name = module.inactivity.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.inactivity.arn
 }

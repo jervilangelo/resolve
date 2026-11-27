@@ -18,6 +18,7 @@ import {
 import type { z } from 'zod';
 import { type Auth, TransientAuthError } from './auth';
 import type { ExtensionConfig } from './config';
+import type { AuthedRequest } from './installation';
 import type { AccountState, GroupOption } from './messages';
 import type { Protection } from './protection';
 
@@ -36,9 +37,14 @@ class SignedOutError extends Error {}
 /** Account state and the per-installation active group, backed by the Resolve API. */
 export function createAccount(config: ExtensionConfig, auth: Auth, platform: AccountPlatform) {
   let protection: Pick<Protection, 'sync' | 'status'> | null = null;
-  /** Reconciles rules with the current active group; failures surface in the status. */
+  let installation: { sync(): Promise<void> } | null = null;
+  /**
+   * Reconciles rules (and the installation-alert enrolment) with the current sign-in and active
+   * group; failures surface in the status.
+   */
   const syncProtection = async () => {
     await protection?.sync().catch(() => undefined);
+    await installation?.sync().catch(() => undefined);
   };
   /** GET from the API; null for 404. Throws SignedOutError or TransientAuthError. */
   async function api<T extends z.ZodType>(path: string, schema: T): Promise<z.infer<T> | null> {
@@ -172,6 +178,37 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
     attachProtection(next: Pick<Protection, 'sync' | 'status'>) {
       protection = next;
     },
+
+    attachInstallation(next: { sync(): Promise<void> }) {
+      installation = next;
+    },
+
+    /** An authenticated JSON call for one sign-in (installation alerts); never for another. */
+    authed: (async (method, path, body, sid) => {
+      let access: Awaited<ReturnType<Auth['accessToken']>>;
+      try {
+        access = await auth.accessToken();
+      } catch {
+        return 'offline';
+      }
+      if (access?.sid !== sid) return 'signedOut';
+      try {
+        const res = await platform.fetch(new URL(path, config.apiUrl), {
+          method,
+          headers: { authorization: `Bearer ${access.token}`, 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (res.status === 401) {
+          await auth.signOut(access.sid);
+          return 'signedOut';
+        }
+        if (res.status >= 500 || res.status === 429) return 'offline';
+        const json: unknown = res.status === 201 ? await res.json().catch(() => null) : null;
+        return { status: res.status, json };
+      } catch {
+        return 'offline';
+      }
+    }) satisfies AuthedRequest,
 
     /** Rule snapshot for the extension's own enforcement (served only to this client). */
     async fetchRules(

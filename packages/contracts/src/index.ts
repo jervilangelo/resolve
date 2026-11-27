@@ -12,4 +12,5 @@ export * from './env';
 export * from './errors';
 export * from './events';
 export * from './health';
+export * from './installations';
 export * from './outbox';

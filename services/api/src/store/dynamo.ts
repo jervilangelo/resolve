@@ -43,6 +43,7 @@ import {
   type StoredProfile,
   type StoredConsent,
   type StoredSharing,
+  type StoredAlertTypes,
 } from './store';
 
 /**
@@ -64,6 +65,10 @@ import {
  *   USER#<sub>   COOLDOWN#<groupId>           Trigger A per-member cooldown (TTL)
  *   OUTBOX#<id>  OUTBOX                       notification outbox (relayed from the stream)
  *   DELIVERY#<outboxId>  <recipientSub>       per-recipient delivery state (worker; TTL 30 days)
+ *   GROUP#<id>   ALERTPREF#<sub>              the member's installation-alert choices (§7.4)
+ *   USER#<sub>   INSTALL#<installationId>     enrolled browser; while active and not yet alerted,
+ *                                             GSI1 = INSTALL_DUE / <dueAt>#<sub>#<installationId>
+ *   INSTALLTOKEN#<sha256(token)>  INSTALLTOKEN  uninstall-URL token pointer to the installation
  */
 export const keys = {
   user: (userId: string) => `USER#${userId}`,
@@ -80,7 +85,33 @@ export const keys = {
   event: (eventId: string) => `EVENT#${eventId}`,
   cooldown: (groupId: string) => `COOLDOWN#${groupId}`,
   consent: (userId: string) => `CONSENT#${userId}`,
+  alertTypes: (userId: string) => `ALERTPREF#${userId}`,
+  installation: (installationId: string) => `INSTALL#${installationId}`,
+  installToken: (tokenHash: string) => `INSTALLTOKEN#${tokenHash}`,
 };
+
+/** GSI1 partition for installations waiting for their silence deadline (sparse). */
+const INSTALL_DUE = 'INSTALL_DUE';
+/** Removed installations and their token pointers are kept this long (repeated callbacks). */
+const REMOVED_INSTALL_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+const alertTypesItemSchema = z.object({
+  SK: z.string(),
+  shareRemoval: z.boolean().default(false),
+  shareInactivity: z.boolean().default(false),
+  receiveRemoval: z.boolean().default(false),
+  receiveInactivity: z.boolean().default(false),
+});
+const installationItemSchema = z.object({
+  installationId: z.string(),
+  userId: z.string(),
+  groupId: z.string(),
+  tokenHash: z.string(),
+  status: z.enum(['ACTIVE', 'REMOVED']),
+  createdAt: z.string(),
+  lastCheckInAt: z.string(),
+  GSI1SK: z.string().optional(),
+});
 
 /** Consent items hold one attribute per accepted sender: `from_<senderId>` = accepted at. */
 const CONSENT_SENDER_PREFIX = 'from_';
@@ -920,6 +951,12 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
           Key: { PK: keys.group(groupId), SK: keys.consent(userId) },
         },
       });
+      items.push({
+        Delete: {
+          TableName: tableName,
+          Key: { PK: keys.group(groupId), SK: keys.alertTypes(userId) },
+        },
+      });
       // Trigger B: the departure alert commits with the membership change, or not at all.
       if (departure) items.push(outboxPut(departure.outbox));
       try {
@@ -1387,6 +1424,14 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         );
         start = page.LastEvaluatedKey;
       } while (start);
+      // Enrolled browsers: their uninstall-URL token pointers live outside the user partition.
+      for (const key of [...keysToDelete]) {
+        if (typeof key.SK !== 'string' || !key.SK.startsWith('INSTALL#')) continue;
+        const parsed = installationItemSchema.safeParse(await getItem(String(key.PK), key.SK));
+        if (parsed.success) {
+          keysToDelete.push({ PK: keys.installToken(parsed.data.tokenHash), SK: 'INSTALLTOKEN' });
+        }
+      }
       await batchDelete(keysToDelete);
       // Tokens issued before deletion stay valid for up to an hour; this marker makes the API
       // refuse them so nothing is recreated for a deleted account.
@@ -1408,10 +1453,21 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
     },
 
     async getAccountability(groupId) {
-      const [sharingItems, consentItems] = await Promise.all([
+      const [sharingItems, consentItems, alertTypeItems] = await Promise.all([
         queryPrefix(groupId, 'SHARE#'),
         queryPrefix(groupId, 'CONSENT#'),
+        queryPrefix(groupId, 'ALERTPREF#'),
       ]);
+      const alertTypes = new Map<string, StoredAlertTypes>();
+      for (const item of alertTypeItems) {
+        const parsed = alertTypesItemSchema.safeParse(item);
+        if (!parsed.success) continue;
+        const p = parsed.data;
+        alertTypes.set(p.SK.slice('ALERTPREF#'.length), {
+          share: { removal: p.shareRemoval, inactivity: p.shareInactivity },
+          receive: { removal: p.receiveRemoval, inactivity: p.receiveInactivity },
+        });
+      }
       const sharing = new Map<string, StoredSharing>();
       for (const item of sharingItems) {
         const parsed = sharingItemSchema.safeParse(item);
@@ -1434,7 +1490,7 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
           senders,
         });
       }
-      return { sharing, consents };
+      return { sharing, consents, alertTypes };
     },
 
     async setSharing(groupId, userId, mode, recipientIds, at) {
@@ -1491,6 +1547,238 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         },
         consentAuditPut(groupId, recipientId, at, { action: 'SENDER_CONSENT', senderId, accepted }),
       ]);
+    },
+
+    async setAlertTypes(groupId, userId, prefs, at) {
+      return ownWrite(groupId, userId, [
+        {
+          Put: {
+            TableName: tableName,
+            Item: {
+              PK: keys.group(groupId),
+              SK: keys.alertTypes(userId),
+              type: 'AlertTypes',
+              shareRemoval: prefs.share.removal,
+              shareInactivity: prefs.share.inactivity,
+              receiveRemoval: prefs.receive.removal,
+              receiveInactivity: prefs.receive.inactivity,
+              updatedAt: at,
+            },
+          },
+        },
+        consentAuditPut(groupId, userId, at, {
+          action: 'ALERT_TYPES',
+          shareRemoval: prefs.share.removal,
+          shareInactivity: prefs.share.inactivity,
+          receiveRemoval: prefs.receive.removal,
+          receiveInactivity: prefs.receive.inactivity,
+        }),
+      ]);
+    },
+
+    async createInstallation({ userId, installationId, groupId, tokenHash, now, dueAt }) {
+      try {
+        await transact([
+          {
+            Put: {
+              TableName: tableName,
+              Item: {
+                PK: keys.user(userId),
+                SK: keys.installation(installationId),
+                type: 'Installation',
+                installationId,
+                userId,
+                groupId,
+                tokenHash,
+                status: 'ACTIVE',
+                createdAt: now,
+                lastCheckInAt: now,
+                GSI1PK: INSTALL_DUE,
+                GSI1SK: `${dueAt}#${userId}#${installationId}`,
+              },
+              ConditionExpression: 'attribute_not_exists(PK)',
+            },
+          },
+          {
+            Put: {
+              TableName: tableName,
+              Item: {
+                PK: keys.installToken(tokenHash),
+                SK: 'INSTALLTOKEN',
+                type: 'InstallationToken',
+                userId,
+                installationId,
+              },
+              ConditionExpression: 'attribute_not_exists(PK)',
+            },
+          },
+          ...liveMemberChecks(groupId, userId),
+        ]);
+        return 'created';
+      } catch (error) {
+        const codes = cancellationCodes(error);
+        if (codes?.[2] === 'ConditionalCheckFailed' || codes?.[3] === 'ConditionalCheckFailed') {
+          return 'not_member';
+        }
+        throw error;
+      }
+    },
+
+    async getInstallation(userId, installationId) {
+      const parsed = installationItemSchema.safeParse(
+        await getItem(keys.user(userId), keys.installation(installationId)),
+      );
+      if (!parsed.success) return null;
+      const { tokenHash: _hash, GSI1SK: _due, ...installation } = parsed.data;
+      return installation;
+    },
+
+    async checkInInstallation(userId, installationId, now, dueAt) {
+      try {
+        await db.send(
+          new UpdateCommand({
+            TableName: tableName,
+            Key: { PK: keys.user(userId), SK: keys.installation(installationId) },
+            // Back in the scan with a new deadline: a resumed browser can alert again later.
+            UpdateExpression:
+              'SET lastCheckInAt = :now, GSI1PK = :due, GSI1SK = :sk REMOVE inactiveNotifiedAt',
+            ConditionExpression: '#status = :active',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: {
+              ':now': now,
+              ':due': INSTALL_DUE,
+              ':sk': `${dueAt}#${userId}#${installationId}`,
+              ':active': 'ACTIVE',
+            },
+          }),
+        );
+        return 'ok';
+      } catch (error) {
+        if (error instanceof ConditionalCheckFailedException) return 'not_found';
+        throw error;
+      }
+    },
+
+    async deleteInstallation(userId, installationId) {
+      const parsed = installationItemSchema.safeParse(
+        await getItem(keys.user(userId), keys.installation(installationId)),
+      );
+      if (!parsed.success) return;
+      await batchDelete([
+        { PK: keys.user(userId), SK: keys.installation(installationId) },
+        { PK: keys.installToken(parsed.data.tokenHash), SK: 'INSTALLTOKEN' },
+      ]);
+    },
+
+    async findInstallationByToken(tokenHash) {
+      const ref = z
+        .object({ userId: z.string(), installationId: z.string() })
+        .safeParse(await getItem(keys.installToken(tokenHash), 'INSTALLTOKEN'));
+      if (!ref.success) return null;
+      const parsed = installationItemSchema.safeParse(
+        await getItem(keys.user(ref.data.userId), keys.installation(ref.data.installationId)),
+      );
+      if (!parsed.success) return null;
+      const { tokenHash: _hash, GSI1SK: _due, ...installation } = parsed.data;
+      return installation;
+    },
+
+    async markInstallationRemoved(installation, now, outbox) {
+      const ttl = Math.floor(Date.parse(now) / 1000) + REMOVED_INSTALL_TTL_SECONDS;
+      const key = {
+        PK: keys.user(installation.userId),
+        SK: keys.installation(installation.installationId),
+      };
+      const current = installationItemSchema.safeParse(await getItem(key.PK, key.SK));
+      if (!current.success || current.data.status !== 'ACTIVE') return 'already';
+      try {
+        await transact([
+          {
+            Update: {
+              TableName: tableName,
+              Key: key,
+              // Leaving the scan index also suppresses any inactivity alert not yet sent.
+              UpdateExpression:
+                'SET #status = :removed, removedAt = :now, #ttl = :ttl REMOVE GSI1PK, GSI1SK',
+              ConditionExpression: '#status = :active',
+              ExpressionAttributeNames: { '#status': 'status', '#ttl': 'ttl' },
+              ExpressionAttributeValues: {
+                ':removed': 'REMOVED',
+                ':active': 'ACTIVE',
+                ':now': now,
+                ':ttl': ttl,
+              },
+            },
+          },
+          {
+            // The pointer outlives the installation briefly so repeated callbacks stay no-ops.
+            Update: {
+              TableName: tableName,
+              Key: { PK: keys.installToken(current.data.tokenHash), SK: 'INSTALLTOKEN' },
+              UpdateExpression: 'SET #ttl = :ttl',
+              ExpressionAttributeNames: { '#ttl': 'ttl' },
+              ExpressionAttributeValues: { ':ttl': ttl },
+            },
+          },
+          ...(outbox ? [outboxPut(outbox)] : []),
+        ]);
+        return 'removed';
+      } catch (error) {
+        const codes = cancellationCodes(error);
+        if (codes?.[0] === 'ConditionalCheckFailed') return 'already';
+        throw error;
+      }
+    },
+
+    async listDueInstallations(now, limit) {
+      const { Items } = await db.send(
+        new QueryCommand({
+          TableName: tableName,
+          IndexName: 'GSI1',
+          KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK <= :upper',
+          ExpressionAttributeValues: { ':pk': INSTALL_DUE, ':upper': `${now}#~` },
+          Limit: limit,
+        }),
+      );
+      const due = [];
+      for (const item of Items ?? []) {
+        const parsed = installationItemSchema.safeParse(item);
+        if (!parsed.success || parsed.data.status !== 'ACTIVE' || !parsed.data.GSI1SK) continue;
+        const { tokenHash: _hash, GSI1SK, ...installation } = parsed.data;
+        due.push({ ...installation, dueKey: GSI1SK });
+      }
+      return due;
+    },
+
+    async markInstallationInactive(installation, now, outbox) {
+      try {
+        await transact([
+          {
+            Update: {
+              TableName: tableName,
+              Key: {
+                PK: keys.user(installation.userId),
+                SK: keys.installation(installation.installationId),
+              },
+              // Out of the scan until the next check-in: one alert per silent period.
+              UpdateExpression: 'SET inactiveNotifiedAt = :now REMOVE GSI1PK, GSI1SK',
+              ConditionExpression: '#status = :active AND GSI1SK = :dueKey',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: {
+                ':now': now,
+                ':active': 'ACTIVE',
+                ':dueKey': installation.dueKey,
+              },
+            },
+          },
+          ...(outbox ? [outboxPut(outbox)] : []),
+        ]);
+        return 'marked';
+      } catch (error) {
+        const codes = cancellationCodes(error);
+        if (codes?.[0] === 'ConditionalCheckFailed') return 'changed';
+        throw error;
+      }
     },
 
     async ruleState(groupId) {

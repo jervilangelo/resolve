@@ -40,7 +40,11 @@ function state(
   sharing: Record<string, StoredSharing>,
   consents: Record<string, StoredConsent>,
 ): AccountabilityState {
-  return { sharing: new Map(Object.entries(sharing)), consents: new Map(Object.entries(consents)) };
+  return {
+    sharing: new Map(Object.entries(sharing)),
+    consents: new Map(Object.entries(consents)),
+    alertTypes: new Map(),
+  };
 }
 
 describe('eligibleRecipients', () => {
@@ -210,6 +214,10 @@ describe('accountability sharing and consent', () => {
       receiving: { acceptAll: false },
       recipients: [],
       senders: [],
+      alertTypes: {
+        share: { removal: false, inactivity: false },
+        receive: { removal: false, inactivity: false },
+      },
     });
     expect(await t.resolved(BOB)).toEqual([]);
   });

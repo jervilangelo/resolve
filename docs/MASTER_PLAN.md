@@ -167,7 +167,7 @@ function eligibleRecipients(senderPolicy, activeMembers, consents) {
 
 Consent changes take effect for **unsent jobs** too: revalidate consent before SES delivery. Keep an audit record of consent changes, without revealing browsing data.
 
-## 7. Two and only two MVP notification triggers
+## 7. Notification triggers (two core, two opt-in installation alerts)
 
 ### 7.1 Trigger A: qualifying non-negotiable navigation
 
@@ -207,6 +207,43 @@ This must not depend on a departing user's browser staying open. If the sender h
 - Recheck recipient consent and group authorization before sending.
 - SES sandbox/production access, verified sender domain, bounce/complaint handling, SPF/DKIM/DMARC and unsubscribe/notification preferences.
 - Acknowledge that external email systems can retain messages even after in-app data expires.
+
+### 7.4 Opt-in installation alerts (added 2026-11-27, owner decision)
+
+Two further alert types, **off by default on both sides**:
+
+- **EXTENSION_REMOVED** — "Resolve was removed from one of [Name]'s browsers on [time]."
+- **EXTENSION_INACTIVE** — "Resolve hasn't checked in from one of [Name]'s browsers since [time]."
+
+**Consent.** In each group, the sender chooses per type whether to share it (on top of their sharing
+mode and recipients), and each recipient chooses per type whether to receive it (on top of their
+consent to that sender). The delivery worker re-checks membership, sharing, consent and both type
+choices at send time. Payload and email: display name, event type and time (UTC); no group name,
+website, URL, history or screenshot.
+
+**Enrolment.** In the extension's settings the user turns on "Tell my partners if Resolve is removed
+or stops checking in"; while signed in with an active group, the browser enrols for that group
+(`POST /v1/extension/installations`, extension client only). The server returns an installation ID
+and a 256-bit random token, storing only the token's SHA-256 hash. The extension registers
+`runtime.setUninstallURL("<site>/removed#t=<token>")`: the token is in the fragment, so it never
+reaches a server log, and the URL contains no account, email or group. Turning the setting off,
+signing out or switching groups revokes the enrolment with `POST /v1/installations/revoke` (token as
+the credential, so it works and is retried after sign-out) and clears the uninstall URL.
+
+**Removal.** The browser opens the uninstall URL; the page relays the token to
+`POST /v1/installations/removed` (no sign-in: the extension is gone). The API marks that one
+installation removed with a conditional update (repeated callbacks change nothing), takes it out of
+the inactivity scan and writes the outbox item in the same transaction. Other installations,
+groups and the account are untouched. A removal made while offline is never reported; the
+inactivity alert covers it later.
+
+**Inactivity.** The enrolled extension checks in every 60 minutes (alarm) and at browser start,
+authenticated with the user's token. The server keeps the next deadline (last check-in + 72 hours)
+in a sparse GSI1 entry; an hourly scheduled Lambda alerts once per silent period (between 72 and 73
+hours after the last check-in) and removes the entry; the next check-in restores it. A disabled
+extension, a closed browser, a sleeping or offline computer all look the same, so the wording says
+only when Resolve last checked in. 72 hours covers nights, weekends and short trips; it is a
+constant (`INACTIVITY_GRACE_HOURS`).
 
 ## 8. Application surfaces and UX
 
@@ -365,7 +402,8 @@ resolve/
 | Consent revoked before delivery | Unwanted email | Revalidate at send time | Already sent email cannot be recalled |
 | Departure loses alert on crash | Missing notice | Transactional outbox + retries + DLQ | Email provider delivery not guaranteed |
 | Browser offline | Stale restrictions | Cache last valid policy, sync indicator | New restrictions delayed |
-| Extension disabled/uninstalled | Protection bypass | Honest status messaging | Cannot prevent on personal device |
+| Extension disabled/uninstalled | Protection bypass | Honest status messaging; opt-in removal and inactivity alerts (§7.4) | Cannot prevent on personal device; offline removal and disabling are only seen as inactivity |
+| Installation token leaked | False removal alert for that browser | 256-bit token in the URL fragment, hash stored, one alert per installation, revocable | A holder of the token can trigger one removal email |
 | Telemetry accidentally logs URL | Privacy breach | Strict schemas, redaction, logging tests | Operational discipline required |
 | S3 avatar upload abuse | Malware/cost | MIME/size checks, image processing, signed URLs, private bucket | Content moderation needed |
 
@@ -448,7 +486,7 @@ Inspect all HTTP payloads and CloudWatch log templates; assert absence of URLs, 
 - Full blocklist hidden from members in standard UI/API, with local technical limitation disclosed.
 - Essential services protected from group blocking.
 - Sharing modes Private/Selected/Everyone; bilateral optional; recipient consent.
-- Exactly two v1 notification triggers: non-negotiable navigation and group departure/removal.
+- Two core notification triggers: non-negotiable navigation and group departure/removal; plus the opt-in installation alerts of §7.4 (2026-11-27).
 - No browsing URLs/screenshots/history in notifications or event payloads.
 - Browser targets Chrome/Brave/Edge/Firefox.
 
@@ -483,6 +521,7 @@ For each material change, add a dated entry describing: **decision**, **reason**
 | Date | Version | Change |
 |---|---|---|
 | 2026-11-23 | 1.0 | Initial consolidated Resolve master plan and branded README |
+| 2026-11-27 | 1.1 | **Decision:** add opt-in removal and inactivity alerts (§7.4), at the owner's request. **Reason:** partners asked to know when protection stops. **Affects:** §7 (no longer "exactly two"), §6 consent (per-type choices), §13 threats. **Privacy:** off by default on both sides; no browsing data; token-only uninstall URL; check-ins carry no browsing data. **Migration:** none (new items only). **Tests:** API, worker, email and extension unit tests; live checks on dev. |
 
 ---
 

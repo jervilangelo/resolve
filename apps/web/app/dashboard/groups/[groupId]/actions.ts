@@ -411,3 +411,35 @@ export async function setSenderConsent(
   revalidatePath(`/dashboard/groups/${id}`);
   return {};
 }
+
+/** The caller's own installation-alert choices (§7.4): one share or receive switch at a time. */
+export async function setAlertType(
+  groupId: string,
+  side: unknown,
+  type: unknown,
+  on: unknown,
+): Promise<ActionState> {
+  const id = parseId(groupIdSchema, groupId);
+  if (
+    !id ||
+    (side !== 'share' && side !== 'receive') ||
+    (type !== 'removal' && type !== 'inactivity') ||
+    typeof on !== 'boolean'
+  ) {
+    return INVALID;
+  }
+  try {
+    await api(`/v1/groups/${id}/accountability/alert-types`, accountabilityViewSchema, {
+      method: 'PUT',
+      body: { [side]: { [type]: on } },
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiRequestError && error.status === 429) {
+      return { error: 'Too many changes in a short time. Please wait a while and try again.' };
+    }
+    return { error: GENERIC_ERROR };
+  }
+  revalidatePath(`/dashboard/groups/${id}`);
+  return {};
+}

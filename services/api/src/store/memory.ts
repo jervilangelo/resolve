@@ -16,6 +16,8 @@ import {
   type StoredProfile,
   type StoredConsent,
   type StoredSharing,
+  type StoredAlertTypes,
+  type StoredInstallation,
 } from './store';
 import type { OutboxItem } from '@resolve/contracts';
 
@@ -38,6 +40,19 @@ export function createMemoryStore(): Store & { outboxItems(): OutboxItem[] } {
   /** Keyed by memberKey(groupId, userId). */
   const sharing = new Map<string, StoredSharing>();
   const consents = new Map<string, StoredConsent>();
+  const alertTypes = new Map<string, StoredAlertTypes>();
+  /** Installations by `${userId}#${installationId}`; `dueAt` is null once alerted or removed. */
+  const installations = new Map<
+    string,
+    StoredInstallation & { tokenHash: string; dueAt: string | null }
+  >();
+  const tokens = new Map<string, string>();
+  const installKey = (userId: string, installationId: string) => `${userId}#${installationId}`;
+  const publicInstallation = ({
+    tokenHash: _hash,
+    dueAt: _due,
+    ...rest
+  }: StoredInstallation & { tokenHash: string; dueAt: string | null }): StoredInstallation => rest;
   /** Outbox items by ID, plus event IDs seen and cooldowns (memberKey -> until, epoch ms). */
   const outbox = new Map<string, OutboxItem>();
   const seenEvents = new Set<string>();
@@ -233,6 +248,7 @@ export function createMemoryStore(): Store & { outboxItems(): OutboxItem[] } {
       memberships.delete(memberKey(groupId, userId));
       sharing.delete(memberKey(groupId, userId));
       consents.delete(memberKey(groupId, userId));
+      alertTypes.delete(memberKey(groupId, userId));
       if (departure) outbox.set(departure.outbox.outboxId, departure.outbox);
       return Promise.resolve('removed' as const);
     },
@@ -270,7 +286,7 @@ export function createMemoryStore(): Store & { outboxItems(): OutboxItem[] } {
       for (const [key, m] of memberships) if (m.groupId === groupId) memberships.delete(key);
       for (const [id, inv] of invitations) if (inv.groupId === groupId) invitations.delete(id);
       for (const [key, d] of domains) if (d.groupId === groupId) domains.delete(key);
-      for (const map of [sharing, consents]) {
+      for (const map of [sharing, consents, alertTypes]) {
         for (const key of map.keys()) if (key.startsWith(`${groupId}#`)) map.delete(key);
       }
       return Promise.resolve('dissolved' as const);
@@ -388,10 +404,94 @@ export function createMemoryStore(): Store & { outboxItems(): OutboxItem[] } {
       for (const key of [...rateCounters.keys()])
         if (key.startsWith(`${userId}#`)) rateCounters.delete(key);
       for (const key of [...seenEvents]) if (key.startsWith(`${userId}#`)) seenEvents.delete(key);
+      for (const [key, inst] of [...installations]) {
+        if (inst.userId !== userId) continue;
+        installations.delete(key);
+        tokens.delete(inst.tokenHash);
+      }
       return Promise.resolve();
     },
     getAccountability: (groupId) =>
-      Promise.resolve({ sharing: inGroup(sharing, groupId), consents: inGroup(consents, groupId) }),
+      Promise.resolve({
+        sharing: inGroup(sharing, groupId),
+        consents: inGroup(consents, groupId),
+        alertTypes: inGroup(alertTypes, groupId),
+      }),
+    setAlertTypes: (groupId, userId, prefs) => {
+      if (!liveMember(groupId, userId)) return Promise.resolve('not_allowed' as const);
+      alertTypes.set(memberKey(groupId, userId), prefs);
+      return Promise.resolve('saved' as const);
+    },
+    createInstallation: ({ userId, installationId, groupId, tokenHash, now, dueAt }) => {
+      if (!liveMember(groupId, userId)) return Promise.resolve('not_member' as const);
+      installations.set(installKey(userId, installationId), {
+        userId,
+        installationId,
+        groupId,
+        status: 'ACTIVE',
+        createdAt: now,
+        lastCheckInAt: now,
+        tokenHash,
+        dueAt,
+      });
+      tokens.set(tokenHash, installKey(userId, installationId));
+      return Promise.resolve('created' as const);
+    },
+    getInstallation: (userId, installationId) => {
+      const inst = installations.get(installKey(userId, installationId));
+      return Promise.resolve(inst ? publicInstallation(inst) : null);
+    },
+    checkInInstallation: (userId, installationId, now, dueAt) => {
+      const inst = installations.get(installKey(userId, installationId));
+      if (inst?.status !== 'ACTIVE') return Promise.resolve('not_found' as const);
+      inst.lastCheckInAt = now;
+      inst.dueAt = dueAt;
+      return Promise.resolve('ok' as const);
+    },
+    deleteInstallation: (userId, installationId) => {
+      const key = installKey(userId, installationId);
+      const inst = installations.get(key);
+      if (inst) tokens.delete(inst.tokenHash);
+      installations.delete(key);
+      return Promise.resolve();
+    },
+    findInstallationByToken: (tokenHash) => {
+      const key = tokens.get(tokenHash);
+      const inst = key ? installations.get(key) : undefined;
+      return Promise.resolve(inst ? publicInstallation(inst) : null);
+    },
+    markInstallationRemoved: (installation, _now, item) => {
+      const inst = installations.get(installKey(installation.userId, installation.installationId));
+      if (inst?.status !== 'ACTIVE') return Promise.resolve('already' as const);
+      inst.status = 'REMOVED';
+      inst.dueAt = null;
+      if (item) outbox.set(item.outboxId, item);
+      return Promise.resolve('removed' as const);
+    },
+    listDueInstallations: (now, limit) =>
+      Promise.resolve(
+        [...installations.values()]
+          .filter((i) => i.status === 'ACTIVE' && i.dueAt !== null && i.dueAt <= now)
+          .sort((a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? ''))
+          .slice(0, limit)
+          .map((i) => ({
+            ...publicInstallation(i),
+            dueKey: `${i.dueAt ?? ''}#${i.lastCheckInAt}`,
+          })),
+      ),
+    markInstallationInactive: (installation, _now, item) => {
+      const inst = installations.get(installKey(installation.userId, installation.installationId));
+      if (
+        inst?.status !== 'ACTIVE' ||
+        inst.dueAt === null ||
+        `${inst.dueAt}#${inst.lastCheckInAt}` !== installation.dueKey
+      ) {
+        return Promise.resolve('changed' as const);
+      }
+      inst.dueAt = null;
+      if (item) outbox.set(item.outboxId, item);
+      return Promise.resolve('marked' as const);
+    },
     setSharing: (groupId, userId, mode, recipientIds, at) => {
       if (!liveMember(groupId, userId)) return Promise.resolve('not_allowed' as const);
       sharing.set(memberKey(groupId, userId), {

@@ -258,8 +258,38 @@ test('the home page explains Resolve and describes it accurately in structured d
 });
 
 test('pages that are not public are kept out of the index', async ({ page }) => {
-  for (const path of ['/invite', '/auth/error', '/does-not-exist']) {
+  for (const path of ['/invite', '/auth/error', '/removed', '/does-not-exist']) {
     await page.goto(path);
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
   }
+});
+
+test('the removal page reports nothing without a valid token and only relays same-origin', async ({
+  page,
+  request,
+}) => {
+  const relayed: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().endsWith('/removed/report')) relayed.push(r.method());
+  });
+  await page.goto('/removed#t=not-a-token');
+  await expect(page.getByRole('heading', { level: 1, name: 'Resolve was removed' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Install Resolve again' })).toHaveAttribute(
+    'href',
+    '/downloads',
+  );
+  await page.waitForTimeout(500);
+  expect(relayed).toEqual([]);
+  await expect(page.getByRole('status')).toHaveCount(0);
+  // A token-shaped value is relayed once and then removed from the address bar.
+  await page.goto('about:blank');
+  await page.goto(`/removed#t=${'A'.repeat(43)}`);
+  await expect(page.getByRole('status')).toContainText('removal alerts turned on');
+  expect(page.url()).not.toContain('#t=');
+  // Other sites cannot use the relay.
+  const cross = await request.post('/removed/report', {
+    headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
+    data: { token: 'A'.repeat(43) },
+  });
+  expect(cross.status()).toBe(204);
 });

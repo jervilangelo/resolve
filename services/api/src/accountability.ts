@@ -7,12 +7,14 @@
 
 import {
   type AccountabilityView,
+  type InstallAlertType,
+  NO_ALERT_TYPES,
   NO_CONSENT,
   PRIVATE_SHARING,
   consentsTo,
   sharesWith,
 } from '@resolve/contracts';
-import type { StoredConsent, StoredMember, StoredSharing } from './store/store';
+import type { StoredAlertTypes, StoredConsent, StoredMember, StoredSharing } from './store/store';
 
 /**
  * Accountability policy (docs/MASTER_PLAN.md §6). Pure functions over the current members and the
@@ -25,6 +27,7 @@ export { NO_CONSENT, PRIVATE_SHARING };
 export interface AccountabilityState {
   sharing: ReadonlyMap<string, StoredSharing>;
   consents: ReadonlyMap<string, StoredConsent>;
+  alertTypes: ReadonlyMap<string, StoredAlertTypes>;
 }
 
 const shares = sharesWith;
@@ -94,5 +97,22 @@ export function accountabilityView(
     receiving: { acceptAll: consent.acceptAll },
     recipients,
     senders,
+    alertTypes: state.alertTypes.get(userId) ?? NO_ALERT_TYPES,
   };
+}
+
+/**
+ * Recipients of an installation alert (§7.4): the usual sharing and consent, and on top of that the
+ * sender must share this alert type and each recipient must have agreed to receive it.
+ */
+export function eligibleInstallRecipients(
+  senderId: string,
+  type: InstallAlertType,
+  members: readonly StoredMember[],
+  state: AccountabilityState,
+): string[] {
+  if (!(state.alertTypes.get(senderId) ?? NO_ALERT_TYPES).share[type]) return [];
+  return eligibleRecipients(senderId, members, state).filter(
+    (id) => (state.alertTypes.get(id) ?? NO_ALERT_TYPES).receive[type],
+  );
 }

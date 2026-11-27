@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import { MAX_GROUP_MEMBERS, userIdSchema } from './api';
 import { type SharingMode, sharingModeSchema } from './domain';
+import { NO_ALERT_TYPES, alertTypePrefsSchema } from './installations';
 
 /**
  * Voluntary accountability (docs/MASTER_PLAN.md §6). Each member decides who may receive their
@@ -64,6 +65,8 @@ export const accountabilityViewSchema = z.strictObject({
    * otherwise `needs_consent`.
    */
   senders: z.array(personSchema.extend({ status: z.enum(['receiving', 'needs_consent']) })),
+  /** Installation alerts (§7.4): which types the caller shares and agrees to receive. */
+  alertTypes: alertTypePrefsSchema.default(NO_ALERT_TYPES),
 });
 export type AccountabilityView = z.infer<typeof accountabilityViewSchema>;
 

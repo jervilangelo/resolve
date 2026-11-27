@@ -68,7 +68,7 @@ Help Christians keep the online boundaries they choose: blocking websites (their
 | --- | --- |
 | `identity` | Signs the user in to their Resolve account with the browser's sign-in window (OAuth with PKCE). |
 | `declarativeNetRequest` | Blocks page loads to the websites on the user's group list and during a Focus session, with essential services excluded. Blocking happens in the browser; no request data is read or sent. |
-| `alarms` | Checks for changes to the group's list every 15 minutes and ends a Focus session at its deadline. |
+| `alarms` | Checks for changes to the group's list every 15 minutes, ends a Focus session at its deadline, and (only if the user turned on removal and check-in alerts) checks in about once an hour. |
 | `scripting` | Registers the image-blurring script only after the user turns blurring on. |
 | `offscreen` | Runs the on-device image classifier in a hidden extension page. |
 | Host permissions (Resolve API and sign-in domain) | Fetches the user's account, groups and block list from Resolve's own servers; nothing else. |
@@ -85,7 +85,7 @@ Help Christians keep the online boundaries they choose: blocking websites (their
 | Authentication information | Yes | Sign-in tokens, kept in the extension's private storage |
 | Web history | No | Not stored or sent |
 | Website content | No | Images are classified on the device; nothing is sent |
-| User activity | Yes | Only "a non-negotiable restriction was triggered" (no website), when the user turned alerts on and chose partners who agreed |
+| User activity | Yes | Only "a non-negotiable restriction was triggered" (no website), and, if the user turned on removal and check-in alerts, that Resolve was removed or when this browser last checked in; only to partners who agreed |
 | Health, financial, location, personal communications | No | |
 
 Certify all three: not sold to third parties; not used or transferred for purposes unrelated to

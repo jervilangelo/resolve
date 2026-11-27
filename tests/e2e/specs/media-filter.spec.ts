@@ -186,7 +186,14 @@ test('the filter is off until the user turns it on in settings', async () => {
   const options = await context.newPage();
   await options.goto(`chrome-extension://${extensionId}/options.html`);
   await options.getByLabel('Blur sensitive images and videos').click();
-  await expect(options.getByRole('status').filter({ hasText: 'Status:' })).toHaveText('Status: On');
+  await expect(
+    options
+      .locator('section', {
+        has: options.getByRole('heading', { name: 'Media blurring', exact: true }),
+      })
+      .getByRole('status')
+      .filter({ hasText: 'Status:' }),
+  ).toHaveText('Status: On');
   await expect(options.getByLabel(/Balanced/)).toBeChecked();
   await options.close();
 });
@@ -263,9 +270,14 @@ test('turning the filter off stops it on newly opened pages', async () => {
   const options = await context.newPage();
   await options.goto(`chrome-extension://${extensionId}/options.html`);
   await options.getByLabel('Blur sensitive images and videos').click();
-  await expect(options.getByRole('status').filter({ hasText: 'Status:' })).toHaveText(
-    'Status: Off',
-  );
+  await expect(
+    options
+      .locator('section', {
+        has: options.getByRole('heading', { name: 'Media blurring', exact: true }),
+      })
+      .getByRole('status')
+      .filter({ hasText: 'Status:' }),
+  ).toHaveText('Status: Off');
   await options.close();
 
   const page = await context.newPage();

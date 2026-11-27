@@ -563,6 +563,15 @@ export default function TutorialPage() {
               </li>
               <li>When you leave the group or are removed from it.</li>
               <li>
+                Optional, and only if you share them and the partner agreed to that kind too (both
+                set on the {b('Accountability')} tab, under {b('Removal and check-in alerts')}):
+                when Resolve is removed from one of your browsers, and when a browser has not
+                checked in for 72 hours. A browser takes part only after you turn on{' '}
+                {b('Tell my partners if Resolve is removed or stops checking in')} in the
+                extension’s settings. A closed, sleeping or offline browser stops checking in too,
+                and a removal made while offline is only noticed by the check-in alert later.
+              </li>
+              <li>
                 The email gives your display name, the group’s name and that a restriction was
                 triggered (or that you left). It {b('never names the website')}, never includes your
                 browsing history, and says a blocked visit is not proof of intent.

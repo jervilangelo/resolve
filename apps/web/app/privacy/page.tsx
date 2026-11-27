@@ -21,7 +21,7 @@ export default function PrivacyPage() {
   return (
     <ProsePage
       title="Privacy policy"
-      updated="25 November 2026"
+      updated="27 November 2026"
       intro={
         <p>
           What Resolve stores, what stays on your device, and what accountability alerts contain.
@@ -51,6 +51,12 @@ export default function PrivacyPage() {
             <strong>Your sign-in and settings</strong> are kept in the extension&apos;s private
             storage, which websites cannot read.
           </li>
+          <li>
+            <strong>Removal and check-in alerts</strong>, only if you turn them on: the extension
+            keeps a random code for this browser and puts it in the address your browser opens if
+            Resolve is removed. About once an hour it tells Resolve it is still running. Nothing
+            about your browsing is involved.
+          </li>
         </ul>
       </Section>
 
@@ -73,6 +79,12 @@ export default function PrivacyPage() {
             delivered. These never contain a website, address or page title.
           </li>
           <li>
+            If you turn on removal and check-in alerts for a browser: that it is enrolled, for which
+            group, when it last checked in, and a scrambled copy (hash) of its random code. A
+            removed browser&apos;s record is deleted after 30 days; turning the alerts off, signing
+            out or deleting your account deletes it at once.
+          </li>
+          <li>
             Technical logs (kept up to 90 days) with the kind of request and its result. They do not
             contain what you browse, your name, email address or sign-in tokens.
           </li>
@@ -82,10 +94,13 @@ export default function PrivacyPage() {
       <Section title="Accountability alerts">
         <p>
           Alerts are off unless you choose to share them, and they reach only members you chose who
-          also agreed to receive them. There are only two kinds: a generic notice that you opened a
-          website your group marked as non-negotiable (never which one), and a notice that you left
-          or were removed from a group. Alerts are emails; once sent, they are kept by the
-          recipient&apos;s email provider.
+          also agreed to receive them. They are: a generic notice that you opened a website your
+          group marked as non-negotiable (never which one), and a notice that you left or were
+          removed from a group. Two more kinds exist only if you share them and the recipient agreed
+          to that kind as well: that Resolve was removed from one of your browsers, and that one of
+          your browsers has not checked in since a given time (which may simply mean it was closed
+          or offline). These give your display name, what happened and when. Alerts are emails; once
+          sent, they are kept by the recipient&apos;s email provider.
         </p>
       </Section>
 

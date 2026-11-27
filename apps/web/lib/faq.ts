@@ -105,7 +105,7 @@ export const FAQ: { id: string; title: string; items: FaqItem[] }[] = [
       },
       {
         q: 'What sends an alert?',
-        a: 'Only two things: a deliberate visit to a website on your group’s non-negotiable list, and leaving or being removed from a group. Blurring, ordinary browsing and additional websites never do.',
+        a: 'A deliberate visit to a website on your group’s non-negotiable list, and leaving or being removed from a group. Only if both of you turn them on: Resolve being removed from one of your browsers, or a browser not checking in for 72 hours. Blurring, ordinary browsing and additional websites never do.',
       },
       {
         q: 'What does an alert say?',

@@ -24,6 +24,8 @@ at the end.
 
 | Threat | Mitigation in Resolve | Evidence | Residual |
 | --- | --- | --- | --- |
+| Uninstall-URL token leaked or guessed (installation alerts, §7.4) | 256-bit random token in the URL fragment (never in server logs), only its SHA-256 stored, one alert per installation (conditional update), revocable; the callback answers every request the same way | `installations.test.ts` (unknown token, repeated callback, revocation) | Whoever holds a browser's token can trigger one removal email for that browser |
+| Inactivity alert where nothing is wrong | 72-hour grace, one alert per silent period, wording that a closed or offline browser looks the same, opt-in on both sides | `installations.test.ts` (grace, reset, single alert) | Partners may be alerted after a long trip; the email says so |
 | Member reads the domain list via API/UI | Admin-only routes with re-check after read; rules only to extension clients; no member list/count/category | Route tests, backend review | — |
 | Member infers the list by probing | Uniform 202, budget charged before lookup, same store path for every outcome | `domains.test.ts`, `e553d10` | A member can still read compiled rules on their own device (disclosed in the dashboard) |
 | Malicious broad/parent domain blocks essentials | Normalization, public-suffix rejection, essential registry excluded inside every rule | Policy matrix, enforcement flow | New essential dependencies need registry updates |

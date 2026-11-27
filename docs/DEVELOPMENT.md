@@ -81,13 +81,19 @@ in an offscreen document classifies them. No media leaves the browser; the media
 that no request is made. Accuracy notes: [AI_FILTER_EVALUATION.md](AI_FILTER_EVALUATION.md).
 
 **Accountability alerts.** Off by default. Each member chooses Private, selected members or everyone;
-each recipient must agree. Exactly two triggers:
+each recipient must agree. Two core triggers:
 
 - **Deliberate visit to a non-negotiable website.** Needs the optional `webNavigation` permission
   (the extension's alert setting). `lib/navigation.ts` treats only a top-level, user-started
   navigation blocked by the browser as deliberate, ignoring redirects, pop-ups, restores and
   prerenders. The event carries an ID, group ID, type, timestamp and rule version, never the website.
 - **Leaving or being removed from a group.**
+
+Plus two opt-in installation alerts (MASTER_PLAN §7.4), off by default for sender and recipient:
+**removal** (the extension registers `runtime.setUninstallURL` with a random token in the URL
+fragment; `/removed` relays it to `POST /v1/installations/removed`) and **inactivity** (hourly
+check-ins; `services/api/src/handlers/inactivity.ts` runs hourly and alerts after 72 hours of
+silence). Code: `apps/extension/lib/installation.ts`, `services/api/src/installations.ts`.
 
 The backend re-checks membership, sharing and consent, applies a 10-minute cooldown and
 deduplication, and emails a generic message (display name and group name, never the website).

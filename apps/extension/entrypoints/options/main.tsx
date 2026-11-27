@@ -8,6 +8,7 @@
 import type { ReactNode } from 'react';
 import { AccountPanel } from '@/components/account-panel';
 import { AlertsPanel } from '@/components/alerts-panel';
+import { InstallAlertsPanel } from '@/components/install-alerts-panel';
 import { BrandHeader } from '@/components/brand-header';
 import { FeatureStatus } from '@/components/feature-status';
 import { FocusPanel } from '@/components/focus-panel';
@@ -42,6 +43,9 @@ function Options() {
         </Card>
         <Card id="alerts" title="Blocked-visit alerts">
           <AlertsPanel />
+        </Card>
+        <Card id="install-alerts" title="Removal and check-in alerts">
+          <InstallAlertsPanel />
         </Card>
         <Card id="features" title="Protection in this browser">
           <FeatureStatus />

@@ -14,8 +14,16 @@ import { z } from 'zod';
  */
 export const OUTBOX_PK_PREFIX = 'OUTBOX#';
 
-/** The two and only two v1 triggers (§7). */
-export const outboxKindSchema = z.enum(['NON_NEGOTIABLE_NAVIGATION', 'GROUP_DEPARTURE']);
+/**
+ * The two v1 triggers (§7) and the opt-in installation alerts (§7.4): Resolve removed from one of
+ * the sender's browsers, and an enrolled browser no longer checking in.
+ */
+export const outboxKindSchema = z.enum([
+  'NON_NEGOTIABLE_NAVIGATION',
+  'GROUP_DEPARTURE',
+  'EXTENSION_REMOVED',
+  'EXTENSION_INACTIVE',
+]);
 export type OutboxKind = z.infer<typeof outboxKindSchema>;
 
 /**
@@ -43,6 +51,11 @@ export const outboxItemSchema = z.object({
     })
     .optional(),
   recipientIds: z.array(z.string()).min(1).max(100),
+  /**
+   * Installation alerts only: when it happened (EXTENSION_REMOVED) or the last check-in
+   * (EXTENSION_INACTIVE). Shown to recipients; no other detail of the installation is kept here.
+   */
+  occurredAt: z.string().optional(),
   createdAt: z.string(),
 });
 export type OutboxItem = z.infer<typeof outboxItemSchema>;
