@@ -161,8 +161,9 @@ owner revisions done; production on https://getresolved.site with alerts from
   command line, so Chrome stable needs a manual check. Review fixes for 0.5.1: retry-safe
   enrolment (client-chosen ID and token; the API accepts both forms), the removal relay checks the
   configured site origin (behind Amplify the request origin can differ), the hourly scan isolates
-  failures and handles more than 100 due browsers, status and retry polish. Next: merge, run
-  "Deploy prod", release 0.5.1.
+  failures and handles more than 100 due browsers, status and retry polish. Released
+  2026-11-27: merged to main (10689ca), production backend applied (4 Lambda updates), website
+  redeployed (relay confirmed reaching the production API), GitHub release v0.5.1.
 
 - In review (2026-11-27, branch `launch-seo`, not deployed): search and launch readiness. Per-page
   canonical URLs, titles, descriptions and social cards (`apps/web/lib/seo.ts`); `/sitemap.xml`
