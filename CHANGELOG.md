@@ -11,6 +11,15 @@ continuously from `main`. Downloads: [GitHub Releases](https://github.com/jervil
 or [getresolved.site/downloads](https://getresolved.site/downloads). How releases are made:
 [docs/RELEASING.md](docs/RELEASING.md).
 
+## 0.5.1 — 2026-11-27
+
+- Removal and check-in alerts: enrolling a browser can no longer leave an unknown registration
+  behind when the connection drops (which could have caused a false "stopped checking in"
+  alert); retries reuse the same registration.
+- The settings show when Resolve could not enrol the browser for the active group, and stop
+  retrying on every start-up; a loading failure no longer leaves the panel on "Loading…".
+- After a sign-in ends during a check-in, the group's blocked websites are removed at once.
+
 ## 0.5.0 — 2026-11-27
 
 - Added optional extension removal and inactivity alerts for accountability groups. Each alert

@@ -320,3 +320,60 @@ describe('inactivity', () => {
     expect(t.kinds()).toEqual([]);
   });
 });
+
+describe('review fixes', () => {
+  it('a retried enrolment with the same client-chosen ID and token succeeds; reuse otherwise conflicts', async () => {
+    const t = await setup();
+    const body = {
+      groupId: t.groupId,
+      installationId: `ins_${'b'.repeat(26)}`,
+      token: 'C'.repeat(43),
+    };
+    const first = await t.call('POST /v1/extension/installations', BOB, {}, body, 'ext-client');
+    const retry = await t.call('POST /v1/extension/installations', BOB, {}, body, 'ext-client');
+    expect([first.status, retry.status]).toEqual([201, 201]);
+    expect(retry.body).toEqual({ installationId: body.installationId, token: body.token });
+    const otherToken = await t.call(
+      'POST /v1/extension/installations',
+      BOB,
+      {},
+      { ...body, token: 'D'.repeat(43) },
+      'ext-client',
+    );
+    expect(otherToken.status).toBe(409);
+    const stolen = await t.call('POST /v1/extension/installations', CAROL, {}, body, 'ext-client');
+    expect(stolen.status).toBe(409);
+    // 0.5.0 extensions still enrol with the group alone.
+    expect((await t.enrol()).status).toBe(201);
+  });
+
+  it('one failing installation does not stop the scan', async () => {
+    const t = await setup();
+    await t.consentAll();
+    const bad = await t.enrol();
+    await t.enrol();
+    t.advance((INACTIVITY_GRACE_HOURS + 1) * HOUR);
+    const original = t.store.markInstallationInactive.bind(t.store);
+    t.store.markInstallationInactive = (installation, now, outbox) =>
+      installation.installationId === bad.installationId
+        ? Promise.reject(new Error('TransactionConflict'))
+        : original(installation, now, outbox);
+    expect(await scanInactiveInstallations(t.store, t.now())).toMatchObject({
+      due: 2,
+      alerted: 1,
+      failed: 1,
+    });
+    t.store.markInstallationInactive = original;
+    expect(await scanInactiveInstallations(t.store, t.now())).toMatchObject({ alerted: 1 });
+  });
+
+  it('handles more than one batch of due installations in one run', async () => {
+    const t = await setup();
+    for (let i = 0; i < 130; i++) await t.enrol();
+    t.advance((INACTIVITY_GRACE_HOURS + 1) * HOUR);
+    expect(await scanInactiveInstallations(t.store, t.now())).toMatchObject({
+      due: 130,
+      silent: 130,
+    });
+  });
+});

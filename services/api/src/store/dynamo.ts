@@ -1620,6 +1620,9 @@ export function createDynamoStore(tableName: string, client = new DynamoDBClient
         if (codes?.[2] === 'ConditionalCheckFailed' || codes?.[3] === 'ConditionalCheckFailed') {
           return 'not_member';
         }
+        if (codes?.[0] === 'ConditionalCheckFailed' || codes?.[1] === 'ConditionalCheckFailed') {
+          return 'exists';
+        }
         throw error;
       }
     },

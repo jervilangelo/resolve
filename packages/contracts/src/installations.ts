@@ -33,8 +33,20 @@ export const installationIdSchema = z.string().regex(/^ins_[a-z2-7]{26}$/);
 /** 32 random bytes, base64url: the secret behind the uninstall URL (stored only as a hash). */
 export const installationTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
-/** The extension enrols this browser for its active group. */
-export const createInstallationRequestSchema = z.strictObject({ groupId: groupIdSchema });
+/**
+ * The extension enrols this browser for its active group. Since 0.5.1 the extension chooses the
+ * installation ID and token itself and stores them before sending, so a lost response can be
+ * retried with the same values instead of leaving an unknown enrolment behind (0.5.0 sends only
+ * the group, and the server generates both).
+ */
+export const createInstallationRequestSchema = z.union([
+  z.strictObject({
+    groupId: groupIdSchema,
+    installationId: installationIdSchema,
+    token: installationTokenSchema,
+  }),
+  z.strictObject({ groupId: groupIdSchema }),
+]);
 export const createdInstallationSchema = z.strictObject({
   installationId: installationIdSchema,
   token: installationTokenSchema,

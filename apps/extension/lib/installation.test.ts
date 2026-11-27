@@ -40,7 +40,10 @@ function setup() {
     activeGroupId: GROUP_A,
   };
   let online = true;
-  let counter = 0;
+  /** 'commit-then-lose' stores the enrolment but loses the reply; 'reject' refuses it. */
+  let mode: 'normal' | 'commit-then-lose' | 'reject' = 'normal';
+  let seed = 0;
+  let clock = 1_000;
   /** The server's view: active installations by ID, with their token. */
   const server = new Map<string, { token: string; groupId: string }>();
   const calls: string[] = [];
@@ -53,10 +56,17 @@ function setup() {
       if (!online) return Promise.resolve('offline');
       if (session?.sid !== sid) return Promise.resolve('signedOut');
       if (path === '/v1/extension/installations') {
-        counter += 1;
-        const installationId = `ins_${'a'.repeat(25)}${'bcdefghijk'[counter] ?? 'z'}`;
-        const token = `${'T'.repeat(42)}${String(counter)}`;
-        server.set(installationId, { token, groupId: (body as { groupId: string }).groupId });
+        const { groupId, installationId, token } = body as {
+          groupId: string;
+          installationId: string;
+          token: string;
+        };
+        if (mode === 'reject') return Promise.resolve({ status: 404, json: null });
+        const existing = server.get(installationId);
+        if (existing && existing.token !== token)
+          return Promise.resolve({ status: 409, json: null });
+        server.set(installationId, { token, groupId });
+        if (mode === 'commit-then-lose') return Promise.resolve('offline');
         return Promise.resolve({ status: 201, json: { installationId, token } });
       }
       const id = /installations\/(ins_\w+)\/checkin/.exec(path)?.[1] ?? '';
@@ -74,7 +84,8 @@ function setup() {
       return Promise.resolve();
     },
     dashboardUrl: DASHBOARD,
-    now: () => 1_000,
+    now: () => clock,
+    random: (n) => Uint8Array.from({ length: n }, (_, i) => (i * 31 + seed++ * 7) % 256),
   });
   return {
     installation,
@@ -84,6 +95,8 @@ function setup() {
     lastUrl: () => urls.at(-1),
     setSession: (next: typeof session) => (session = next),
     setOnline: (value: boolean) => (online = value),
+    setMode: (value: typeof mode) => (mode = value),
+    advance: (ms: number) => (clock += ms),
   };
 }
 
@@ -181,5 +194,44 @@ describe('check-ins on worker start', () => {
     expect(t.calls.filter((c) => c.endsWith('/checkin'))).toHaveLength(0);
     await t.installation.checkIn({ ifOlderThanMs: 0 });
     expect(t.calls.filter((c) => c.endsWith('/checkin'))).toHaveLength(1);
+  });
+});
+
+describe('enrolment that does not complete', () => {
+  it('a lost reply is retried with the same identity, never leaving an unknown enrolment', async () => {
+    const t = setup();
+    t.setMode('commit-then-lose');
+    await t.installation.setEnabled(true);
+    expect(t.server.size).toBe(1);
+    t.setMode('normal');
+    await t.installation.checkIn();
+    expect(t.server.size).toBe(1);
+    expect((await t.installation.status()).state).toBe('on');
+    const [inst] = [...t.server.values()];
+    expect(t.lastUrl()).toBe(`${DASHBOARD}/removed#t=${inst?.token ?? ''}`);
+  });
+
+  it('a pending enrolment is revoked when the setting is turned off first', async () => {
+    const t = setup();
+    t.setMode('commit-then-lose');
+    await t.installation.setEnabled(true);
+    t.setMode('normal');
+    await t.installation.setEnabled(false);
+    expect(t.server.size).toBe(0);
+  });
+
+  it('a refused enrolment shows as unavailable and is not retried on every wake-up', async () => {
+    const t = setup();
+    t.setMode('reject');
+    expect(await t.installation.setEnabled(true)).toEqual({
+      state: 'inactive',
+      reason: 'unavailable',
+    });
+    const attempts = () => t.calls.filter((c) => c === '/v1/extension/installations').length;
+    await t.installation.checkIn({ ifOlderThanMs: 30 * 60_000 });
+    expect(attempts()).toBe(1);
+    t.advance(31 * 60_000);
+    await t.installation.checkIn({ ifOlderThanMs: 30 * 60_000 });
+    expect(attempts()).toBe(2);
   });
 });

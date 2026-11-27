@@ -200,6 +200,9 @@ export function createAccount(config: ExtensionConfig, auth: Auth, platform: Acc
         });
         if (res.status === 401) {
           await auth.signOut(access.sid);
+          // Remove the old group's rules now, not at the next periodic sync. Not awaited: this
+          // call runs inside the installation queue, which the full sync would wait on.
+          void protection?.sync().catch(() => undefined);
           return 'signedOut';
         }
         if (res.status >= 500 || res.status === 429) return 'offline';

@@ -22,9 +22,10 @@ const envSchema = z.object({
 export async function handler(): Promise<void> {
   const env = envSchema.parse(process.env);
   const log = createLogger(env.LOG_LEVEL);
+  // The function times out after 60 s; stop taking new batches after 40 s.
   const result = await scanInactiveInstallations(createDynamoStore(env.TABLE_NAME), new Date());
   log.log(
-    'info',
-    `inactivity scan: due=${String(result.due)} alerted=${String(result.alerted)} silent=${String(result.silent)} changed=${String(result.changed)}`,
+    result.failed > 0 ? 'warn' : 'info',
+    `inactivity scan: due=${String(result.due)} alerted=${String(result.alerted)} silent=${String(result.silent)} changed=${String(result.changed)} failed=${String(result.failed)}`,
   );
 }

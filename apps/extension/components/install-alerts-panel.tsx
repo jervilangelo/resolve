@@ -17,6 +17,7 @@ const INACTIVE_REASON: Record<
   signedOut: 'sign in to turn this on',
   noGroup: 'choose an active group',
   offline: 'waiting to reach Resolve',
+  unavailable: 'Resolve could not enrol this browser for your active group; choose it again',
 };
 
 function describe(status: InstallAlertsStatusMessage): string {
@@ -42,7 +43,9 @@ export function InstallAlertsPanel() {
 
   useEffect(() => {
     send({ type: 'installAlerts/get' }).then(setStatus, () => {
-      setStatus(null);
+      // Never leave the panel on "Loading…": show the default and say what went wrong.
+      setStatus({ state: 'off' });
+      setError('The current setting could not be loaded. Reopen this page to try again.');
     });
   }, []);
 

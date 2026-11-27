@@ -103,6 +103,7 @@ const installation =
     setUninstallURL: (url) => browser.runtime.setUninstallURL(url),
     dashboardUrl: config.dashboardUrl,
     now: () => Date.now(),
+    random: (bytes) => crypto.getRandomValues(new Uint8Array(bytes)),
   });
 if (account && installation) account.attachInstallation(installation);
 const CHECK_IN_ALARM = 'installation-checkin';

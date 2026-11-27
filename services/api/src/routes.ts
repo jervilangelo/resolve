@@ -605,20 +605,35 @@ export function createRoutes(deps: RouteDeps): Record<string, Route> {
       // Enrols this browser for installation alerts (§7.4); only the extension can do this.
       const { userId, clientId } = identity(event);
       if (!env.RULES_CLIENT_IDS.includes(clientId)) throw new ApiError('FORBIDDEN');
-      const { groupId } = parseBody(event, createInstallationRequestSchema);
+      const input = parseBody(event, createInstallationRequestSchema);
+      const { groupId } = input;
       if (!(await liveMembership(groupId, userId))) throw new ApiError('NOT_FOUND');
       const at = now();
-      const token = newInstallationToken();
-      const body: CreatedInstallation = { installationId: newInstallationId(), token };
+      // 0.5.1+ chooses its own ID and token (stored before sending) so a lost reply can be retried.
+      const body: CreatedInstallation =
+        'token' in input
+          ? { installationId: input.installationId, token: input.token }
+          : { installationId: newInstallationId(), token: newInstallationToken() };
+      const tokenHash = hashToken(body.token);
       const created = await store.createInstallation({
         userId,
         installationId: body.installationId,
         groupId,
-        tokenHash: hashToken(token),
+        tokenHash,
         now: at.toISOString(),
         dueAt: silenceDeadline(at),
       });
       if (created === 'not_member') throw new ApiError('NOT_FOUND');
+      if (created === 'exists') {
+        // A retry of the same enrolment succeeds; anything else reusing the ID or token does not.
+        const existing = await store.findInstallationByToken(tokenHash);
+        const same =
+          existing?.userId === userId &&
+          existing.installationId === body.installationId &&
+          existing.groupId === groupId &&
+          existing.status === 'ACTIVE';
+        if (!same) throw new ApiError('CONFLICT');
+      }
       return { status: 201, body };
     },
 

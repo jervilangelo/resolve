@@ -269,7 +269,7 @@ export interface Store {
     tokenHash: string;
     now: string;
     dueAt: string;
-  }): Promise<'created' | 'not_member'>;
+  }): Promise<'created' | 'not_member' | 'exists'>;
   getInstallation(userId: string, installationId: string): Promise<StoredInstallation | null>;
   /** Records a check-in and moves the silence deadline; clears an earlier inactivity alert. */
   checkInInstallation(

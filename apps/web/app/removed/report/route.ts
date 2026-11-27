@@ -7,6 +7,7 @@
 
 import { installationRemovedRequestSchema } from '@resolve/contracts';
 import { type NextRequest, NextResponse } from 'next/server';
+import { publicEnv } from '@/lib/env';
 import { serverEnv } from '@/lib/server-env';
 
 /**
@@ -17,7 +18,9 @@ import { serverEnv } from '@/lib/server-env';
 export async function POST(request: NextRequest) {
   const done = new NextResponse(null, { status: 204 });
   // Only this site's own page may relay (the token is the real credential; this keeps others out).
-  if (request.headers.get('origin') !== request.nextUrl.origin) return done;
+  // Compared with the configured address, not the request URL, which behind the hosting proxy
+  // can be an internal host (as in the logout route).
+  if (request.headers.get('origin') !== new URL(publicEnv.NEXT_PUBLIC_SITE_URL).origin) return done;
   const parsed = installationRemovedRequestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return done;
   try {

@@ -149,7 +149,7 @@ export const installAlertsStatusSchema = z.discriminatedUnion('state', [
   z.strictObject({ state: z.literal('on'), lastCheckInAt: z.number().nullable() }),
   z.strictObject({
     state: z.literal('inactive'),
-    reason: z.enum(['signedOut', 'noGroup', 'offline']),
+    reason: z.enum(['signedOut', 'noGroup', 'offline', 'unavailable']),
   }),
 ]);
 export type InstallAlertsStatusMessage = z.infer<typeof installAlertsStatusSchema>;

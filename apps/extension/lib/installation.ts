@@ -20,6 +20,26 @@ import type { PrivateStore } from './private-store';
 const ENABLED_KEY = 'installAlerts';
 const ENROLMENT_KEY = 'installation';
 const REVOCATIONS_KEY = 'installationRevocations';
+/** An enrolment chosen here and sent, but not yet confirmed (reused on retry, never orphaned). */
+const PENDING_KEY = 'installationPending';
+
+const pendingSchema = z.object({
+  sid: z.string(),
+  groupId: z.string(),
+  installationId: z.string(),
+  token: z.string(),
+  attemptAt: z.number(),
+  /** The server refused it (not a member, not allowed): shown, and retried only occasionally. */
+  rejected: z.boolean().default(false),
+});
+type Pending = z.infer<typeof pendingSchema>;
+
+const BASE32 = 'abcdefghijklmnopqrstuvwxyz234567';
+const base64url = (bytes: Uint8Array) =>
+  btoa(String.fromCharCode(...bytes))
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replace(/=+$/, '');
 
 const enrolmentSchema = z.object({
   sid: z.string(),
@@ -33,7 +53,7 @@ type Enrolment = z.infer<typeof enrolmentSchema>;
 export type InstallAlertsStatus =
   | { state: 'off' }
   | { state: 'on'; lastCheckInAt: number | null }
-  | { state: 'inactive'; reason: 'signedOut' | 'noGroup' | 'offline' };
+  | { state: 'inactive'; reason: 'signedOut' | 'noGroup' | 'offline' | 'unavailable' };
 
 /** An authenticated API call made for one sign-in; `offline` when it could not be made. */
 export type AuthedRequest = (
@@ -52,6 +72,8 @@ export interface InstallationDeps {
   setUninstallURL(url: string): Promise<void>;
   dashboardUrl: string;
   now(): number;
+  /** Cryptographically random bytes (installation ID and token are chosen here). */
+  random(bytes: number): Uint8Array;
 }
 
 export function createInstallation(deps: InstallationDeps) {
@@ -69,6 +91,18 @@ export function createInstallation(deps: InstallationDeps) {
     const parsed = enrolmentSchema.safeParse(await store.get(ENROLMENT_KEY));
     return parsed.success ? parsed.data : null;
   };
+  const pending = async (): Promise<Pending | null> => {
+    const parsed = pendingSchema.safeParse(await store.get(PENDING_KEY));
+    return parsed.success ? parsed.data : null;
+  };
+  const newIdentity = () => ({
+    installationId: `ins_${Array.from(deps.random(26), (b) => BASE32[b % 32] ?? 'a').join('')}`,
+    token: base64url(deps.random(32)),
+  });
+  const queueRevocation = (token: string) =>
+    store.update(REVOCATIONS_KEY, (raw) => [
+      ...new Set([...z.array(z.string()).catch([]).parse(raw), token]),
+    ]);
   const uninstallUrl = (token: string) =>
     new URL(`/removed#t=${token}`, deps.dashboardUrl).toString();
 
@@ -89,9 +123,7 @@ export function createInstallation(deps: InstallationDeps) {
   /** Forgets the enrolment here at once (no removal report any more) and revokes it on the server. */
   async function drop(current: Enrolment) {
     await deps.setUninstallURL('');
-    await store.update(REVOCATIONS_KEY, (raw) => [
-      ...new Set([...z.array(z.string()).catch([]).parse(raw), current.token]),
-    ]);
+    await queueRevocation(current.token);
     await store.remove(ENROLMENT_KEY);
   }
 
@@ -108,24 +140,43 @@ export function createInstallation(deps: InstallationDeps) {
       // Already enrolled: make sure the browser still has the uninstall URL (e.g. after a restart).
       await deps.setUninstallURL(uninstallUrl(current.token));
     }
+    // A pending enrolment for another sign-in or group may exist on the server: revoke it.
+    const tried = await pending();
+    const matches = tried?.sid === want?.sid && tried?.groupId === want?.groupId;
+    if (tried && !matches) {
+      await queueRevocation(tried.token);
+      await store.remove(PENDING_KEY);
+    }
     await flushRevocations();
     if (!want || (current?.sid === want.sid && current.groupId === want.groupId)) return;
 
+    // Chosen and saved before sending, so a lost reply is retried with the same identity.
+    const attempt: Pending =
+      tried && matches
+        ? { ...tried, attemptAt: deps.now(), rejected: false }
+        : { ...want, ...newIdentity(), attemptAt: deps.now(), rejected: false };
+    await store.set(PENDING_KEY, attempt);
     const res = await deps.authed(
       'POST',
       '/v1/extension/installations',
-      { groupId: want.groupId },
+      { groupId: want.groupId, installationId: attempt.installationId, token: attempt.token },
       want.sid,
     );
-    if (typeof res === 'string' || res.status !== 201) return;
+    if (res === 'offline') return;
+    if (res === 'signedOut' || res.status !== 201) {
+      await store.set(PENDING_KEY, { ...attempt, rejected: res !== 'signedOut' });
+      return;
+    }
     const created = createdInstallationSchema.safeParse(res.json);
-    if (!created.success) return;
+    if (!created.success || created.data.token !== attempt.token) return;
     await store.set(ENROLMENT_KEY, {
       ...want,
-      ...created.data,
+      installationId: attempt.installationId,
+      token: attempt.token,
       lastCheckInAt: deps.now(),
     } satisfies Enrolment);
-    await deps.setUninstallURL(uninstallUrl(created.data.token));
+    await store.remove(PENDING_KEY);
+    await deps.setUninstallURL(uninstallUrl(attempt.token));
   }
 
   return {
@@ -147,7 +198,18 @@ export function createInstallation(deps: InstallationDeps) {
       serial(async () => {
         await flushRevocations();
         const current = await enrolment();
-        if (!current) return reconcile();
+        if (!current) {
+          // Not enrolled yet: retry, but not on every worker wake-up after a recent attempt.
+          const tried = await pending();
+          if (
+            ifOlderThanMs !== undefined &&
+            tried &&
+            deps.now() - tried.attemptAt < ifOlderThanMs
+          ) {
+            return;
+          }
+          return reconcile();
+        }
         if (
           ifOlderThanMs !== undefined &&
           current.lastCheckInAt !== null &&
@@ -183,7 +245,8 @@ export function createInstallation(deps: InstallationDeps) {
       if (!session.activeGroupId) return { state: 'inactive', reason: 'noGroup' };
       const current = await enrolment();
       if (current?.sid !== session.sid || current.groupId !== session.activeGroupId) {
-        return { state: 'inactive', reason: 'offline' };
+        const tried = await pending();
+        return { state: 'inactive', reason: tried?.rejected ? 'unavailable' : 'offline' };
       }
       return { state: 'on', lastCheckInAt: current.lastCheckInAt };
     },

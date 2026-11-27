@@ -84,6 +84,7 @@ export interface ScanResult {
   alerted: number;
   silent: number;
   changed: number;
+  failed: number;
 }
 
 /**
@@ -91,22 +92,48 @@ export interface ScanResult {
  * the grace period gets one alert per silent period (none if nobody may receive it). A check-in or
  * removal racing the scan wins.
  */
-export async function scanInactiveInstallations(store: Store, now: Date): Promise<ScanResult> {
-  const result: ScanResult = { due: 0, alerted: 0, silent: 0, changed: 0 };
-  const due: DueInstallation[] = await store.listDueInstallations(now.toISOString(), SCAN_BATCH);
-  result.due = due.length;
-  for (const installation of due) {
-    const outbox = await installationOutbox(
-      store,
-      installation,
-      'EXTENSION_INACTIVE',
-      installation.lastCheckInAt,
-      now,
-    );
-    const marked = await store.markInstallationInactive(installation, now.toISOString(), outbox);
-    if (marked === 'changed') result.changed += 1;
-    else if (outbox) result.alerted += 1;
-    else result.silent += 1;
+export async function scanInactiveInstallations(
+  store: Store,
+  now: Date,
+  /** Milliseconds left for this run; batches continue until the budget or the backlog runs out. */
+  budgetMs = 40_000,
+  clock: () => number = Date.now,
+): Promise<ScanResult> {
+  const result: ScanResult = { due: 0, alerted: 0, silent: 0, changed: 0, failed: 0 };
+  const deadline = clock() + budgetMs;
+  // Installations that failed in this run stay due for the next one, but are not retried here.
+  const failed = new Set<string>();
+  while (clock() < deadline) {
+    const batch: DueInstallation[] = (
+      await store.listDueInstallations(now.toISOString(), SCAN_BATCH + failed.size)
+    ).filter((i) => !failed.has(`${i.userId}#${i.installationId}`));
+    if (batch.length === 0) break;
+    for (const installation of batch) {
+      if (clock() >= deadline) break;
+      result.due += 1;
+      try {
+        const outbox = await installationOutbox(
+          store,
+          installation,
+          'EXTENSION_INACTIVE',
+          installation.lastCheckInAt,
+          now,
+        );
+        const marked = await store.markInstallationInactive(
+          installation,
+          now.toISOString(),
+          outbox,
+        );
+        if (marked === 'changed') result.changed += 1;
+        else if (outbox) result.alerted += 1;
+        else result.silent += 1;
+      } catch {
+        // One installation (a transaction conflict, a malformed row) never holds up the rest.
+        failed.add(`${installation.userId}#${installation.installationId}`);
+        result.failed += 1;
+      }
+    }
+    if (batch.length < SCAN_BATCH) break;
   }
   return result;
 }

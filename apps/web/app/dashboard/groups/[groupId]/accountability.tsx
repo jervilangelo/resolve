@@ -461,8 +461,9 @@ function InstallAlertsForm({ groupId, view }: { groupId: string; view: Accountab
         A browser takes part only after its owner turns on “Tell my partners if Resolve is removed
         or stops checking in” in the extension’s settings. Alerts give the person’s name, what
         happened and when, without naming a website. Disabling Resolve sends no immediate alert. An
-        inactivity alert can follow 72 hours without a check-in, including when a browser is closed,
-        asleep, offline, or Resolve was uninstalled without reporting removal.
+        inactivity alert can follow {INACTIVITY_GRACE_HOURS} hours without a check-in, including
+        when a browser is closed, asleep, offline, or Resolve was uninstalled without reporting
+        removal.
       </p>
       <ProblemText message={error} />
     </div>

@@ -424,6 +424,9 @@ export function createMemoryStore(): Store & { outboxItems(): OutboxItem[] } {
     },
     createInstallation: ({ userId, installationId, groupId, tokenHash, now, dueAt }) => {
       if (!liveMember(groupId, userId)) return Promise.resolve('not_member' as const);
+      if (installations.has(installKey(userId, installationId)) || tokens.has(tokenHash)) {
+        return Promise.resolve('exists' as const);
+      }
       installations.set(installKey(userId, installationId), {
         userId,
         installationId,

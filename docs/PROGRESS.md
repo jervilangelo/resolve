@@ -153,6 +153,17 @@ owner revisions done; production on https://getresolved.site with alerts from
 
 ## Next steps
 
+- Done (2026-11-27): opt-in removal and inactivity alerts (MASTER_PLAN §7.4) shipped in 0.5.0
+  (owner merged, deployed and released). Verified on dev in Chromium, Edge and Brave: online
+  removal (one alert, repeated callbacks ignored), offline removal (covered by inactivity),
+  disable/re-enable, browser closed then reopened, revoked consent, two browsers on one account,
+  turn-off and sign-out revocation. Branded Chrome no longer loads unpacked extensions from the
+  command line, so Chrome stable needs a manual check. Review fixes for 0.5.1: retry-safe
+  enrolment (client-chosen ID and token; the API accepts both forms), the removal relay checks the
+  configured site origin (behind Amplify the request origin can differ), the hourly scan isolates
+  failures and handles more than 100 due browsers, status and retry polish. Next: merge, run
+  "Deploy prod", release 0.5.1.
+
 - In review (2026-11-27, branch `launch-seo`, not deployed): search and launch readiness. Per-page
   canonical URLs, titles, descriptions and social cards (`apps/web/lib/seo.ts`); `/sitemap.xml`
   listed in robots.txt; WebSite and SoftwareApplication structured data on the home page; noindex
