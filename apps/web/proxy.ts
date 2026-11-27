@@ -12,6 +12,9 @@ import { publicEnv } from '@/lib/env';
 import { TokenError, refreshTokens } from '@/lib/cognito';
 import { clearCookies } from '@/lib/session';
 
+/** Session cookie names (secure and local development forms). */
+const SESSION_COOKIES = ['rs_session', '__Host-rs_session'];
+
 /** Refresh access tokens this many seconds before they expire. */
 const REFRESH_MARGIN_SECONDS = 120;
 
@@ -52,6 +55,12 @@ export async function proxy(request: NextRequest) {
   }
   const path = request.nextUrl.pathname;
   if (path !== '/invite' && path !== '/dashboard' && !path.startsWith('/dashboard/')) {
+    return NextResponse.next();
+  }
+
+  // The invitation page handles signed-out visitors itself; without a session cookie there is
+  // nothing to refresh, so it never needs (or fails on missing) authentication configuration.
+  if (path === '/invite' && !SESSION_COOKIES.some((name) => request.cookies.has(name))) {
     return NextResponse.next();
   }
 
