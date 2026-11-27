@@ -71,4 +71,6 @@ module "domain" {
   providers        = { aws = aws, aws.us_east_1 = aws.us_east_1 }
   enable_dashboard = var.enable_hosting
   amplify_app_id   = module.resolve.amplify_app_id
+  # Google Search Console domain property (owner's Google account). Public verification token.
+  root_txt_verifications = ["google-site-verification=ooO-UsUR-qNy81TPz2JTuIA_CUflBizW9wfxQ4HpcaY"]
 }

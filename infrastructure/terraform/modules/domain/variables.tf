@@ -25,3 +25,9 @@ variable "amplify_branch" {
   type        = string
   default     = "main"
 }
+
+variable "root_txt_verifications" {
+  description = "Extra TXT values on the apex for ownership verification (public tokens, e.g. google-site-verification=…)."
+  type        = list(string)
+  default     = []
+}

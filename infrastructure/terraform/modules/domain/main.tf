@@ -54,13 +54,14 @@ resource "aws_route53_record" "mail_from_spf" {
   records = ["v=spf1 include:amazonses.com -all"]
 }
 
-# The domain itself sends no other mail.
+# The domain itself sends no other mail. Route 53 holds one TXT set per name, so site
+# verification tokens (e.g. Google Search Console) live in the same set as the SPF policy.
 resource "aws_route53_record" "root_spf" {
   zone_id = aws_route53_zone.this.zone_id
   name    = var.domain
   type    = "TXT"
   ttl     = 1800
-  records = ["v=spf1 include:amazonses.com -all"]
+  records = concat(["v=spf1 include:amazonses.com -all"], var.root_txt_verifications)
 }
 
 # Receivers quarantine mail that fails authentication, protecting the domain from spoofing.
