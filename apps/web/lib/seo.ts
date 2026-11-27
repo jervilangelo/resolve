@@ -12,13 +12,13 @@ export const SITE_NAME = 'Resolve';
 /** The descriptive name used where it reads naturally (search results, profiles, structured data). */
 export const PRODUCT_NAME = 'Resolve Browser Extension';
 export const SITE_DESCRIPTION =
-  'Free browser extension for Christians: block websites your group chooses, blur explicit images on your device, focus sessions and voluntary accountability.';
+  'A free browser extension for healthier online habits. Block websites, blur explicit images on your device, start focus sessions, and opt into accountability.';
 
 export const OG_IMAGE = {
   url: '/og-image.png',
   width: 1200,
   height: 630,
-  alt: 'Resolve: a free browser extension for Christians',
+  alt: 'Resolve: a free browser extension for healthier online habits and voluntary accountability',
 };
 
 /**

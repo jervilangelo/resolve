@@ -160,11 +160,13 @@ function SharingForm({
                   non-negotiable, the partners below may get an email. Websites members added never
                   send one.
                 </li>
-                <li>Leaving or being removed from this group may also notify them.</li>
+                <li>
+                  Leaving this group, being removed, or deleting your account may also notify them.
+                </li>
                 <li>Alerts never name the website, and nothing is sent until a partner agrees.</li>
                 <li>
-                  The extension must have “Alert my accountability partners” turned on in its
-                  settings.
+                  Blocked visits also require the “Alert my accountability partners” setting in the
+                  extension.
                 </li>
               </ul>
             </div>
@@ -458,9 +460,9 @@ function InstallAlertsForm({ groupId, view }: { groupId: string; view: Accountab
       <p className="text-muted-foreground text-xs">
         A browser takes part only after its owner turns on “Tell my partners if Resolve is removed
         or stops checking in” in the extension’s settings. Alerts give the person’s name, what
-        happened and when; never a website. A browser that stops checking in may simply be closed,
-        asleep or offline, and a removal made while offline is only noticed later, so treat these as
-        a reason to check in with someone, not as proof.
+        happened and when, without naming a website. Disabling Resolve sends no immediate alert. An
+        inactivity alert can follow 72 hours without a check-in, including when a browser is closed,
+        asleep, offline, or Resolve was uninstalled without reporting removal.
       </p>
       <ProblemText message={error} />
     </div>

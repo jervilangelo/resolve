@@ -561,20 +561,25 @@ export default function TutorialPage() {
                 websites, Focus Mode, media blurring and blocks caused by a page or advert never
                 send one. At most one alert per member every ten minutes.
               </li>
-              <li>When you leave the group or are removed from it.</li>
+              <li>
+                When you leave the group, an admin removes you, or you delete your account. Account
+                deletion uses the same group departure email for each affected group.
+              </li>
               <li>
                 Optional, and only if you share them and the partner agreed to that kind too (both
                 set on the {b('Accountability')} tab, under {b('Removal and check-in alerts')}):
                 when Resolve is removed from one of your browsers, and when a browser has not
-                checked in for 72 hours. A browser takes part only after you turn on{' '}
+                checked in for 72 hours. Disabling Resolve in the browser sends no immediate email,
+                but can cause that gap. A browser takes part only after you turn on{' '}
                 {b('Tell my partners if Resolve is removed or stops checking in')} in the
                 extension’s settings. A closed, sleeping or offline browser stops checking in too,
-                and a removal made while offline is only noticed by the check-in alert later.
+                and an uninstall without a removal report can also trigger an inactivity alert.
               </li>
               <li>
-                The email gives your display name, the group’s name and that a restriction was
-                triggered (or that you left). It {b('never names the website')}, never includes your
-                browsing history, and says a blocked visit is not proof of intent.
+                The email gives your display name and describes the event. Blocked-visit and
+                departure emails may name the group. Installation emails give the removal or last
+                check-in time. An email {b('never names the website')}, never includes your browsing
+                history, and says a blocked visit is not proof of intent.
               </li>
             </ul>
           </Section>

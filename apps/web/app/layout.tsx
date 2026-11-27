@@ -19,7 +19,7 @@ import { OG_IMAGE, SITE_DESCRIPTION, SITE_NAME } from '@/lib/seo';
 export const metadata: Metadata = {
   metadataBase: new URL(publicEnv.NEXT_PUBLIC_SITE_URL),
   title: {
-    default: `${SITE_NAME} — Free Christian Accountability Browser Extension`,
+    default: `${SITE_NAME} — Free Browser Extension for Healthier Online Habits`,
     template: `%s · ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,

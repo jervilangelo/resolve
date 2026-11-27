@@ -105,15 +105,19 @@ export const FAQ: { id: string; title: string; items: FaqItem[] }[] = [
       },
       {
         q: 'What sends an alert?',
-        a: 'A deliberate visit to a website on your group’s non-negotiable list, and leaving or being removed from a group. Only if both of you turn them on: Resolve being removed from one of your browsers, or a browser not checking in for 72 hours. Blurring, ordinary browsing and additional websites never do.',
+        a: 'Partners who agreed to receive your alerts may get an email when you deliberately try to open a non-negotiable site with Blocked-visit alerts enabled, or when you leave a group, are removed by an admin, or delete your account. An enrolled browser can also report an uninstall or trigger an inactivity alert after 72 hours without a check-in. Both of you must opt into each browser alert type separately.',
+      },
+      {
+        q: 'Will disabling Resolve notify my partners?',
+        a: 'Disabling it in your browser sends no immediate email. After 72 hours without a check-in, an enrolled browser can trigger an inactivity alert if both you and your partner opted in. A closed, sleeping, or offline browser can cause the same silence. Turning off installation alerts inside Resolve or signing out requests unenrollment.',
       },
       {
         q: 'What does an alert say?',
-        a: 'That a restriction was triggered or that someone left, in which group. It never names the website, and a blocked visit is not proof of intent.',
+        a: 'It gives the member’s display name and describes the event. Blocked-visit and departure emails may name the group. Installation emails give the time of removal or last check-in. Emails never include the website or browsing history.',
       },
       {
         q: 'I did not receive an alert.',
-        a: 'Alerts reach only people who agreed to receive them, at most once every ten minutes per member, and not every block produces one (for example, ones a page or ad caused). Check your spam folder too.',
+        a: 'Check that your partner shares alerts with you and that you agreed to receive them. Blocked-visit alerts have a ten-minute cooldown per member. Ordinary browsing, redirects, additional blocked sites, Focus Mode, and media blurring send no alerts. Check your spam folder too.',
       },
     ],
   },
@@ -149,7 +153,7 @@ export const FAQ: { id: string; title: string; items: FaqItem[] }[] = [
     items: [
       {
         q: 'How do I delete my account?',
-        a: 'Use “Delete account” on your dashboard profile. It removes your account and your group memberships.',
+        a: 'Use “Delete account” on your dashboard profile. It removes your account and group memberships. Partners who agreed to receive your alerts may get a group departure email for each affected group.',
       },
       {
         q: 'How do I report a security or privacy problem?',

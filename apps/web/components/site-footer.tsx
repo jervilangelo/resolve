@@ -42,7 +42,7 @@ export function SiteFooter() {
         <div className="space-y-4">
           <Logo variant="horizontal-compact" height={24} />
           <p className="text-muted-foreground max-w-xs text-sm">
-            Free browser protection and voluntary accountability for Christians.
+            A free browser extension for healthier online habits and voluntary accountability.
           </p>
           <a
             href={`mailto:${CONTACT_EMAIL}`}

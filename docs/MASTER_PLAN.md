@@ -195,6 +195,9 @@ Server derives user ID from token, not client-supplied user ID. `clientRuleVersi
 
 **Flow:** user leaves or admin removes → Lambda validates operation → reads **pre-departure** sharing policy and consenting recipient snapshot → DynamoDB transaction updates membership and creates outbox record → Streams/outbox worker queues jobs → worker rechecks recipient membership/consent where applicable → SES sends generic departure alert.
 
+Account deletion uses this same departure flow in each group the account leaves. A solo group can
+be dissolved without a departure email.
+
 This must not depend on a departing user's browser staying open. If the sender had `PRIVATE`, do not create an accountability notification. Selected/Everyone are evaluated from the policy **before** departure. A removed member's own consent does not authorize others to receive alerts; recipients' consents must exist.
 
 **Alert copy:** “Alex has left Faithful Together.” or “Alex is no longer a member of Faithful Together.” Distinguish voluntary leave vs removal only if product/privacy policy explicitly allows it; generic wording is safer.
@@ -234,13 +237,14 @@ the credential, so it works and is retried after sign-out) and clears the uninst
 `POST /v1/installations/removed` (no sign-in: the extension is gone). The API marks that one
 installation removed with a conditional update (repeated callbacks change nothing), takes it out of
 the inactivity scan and writes the outbox item in the same transaction. Other installations,
-groups and the account are untouched. A removal made while offline is never reported; the
-inactivity alert covers it later.
+groups and the account are untouched. An uninstall that cannot be reported can trigger a later
+inactivity alert if that alert type is enabled by both participants.
 
 **Inactivity.** The enrolled extension checks in every 60 minutes (alarm) and at browser start,
 authenticated with the user's token. The server keeps the next deadline (last check-in + 72 hours)
 in a sparse GSI1 entry; an hourly scheduled Lambda alerts once per silent period (between 72 and 73
-hours after the last check-in) and removes the entry; the next check-in restores it. A disabled
+hours after the last check-in) and removes the entry; the next check-in restores it. Disabling
+Resolve in the browser sends no immediate alert. A disabled
 extension, a closed browser, a sleeping or offline computer all look the same, so the wording says
 only when Resolve last checked in. 72 hours covers nights, weekends and short trips; it is a
 constant (`INACTIVITY_GRACE_HOURS`).

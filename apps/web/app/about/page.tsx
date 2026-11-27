@@ -16,7 +16,7 @@ export const metadata: Metadata = pageMetadata({
   path: '/about',
   title: 'About Resolve',
   description:
-    'Why Resolve exists: a free tool for Christians who want to use the internet faithfully, what it does, its limits, and who built it.',
+    'Why Resolve exists, its Christian roots, and how anyone can use it to set online boundaries and invite support.',
 });
 
 function Prose({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -64,10 +64,9 @@ export default function AboutPage() {
         title="About Resolve"
         intro={
           <p>
-            Resolve is for Christians who want to be diligent and careful about how they use the
-            internet as part of their walk with Christ. It helps you set boundaries online and
-            invite trusted people to encourage you. All of life is for God’s glory, including how we
-            spend our time online.
+            Resolve helps you build healthier online habits, set boundaries, and invite trusted
+            people to encourage you. It grew out of a Christian commitment to using the internet
+            thoughtfully and is free for anyone to use.
           </p>
         }
       />
@@ -120,11 +119,12 @@ export default function AboutPage() {
             <li>Accountability alerts are off by default; only you can turn them on.</li>
             <li>You choose your accountability partners, and each of them must agree.</li>
             <li>
-              Once on, a deliberate attempt to visit a website your group’s admins marked
-              non-negotiable may alert those partners. Websites members add never do.
+              With blocked-visit alerts enabled, a deliberate attempt to visit a website your
+              group’s admins marked non-negotiable may alert those partners.
             </li>
             <li>
-              Leaving or being removed from a group may also alert them, under the same consent.
+              Leaving a group, being removed, or deleting your account may send a group departure
+              email. Enrolled browsers can also send optional uninstall and inactivity alerts.
             </li>
           </Feature>
           <Feature icon={<TimerIcon width={22} height={22} />} title="Focus Mode">

@@ -246,10 +246,10 @@ export default async function GroupPage({
             title="Accountability"
             description={
               <p>
-                Your choice alone; admins can’t see or change it. Alerts go out for a blocked visit
-                to a non-negotiable website and for someone leaving or being removed from the group,
-                and, only if both sides turn them on, when Resolve is removed from a browser or
-                stops checking in. Alerts never name a website, and none of them is proof of intent.
+                Admins can’t see or change your choices. Consenting partners may get emails for
+                qualifying blocked visits or when a membership ends through leaving, removal, or
+                account deletion. Enrolled browsers can also send optional removal and inactivity
+                alerts. Emails never name a website.
               </p>
             }
           >

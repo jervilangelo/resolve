@@ -28,7 +28,7 @@ import { PRODUCT_NAME, SITE_DESCRIPTION, SITE_NAME, absoluteUrl, pageMetadata } 
 
 export const metadata = pageMetadata({
   path: '/',
-  title: 'Resolve — Free Christian Accountability Browser Extension',
+  title: 'Resolve — Free Browser Extension for Healthier Online Habits',
   description: SITE_DESCRIPTION,
   absoluteTitle: true,
 });
@@ -91,7 +91,7 @@ const FEATURES: {
   {
     icon: <UsersIcon width={22} height={22} />,
     title: 'Voluntary accountability',
-    text: 'Choose partners who may hear about a blocked visit, only if they agree.',
+    text: 'Choose trusted partners who agree to receive emails about qualifying blocked visits, group departures, or optional browser alerts.',
     points: ['Off by default', 'Never names the website', 'You can stop at any time'],
   },
   {
@@ -160,7 +160,7 @@ export default async function HomePage() {
                 ))}
               </span>
               <span className="text-foreground mt-6 block text-xl font-medium sm:text-2xl">
-                The free browser extension for Christians
+                A free browser extension for healthier online habits and voluntary accountability
               </span>
             </h1>
             <div className="rs-after-headline">

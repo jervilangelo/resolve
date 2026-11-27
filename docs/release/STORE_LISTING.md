@@ -6,7 +6,7 @@ Proprietary source code. See LICENSE.
 
 # Store listing pack (Chrome Web Store, Microsoft Edge Add-ons)
 
-Copy for the store forms, checked against extension 0.4.1. If the code changes, update this file
+Copy for the store forms, checked against extension 0.5.0. If the code changes, update this file
 first. Images: screenshots in `docs/release/screenshots/` (1280×800), icon
 `assets/branding/store/store-icon-128.png`, small promo tile
 `assets/branding/store/promo-small-440x280.png`, marquee `promo-marquee-1400x560.png`.
@@ -26,8 +26,7 @@ Upload only the `-chrome.zip` (never the `-sources.zip`).
 
 - **Name:** Resolve
 - **Short description (≤ 132 characters):**
-  Free for Christians: block websites your group chooses, blur explicit images on your device,
-  Focus Mode, voluntary accountability.
+  Build healthier online habits with website blocking, on-device image blurring, Focus Mode, and voluntary accountability.
 - **Category:** Productivity (the closest available sub-category, e.g. Tools)
 - **Language:** English
 - **Website:** https://getresolved.site
@@ -36,7 +35,7 @@ Upload only the `-chrome.zip` (never the `-sources.zip`).
 **Detailed description:**
 
 ```text
-Resolve is a free browser extension for Christians who want to be diligent and careful about how they use the internet. It helps you set boundaries online and invite trusted people to encourage you.
+Resolve is a free browser extension for healthier online habits and voluntary accountability. It helps you set boundaries online and invite trusted people to encourage you.
 
 • Focus Mode: block Facebook, Instagram, X, TikTok and Reddit (and optionally YouTube, Netflix or Twitch) for 5 to 240 minutes while you study, work or read. It ends by itself; ending early takes two deliberate steps. No account needed, and it never alerts anyone.
 
@@ -44,7 +43,7 @@ Resolve is a free browser extension for Christians who want to be diligent and c
 
 • Website blocking for your group: with a free account at getresolved.site, your accountability group decides which websites its members' browsers block. Admins manage the list; members can add websites but cannot see it. Essential services such as Gmail and Microsoft 365 always stay reachable.
 
-• Voluntary accountability: off by default. Choose partners who agree to receive alerts. They may get a short email after a deliberate visit to a website your group marked non-negotiable, or if you leave the group. Alerts never name the website.
+• Voluntary accountability: off by default. Consenting partners may get emails about deliberate attempts to visit non-negotiable sites while blocked-visit alerts are on, or when a membership ends through leaving, admin removal, or account deletion. For enrolled browsers, partners who opt into the same alert type as you may also get an email when Resolve is uninstalled or when the browser goes 72 hours without checking in. Disabling the extension sends no immediate email. Emails never name websites.
 
 Free, no ads, no tracking.
 
@@ -59,7 +58,7 @@ Privacy policy: https://getresolved.site/privacy
 **Single purpose:**
 
 ```text
-Help Christians keep the online boundaries they choose: blocking websites (their group's list or a timed Focus session), optionally blurring explicit images on the device, and optionally notifying consenting accountability partners of a deliberate blocked visit.
+Help people keep the online boundaries they choose through website blocking, timed Focus sessions, optional on-device image blurring, and optional email alerts to consenting accountability partners.
 ```
 
 **Permission justifications:**

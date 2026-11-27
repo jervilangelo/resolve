@@ -7,7 +7,7 @@
   </picture>
 </a>
 
-<h3>Resolve Browser Extension: free browser protection and voluntary accountability for Christians</h3>
+<h3>A free browser extension for healthier online habits and voluntary accountability</h3>
 
 Resolve blocks the websites your group chooses, blurs explicit images on your own device,<br>
 gives you distraction-free Focus sessions, and lets people you trust encourage you.
@@ -33,11 +33,24 @@ gives you distraction-free Focus sessions, and lets people you trust encourage y
 | **Website blocking for your group** | Your accountability group decides which websites its members' browsers block. Admins manage the list; members can add websites but cannot see it. Essential services such as Gmail and Microsoft 365 always stay reachable, and blocking keeps working offline. |
 | **On-device image blurring** | Optional. An AI model packaged inside the extension checks images and video frames in your browser and blurs explicit ones. Nothing is uploaded. Three sensitivity levels. |
 | **Focus Mode** | Block Facebook, Instagram, X, TikTok and Reddit (and optionally YouTube, Netflix or Twitch) for 5 to 240 minutes. It ends by itself; ending early takes two deliberate steps. Personal: no account needed, and it never alerts anyone. |
-| **Voluntary accountability** | Off by default. Choose partners who agree to receive alerts. They may get a short email after a deliberate visit to a website your group marked non-negotiable, or when you leave or are removed from the group. Optionally, and only if both sides turn it on, also when Resolve is removed from one of your browsers or stops checking in. Alerts never name a website. |
+| **Voluntary accountability** | Off by default. Choose who may receive your alerts. Each partner must agree before they can receive an email. |
 | **Two kinds of blocked page** | "Access Blocked" for group restrictions, with a reflection and Scripture, and "Focus Mode is On" with the time left. Neither names the site. |
 
 The extension works with the free dashboard at [getresolved.site](https://getresolved.site), where
 you create an account, start or join a group, and manage sharing.
+
+## What emails an accountability partner
+
+| What happens | When a consenting partner may get an email |
+| --- | --- |
+| You try to visit a blocked site | The attempt must qualify as deliberate, the group's admins must have marked the site **non-negotiable**, and **Blocked-visit alerts** must be enabled in the extension. Resolve sends at most one blocked-visit alert per member every ten minutes. |
+| You leave a group, an admin removes you, or you delete your account | Eligible partners in each affected group may get the same **group departure** email. Account deletion ends your memberships and follows each group's existing sharing and consent choices. |
+| You uninstall Resolve | An enrolled browser can report **removal** if it can reach Resolve when uninstalled. You and the recipient must both opt into removal alerts. |
+| You disable Resolve in the browser, or the browser goes quiet | After **72 hours** without a check-in, an enrolled browser can trigger an **inactivity** email if you and the recipient both opted in. Disabling Resolve sends no immediate email. A closed, sleeping, or offline browser, or an unreported uninstall, can cause the same silence. |
+
+To enroll a browser, enable **Tell my partners if Resolve is removed or stops checking in** in its extension settings. In the dashboard, both sides choose removal and inactivity separately under **Accountability → Removal and check-in alerts**.
+
+Ordinary browsing, additional blocked sites, Focus Mode, and media blurring send no alerts. Turning off installation alerts in Resolve or signing out requests unenrollment. Emails never name the website or include browsing history. Installation emails give the member's display name and the time of removal or last check-in.
 
 ## Get started
 
@@ -58,7 +71,8 @@ stores are not available yet.
 - Resolve stores your account, display name, groups, the group's blocked websites and your sharing
   and consent choices, plus limited delivery records for alerts. It does **not** store or send the addresses, titles or history of pages you
   visit.
-- Alerts contain your display name, the group's name and a generic message, never the website.
+- Alerts contain your display name and a generic message, never the website. Blocked-visit and
+  departure emails may name the group.
 - Focus Mode stays in your browser and sends nothing.
 - No ads, no tracking, no selling of data.
 
@@ -79,9 +93,9 @@ Details: [privacy policy](https://getresolved.site/privacy) and
 
 ## Why Resolve
 
-Resolve is for Christians who want to be diligent about how they use the internet as part of their
-walk with Christ. It is a practical aid, never a replacement for the local church, discipleship,
-pastoral care or the work of the Spirit. Read more on the [About page](https://getresolved.site/about).
+Resolve grew out of a Christian commitment to careful internet use and mutual encouragement.
+Anyone can use it to set boundaries and invite trusted people to support them.
+Read more on the [About page](https://getresolved.site/about).
 Resolve is free; [voluntary donations](https://getresolved.site/support) help keep it running.
 
 ## Documentation

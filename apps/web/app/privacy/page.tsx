@@ -94,13 +94,15 @@ export default function PrivacyPage() {
       <Section title="Accountability alerts">
         <p>
           Alerts are off unless you choose to share them, and they reach only members you chose who
-          also agreed to receive them. They are: a generic notice that you opened a website your
-          group marked as non-negotiable (never which one), and a notice that you left or were
-          removed from a group. Two more kinds exist only if you share them and the recipient agreed
-          to that kind as well: that Resolve was removed from one of your browsers, and that one of
-          your browsers has not checked in since a given time (which may simply mean it was closed
-          or offline). These give your display name, what happened and when. Alerts are emails; once
-          sent, they are kept by the recipient&apos;s email provider.
+          also agreed to receive them. A blocked-visit alert can follow a deliberate attempt to open
+          a non-negotiable website with blocked-visit alerts enabled. A group departure alert can
+          follow leaving, admin removal, or account deletion. An enrolled browser can also report
+          uninstallation or trigger an inactivity alert after 72 hours without a check-in. Both
+          people must opt into each of those browser alerts separately. Disabling the extension,
+          closing the browser or going offline can cause inactivity. Alerts give your display name
+          and describe the event without naming websites. Blocked-visit and departure emails may
+          name the group. Installation emails include the removal or last check-in time. The
+          recipient&apos;s email provider keeps the delivered emails.
         </p>
       </Section>
 

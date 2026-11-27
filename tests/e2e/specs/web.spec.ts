@@ -139,7 +139,7 @@ test('about page has the new opening, the builder note and no 2 Corinthians quot
   page,
 }) => {
   await page.goto('/about');
-  await expect(page.getByText('Resolve is for Christians who want to be diligent')).toBeVisible();
+  await expect(page.getByText('Resolve helps you build healthier online habits')).toBeVisible();
   await expect(page.getByText('Like any tool, Resolve can be bypassed.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'View my portfolio' })).toHaveAttribute(
     'href',
@@ -239,9 +239,9 @@ test('the home page explains Resolve and describes it accurately in structured d
   page,
 }) => {
   await page.goto('/');
-  await expect(page).toHaveTitle('Resolve — Free Christian Accountability Browser Extension');
+  await expect(page).toHaveTitle('Resolve — Free Browser Extension for Healthier Online Habits');
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    'The free browser extension for Christians',
+    'A free browser extension for healthier online habits and voluntary accountability',
   );
   await expect(page.getByRole('link', { name: 'Download free' })).toHaveAttribute(
     'href',
