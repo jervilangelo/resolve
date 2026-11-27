@@ -11,6 +11,13 @@ continuously from `main`. Downloads: [GitHub Releases](https://github.com/jervil
 or [getresolved.site/downloads](https://getresolved.site/downloads). How releases are made:
 [docs/RELEASING.md](docs/RELEASING.md).
 
+## 0.5.0 — 2026-11-27
+
+- Added optional extension removal and inactivity alerts for accountability groups. Each alert
+  type requires consent from both the sender and the recipient.
+- Enrolled browsers check in periodically. Inactivity alerts can be sent after 72 hours without
+  a check-in. Installation alerts do not include browsing activity.
+
 ## 0.4.1 — 2026-11-26
 
 - The Access Blocked page now says plainly: "This page is blocked by Resolve. Please stay away
